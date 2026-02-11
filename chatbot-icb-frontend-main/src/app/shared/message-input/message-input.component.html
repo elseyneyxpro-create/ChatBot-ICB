@@ -1,0 +1,21 @@
+<div class="inputbar">
+  <mat-form-field class="chat-input" appearance="outline">
+    <textarea
+      matInput
+      [(ngModel)]="text"
+      placeholder="Escribe tu pregunta de matemáticas..."
+      cdkTextareaAutosize
+      cdkAutosizeMinRows="1"
+      cdkAutosizeMaxRows="5">
+    </textarea>
+  </mat-form-field>
+
+  <button
+    mat-icon-button
+    type="button"
+    color="primary"
+    aria-label="Enviar"
+    (click)="onSend()">
+    <mat-icon>send</mat-icon>
+  </button>
+</div>

@@ -1,0 +1,38 @@
+<mat-sidenav-container class="app-shell">
+  <mat-sidenav #sidenav mode="side" [opened]="true" class="app-sidenav">
+    <div class="brand">
+      <img src="https://cienciasbasicas.udp.cl/cms/wp-content/uploads/2019/06/logo-ciencias-basicas.png" alt="UDP" />
+      <strong>ICB</strong>
+    </div>
+    <mat-divider></mat-divider>
+
+    <mat-nav-list>
+      <a mat-list-item routerLink="/app/chat" routerLinkActive="active">
+        <mat-icon matListItemIcon>chat</mat-icon>
+        <span matListItemTitle>Chatbot</span>
+        <span matListItemLine>Haz preguntas y recibe videos</span>
+      </a>
+
+      <a mat-list-item routerLink="/app/library" routerLinkActive="active">
+        <mat-icon matListItemIcon>video_library</mat-icon>
+        <span matListItemTitle>Biblioteca de videos</span>
+        <span matListItemLine>Explora por ramo y tema</span>
+      </a>
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <mat-toolbar color="primary" class="topbar">
+      <button mat-icon-button (click)="sidenav.toggle()" class="only-mobile">
+        <mat-icon>menu</mat-icon>
+      </button>
+      <span>ICB • Plataforma</span>
+      <span class="spacer"></span>
+      <button mat-button (click)="logout()">Salir</button>
+    </mat-toolbar>
+
+    <main class="content">
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

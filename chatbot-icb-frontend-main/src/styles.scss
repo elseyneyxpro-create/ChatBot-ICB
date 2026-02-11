@@ -1,0 +1,24 @@
+@import '@angular/material/prebuilt-themes/indigo-pink.css';
+
+.login-wrapper {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(80rem 40rem at 10% -20%, rgba(0,200,83,.10), transparent 60%),
+    radial-gradient(80rem 40rem at 110% 120%, rgba(224,0,52,.08), transparent 60%),
+    var(--page-bg);
+}
+
+mat-card {
+  width: min(92vw, 420px);
+  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.08);
+}
+
+.full { width: 100%; }
+h1 { margin-bottom: 1rem; font-weight: 800; }
+button[mat-raised-button] {
+  margin-top: .75rem;
+}

@@ -1,0 +1,12 @@
+.container {
+  display: grid; grid-template-columns: 1fr 320px; gap: 1rem;
+  height: calc(100dvh - 64px); /* resta el toolbar */
+}
+.chat {
+  display: grid; grid-template-rows: 1fr auto; background: #fafbff; border-radius: 12px; border: 1px solid #eceef7;
+  overflow: hidden;
+}
+.sidebar {
+  border: 1px solid #eceef7; border-radius: 12px; padding: 1rem; background: #fff;
+}
+.spacer { flex: 1 1 auto; }

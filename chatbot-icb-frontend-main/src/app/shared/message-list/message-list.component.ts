@@ -1,0 +1,29 @@
+import { Component, Input } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+import { ChatMessage } from '../../core/chat.service';
+
+@Component({
+  selector: 'app-message-list',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <div class="messages">
+      <div *ngFor="let m of messages" class="msg" [class.user]="m.role==='user'" [class.bot]="m.role==='bot'">
+        <div class="bubble">{{ m.text }}</div>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .messages { display:flex; flex-direction:column; gap:.5rem; }
+    .msg { display:flex; }
+    .msg.user { justify-content:flex-end; }
+    .msg.bot { justify-content:flex-start; }
+    .bubble { max-width:70%; padding:.5rem .75rem; border-radius:12px; }
+    .msg.user .bubble { background:#1976d2; color:white; border-top-right-radius:4px; }
+    .msg.bot .bubble  { background:#eee; color:#111; border-top-left-radius:4px; }
+  `]
+})
+export class MessageListComponent {
+  @Input({ required: true }) messages: ChatMessage[] = [];
+}

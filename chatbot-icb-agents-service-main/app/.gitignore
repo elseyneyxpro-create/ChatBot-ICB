@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+
+# Virtualenv
+.venv/
+env/
+venv/
+ENV/
+
+# Archivos de entorno
+.env
+*.env
+
+# Bases de datos locales / sqlite
+*.sqlite3
+*.db
+
+# Archivos de logs
+*.log
+
+# Compilados
+*.so
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+.cache/
+.pytest_cache/
+
+# IDEs
+.vscode/
+.idea/

@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+google-cloud-aiplatform>=1.57.0,<2.0.0
+pydantic>=2
+pydantic-settings
+python-dotenv
+fastapi[standard]

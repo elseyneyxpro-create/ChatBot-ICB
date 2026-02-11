@@ -1,0 +1,37 @@
+.list {
+  display: flex; flex-direction: column; gap: .5rem; padding: 1rem;
+}
+.bubble {
+  max-width: 78ch; padding: .75rem 1rem; border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+}
+.bubble.user { align-self: flex-end; background: #e8f0ff; }
+.bubble.bot  { align-self: flex-start; background: #ffffff; }
+.time { font-size: .75rem; opacity: .6; margin-top: .25rem; }
+
+.text {
+  h1, h2, h3 {
+    margin: 0.25rem 0;
+    font-weight: 600;
+  }
+
+  p, li {
+    line-height: 1.4;
+  }
+
+  ul, ol {
+    padding-left: 1.25rem;
+    margin: 0.25rem 0;
+  }
+
+  pre, code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  pre {
+    background: #f6f8fa;
+    padding: .5rem .75rem;
+    border-radius: 8px;
+    overflow: auto;
+  }
+}

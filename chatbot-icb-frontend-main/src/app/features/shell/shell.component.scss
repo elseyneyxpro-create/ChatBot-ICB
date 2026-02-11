@@ -1,0 +1,23 @@
+.app-shell { height: 100dvh; }
+
+.app-sidenav {
+  width: 280px;
+  padding: .5rem 0;
+  .brand {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .75rem 1rem;
+    img { height: 28px; object-fit: contain; }
+  }
+  a.active { background: rgba(0,0,0,.06); }
+}
+
+.topbar .only-mobile { display: none; }
+.spacer { flex: 1 1 auto; }
+
+.content { padding: 1rem; height: calc(100dvh - 64px); overflow: auto; }
+
+/* Responsive */
+@media (max-width: 960px) {
+  .app-sidenav { width: 260px; }
+  .topbar .only-mobile { display: inline-flex; }
+}
