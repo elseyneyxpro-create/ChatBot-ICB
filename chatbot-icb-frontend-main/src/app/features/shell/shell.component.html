@@ -22,14 +22,26 @@
   </mat-sidenav>
 
   <mat-sidenav-content>
-    <mat-toolbar color="primary" class="topbar">
-      <button mat-icon-button (click)="sidenav.toggle()" class="only-mobile">
-        <mat-icon>menu</mat-icon>
-      </button>
-      <span>ICB • Plataforma</span>
-      <span class="spacer"></span>
-      <button mat-button (click)="logout()">Salir</button>
-    </mat-toolbar>
+   <mat-toolbar color="primary" class="topbar">
+  <button
+    mat-icon-button
+    (click)="sidenav.toggle()"
+    class="menu-btn"
+    matTooltip="Abrir/cerrar menú"
+    aria-label="Abrir/cerrar menú"
+  >
+    <mat-icon>menu</mat-icon>
+  </button>
+
+  <span class="title">ICB • Plataforma</span>
+
+  <span class="spacer"></span>
+
+  <button mat-stroked-button class="logout-btn" (click)="logout()">
+    <mat-icon>logout</mat-icon>
+    Salir
+  </button>
+</mat-toolbar>
 
     <main class="content">
       <router-outlet />

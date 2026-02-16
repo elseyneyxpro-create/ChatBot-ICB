@@ -1,17 +1,27 @@
 <section class="library">
   <header class="filters">
     <mat-form-field appearance="outline" class="search">
-      <mat-label>Buscar</mat-label>
-      <input
-        matInput
-        placeholder="Derivadas, matrices, MRU..."
-        [value]="query()"
-        (input)="updateQuery($event)"
-      />
-      <button mat-icon-button matSuffix aria-label="Buscar">
-        <mat-icon>search</mat-icon>
-      </button>
-    </mat-form-field>
+  <mat-icon matPrefix>search</mat-icon>
+
+  <input
+    matInput
+    placeholder="Buscar (derivadas, matrices, MRU...)"
+    [value]="query()"
+    (input)="updateQuery($event)"
+  />
+
+  <button
+    mat-icon-button
+    matSuffix
+    type="button"
+    aria-label="Limpiar"
+    *ngIf="query() !== ''"
+    (click)="clearQuery()"
+  >
+    <mat-icon>close</mat-icon>
+  </button>
+</mat-form-field>
+
 
     <mat-chip-set class="chips">
       <mat-chip-option (click)="setSubject('Todos')"   [selected]="subject()==='Todos'">Todos</mat-chip-option>
@@ -23,15 +33,16 @@
 
   <div class="grid">
     <mat-card class="vid" *ngFor="let v of filtered()">
-      <img mat-card-image [src]="v.thumb" [alt]="v.title" />
-      <mat-card-content>
-        <h3>{{ v.title }}</h3>
-        <p>{{ v.channel }} • {{ v.duration }} • {{ v.subject }}</p>
-      </mat-card-content>
-      <mat-card-actions>
-        <button mat-button color="primary">Ver</button>
-        <button mat-button>Guardar</button>
-      </mat-card-actions>
-    </mat-card>
+  <img mat-card-image [src]="v.thumb" [alt]="v.title" />
+  <mat-card-content>
+    <h3>{{ v.title }}</h3>
+    <p class="meta">{{ v.channel }} • {{ v.duration }} • {{ v.subject }}</p>
+  </mat-card-content>
+  <mat-card-actions>
+    <button mat-raised-button color="primary">Ver</button>
+    <button mat-stroked-button>Guardar</button>
+  </mat-card-actions>
+</mat-card>
+
   </div>
 </section>

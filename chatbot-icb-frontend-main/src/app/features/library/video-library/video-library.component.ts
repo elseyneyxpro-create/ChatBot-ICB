@@ -51,6 +51,9 @@ export class VideoLibraryComponent {
     const target = ev.target as HTMLInputElement | null;
     this.query.set(target?.value ?? '');
   }
+  clearQuery() {
+  this.query.set('');
+  }
 
   setSubject(s: Subject) { this.subject.set(s); }
 }

@@ -1,9 +1,17 @@
+:host {
+  display: block;
+  min-height: 0;
+}
+
 .list {
   display: flex; flex-direction: column; gap: .5rem; padding: 1rem;
 }
 .bubble {
-  max-width: 78ch; padding: .75rem 1rem; border-radius: 14px;
+  max-width: 78ch;
+  padding: .75rem 1rem;
+  border-radius: 14px;
   box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  overflow-wrap: anywhere;
 }
 .bubble.user { align-self: flex-end; background: #e8f0ff; }
 .bubble.bot  { align-self: flex-start; background: #ffffff; }

@@ -1,6 +1,6 @@
 .inputbar {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 10px;
   padding: 12px;
   border-top: 1px solid #e7e7e7;
@@ -9,16 +9,46 @@
 
 .chat-input {
   flex: 1;
+  margin: 0;
 
-  .mdc-text-field--outlined {
-    border-radius: 16px; // bordes más suaves
+  /* mata el espacio de hint/error abajo del form-field */
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+  }
+
+  /* fuerza altura del “cajón” */
+  ::ng-deep .mat-mdc-text-field-wrapper {
+    height: 44px;
+  }
+
+  /* centra el contenido dentro */
+  ::ng-deep .mat-mdc-form-field-flex {
+    height: 44px;
+    align-items: center;
+  }
+
+  /* quita paddings raros del infix */
+  ::ng-deep .mat-mdc-form-field-infix {
+    padding: 0 !important;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
   }
 
   textarea {
-    resize: none;
+    line-height: 20px;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;   /* adiós scroll interno */
+    resize: none;       /* sin “manija” */
   }
 }
 
-button[mat-icon-button] {
-  flex-shrink: 0;
+/* botón del envío con tamaño fijo */
+.send-btn {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
 }

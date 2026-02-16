@@ -1,11 +1,28 @@
 <div class="container">
-  <div class="chat">
+  <section class="chat card">
+    <header class="chat-head">
+      <div class="title">
+        <h2>Chatbot</h2>
+        <span class="hint">Pregunta y te respondo con pasos + videos recomendados</span>
+      </div>
+
+      <div class="status" [class.on]="!loading()">
+        <span class="dot"></span>
+        {{ loading() ? 'Pensando…' : 'Listo' }}
+      </div>
+    </header>
+
     <app-message-list [messages]="messages()"></app-message-list>
     <app-message-input (send)="send($event)"></app-message-input>
-  </div>
+  </section>
 
-  <aside class="sidebar">
+  <aside class="sidebar card">
     <h3>Recomendaciones</h3>
-    <p>Cuando el bot responda, aquí mostraremos tarjetas con videos recomendados.</p>
+    <p class="muted">Cuando el bot responda, aquí aparecerán videos relacionados.</p>
+
+    <!-- placeholder cards -->
+    <div class="rec-grid">
+      <div class="rec empty">Aún no hay recomendaciones 😼</div>
+    </div>
   </aside>
 </div>

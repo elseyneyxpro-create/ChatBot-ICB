@@ -1,11 +1,70 @@
 .library { display: grid; gap: 1rem; }
-.filters { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
-.search { flex: 1 1 320px; }
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  align-items: center;
+}
+
+.search {
+  width: min(900px, 100%);
+}
+
+:host ::ng-deep .search .mdc-text-field--outlined {
+  border-radius: 16px;
+}
+
+:host ::ng-deep .search .mat-mdc-form-field-subscript-wrapper {
+  display: none; // quita el espacio de hints/errores si no usas
+}
+
 .chips { display: flex; gap: .5rem; }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1rem;
+  gap: 1rem;                 /* separación real entre cards */
+  align-items: start;        /* evita que se estiren raro */
 }
-.vid h3 { margin: .25rem 0 .25rem; font-weight: 700; }
+
+/* Card “pro” */
+.vid {
+  border-radius: 14px;
+  overflow: hidden; /* clave pa que la imagen no se salga */
+}
+
+
+/* imagen consistente */
+.vid img[mat-card-image] {
+  margin: 0;                 /* mata los márgenes default del mat-card-image */
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+}
+
+/* contenido */
+.vid mat-card-content {
+  padding: 12px 14px;
+}
+
+.vid h3 {
+  margin: 0 0 .25rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.vid p {
+  margin: 0;
+  opacity: .75;
+  font-size: .9rem;
+}
+
+/* botones abajo, alineados */
+.vid mat-card-actions {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 10px 10px;
+  margin: 0;
+}
