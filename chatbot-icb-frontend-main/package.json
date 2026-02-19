@@ -22,7 +22,7 @@
     "@angular/router": "^18.2.0",
     "katex": "^0.16.28",
     "marked": "^12.0.2",
-    "marked-katex-extension": "^5.1.6",
+    "marked-katex-extension": "^5.1.7",
     "ngx-markdown": "^18.1.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
