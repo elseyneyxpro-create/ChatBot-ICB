@@ -1,4 +1,7 @@
-.library { display: grid; gap: 1rem; }
+.library { 
+  display: grid; 
+  gap: 1rem; 
+}
 
 .filters {
   display: flex;
@@ -19,25 +22,36 @@
   display: none; // quita el espacio de hints/errores si no usas
 }
 
-.chips { display: flex; gap: .5rem; }
+.chips { 
+  display: flex; 
+  gap: .5rem; 
+}
 
+/* ---------------- GRID ---------------- */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1rem;                 /* separación real entre cards */
-  align-items: start;        /* evita que se estiren raro */
+  gap: 1.25rem;              /* más aire entre cards */
+  align-items: start;         /* evita estiramientos raros */
 }
 
-/* Card “pro” */
+/* ---------------- CARD “PRO” ---------------- */
 .vid {
-  border-radius: 14px;
-  overflow: hidden; /* clave pa que la imagen no se salga */
+  border-radius: 16px;
+  overflow: hidden;           /* clave pa que la imagen no se salga */
+  box-shadow: 0 8px 22px rgba(0,0,0,.08);
+  transition: transform .15s ease, box-shadow .15s ease;
+  background: #fff;
 }
 
+.vid:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0,0,0,.10);
+}
 
 /* imagen consistente */
 .vid img[mat-card-image] {
-  margin: 0;                 /* mata los márgenes default del mat-card-image */
+  margin: 0;                 /* mata márgenes default del mat-card-image */
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
@@ -51,7 +65,7 @@
 
 .vid h3 {
   margin: 0 0 .25rem;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.2;
 }
 
@@ -61,10 +75,19 @@
   font-size: .9rem;
 }
 
-/* botones abajo, alineados */
+/* ---------------- BOTONES BONITOS ---------------- */
 .vid mat-card-actions {
   display: flex;
-  justify-content: space-between;
-  padding: 0 10px 10px;
+  justify-content: flex-end;   /* se ordenan a la derecha */
+  gap: .5rem;
+  padding: 0 14px 14px;
   margin: 0;
+}
+
+.vid mat-card-actions button {
+  border-radius: 999px;        /* pill buttons */
+}
+
+.vid mat-card-actions button mat-icon {
+  margin-right: .25rem;
 }

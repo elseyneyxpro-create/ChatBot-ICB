@@ -38,10 +38,17 @@
     <h3>{{ v.title }}</h3>
     <p class="meta">{{ v.channel }} • {{ v.duration }} • {{ v.subject }}</p>
   </mat-card-content>
-  <mat-card-actions>
-    <button mat-raised-button color="primary">Ver</button>
-    <button mat-stroked-button>Guardar</button>
-  </mat-card-actions>
+  <mat-card-actions class="actions" align="end">
+  <button mat-stroked-button color="primary" (click)="openVideo(v)">
+    <mat-icon>play_arrow</mat-icon>
+    Ver
+  </button>
+
+  <button mat-flat-button color="primary" class="save" (click)="saveVideo(v)">
+    <mat-icon>bookmark_add</mat-icon>
+    Guardar
+  </button>
+</mat-card-actions>
 </mat-card>
 
   </div>

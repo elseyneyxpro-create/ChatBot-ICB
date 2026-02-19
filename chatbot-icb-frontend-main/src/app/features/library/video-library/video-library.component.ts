@@ -6,6 +6,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
 
 type Subject = 'Todos' | 'Cálculo' | 'Álgebra' | 'Física';
 
@@ -24,7 +25,7 @@ interface Video {
   imports: [
     CommonModule, FormsModule,
     MatFormFieldModule, MatInputModule, MatIconModule,
-    MatChipsModule, MatCardModule
+    MatChipsModule,MatButtonModule, MatCardModule
   ],
   templateUrl: './video-library.component.html',
   styleUrls: ['./video-library.component.scss']
@@ -54,6 +55,12 @@ export class VideoLibraryComponent {
   clearQuery() {
   this.query.set('');
   }
+  openVideo(v: any) {
+  window.open(v.url ?? v.thumb, '_blank'); // cambia v.url cuando lo tengas
+}
 
+saveVideo(v: any) {
+  console.log('Guardar', v);
+}
   setSubject(s: Subject) { this.subject.set(s); }
 }
