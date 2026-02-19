@@ -1,0 +1,11 @@
+<div class="container">
+  <div class="chat">
+    <app-message-list [messages]="messages()"></app-message-list>
+    <app-message-input (send)="send($event)"></app-message-input>
+  </div>
+
+  <aside class="sidebar">
+    <h3>Recomendaciones</h3>
+    <p>Cuando el bot responda, aquí mostraremos tarjetas con videos recomendados.</p>
+  </aside>
+</div>

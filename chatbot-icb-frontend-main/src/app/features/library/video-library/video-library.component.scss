@@ -1,0 +1,11 @@
+.library { display: grid; gap: 1rem; }
+.filters { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.search { flex: 1 1 320px; }
+.chips { display: flex; gap: .5rem; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+.vid h3 { margin: .25rem 0 .25rem; font-weight: 700; }

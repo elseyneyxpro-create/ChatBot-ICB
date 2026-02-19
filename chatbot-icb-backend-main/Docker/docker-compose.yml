@@ -1,0 +1,22 @@
+name: icb-chatbot-backend
+
+services:
+  db:
+    image: postgres:15
+    # Este nombre es importante. Es el que DEBE aparecer en Docker Desktop
+    container_name: icb-postgres-db 
+    restart: always
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: icb_user
+      # 👇 CAMBIAMOS LA CONTRASEÑA A ALGO MÁS SIMPLE
+      POSTGRES_PASSWORD: test
+
+      POSTGRES_DB: icb_chatbot_db
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

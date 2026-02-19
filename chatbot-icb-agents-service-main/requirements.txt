@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+google-cloud-aiplatform>=1.57.0,<2.0.0
+pydantic>=2
+pydantic-settings
+python-dotenv
+fastapi[standard]
+langchain==0.3.27
+langchain-core==0.3.78
+langchain-openai==0.3.34
+langchain-text-splitters==0.3.11
+openai==2.1.0
