@@ -1,3 +1,5 @@
+// chatbot-icb-frontend-main/src/app/features/auth/login/login.component.scss
+
 :host {
   display: block;
   min-height: 100dvh;
@@ -58,9 +60,13 @@
 }
 .links {
   display: flex;
-  gap: 16px;
-  padding-inline: 16px;
+  justify-content: center; // Centra horizontalmente
+  align-items: center;    // Centra verticalmente
+  gap: 8px;                 // Añade un espacio entre los textos
+  padding: 0 16px 16px;     // Ajusta el padding
+  flex-wrap: wrap;          // Permite que los elementos se envuelvan si no hay espacio
 }
+
 
 @media (max-width: 1100px) {
   .auth-layout {
@@ -156,4 +162,19 @@
   .cards {
     grid-template-columns: 1fr;
   }
+}
+
+/* 👇 ESTILOS PARA EL BANNER DE ERROR AÑADIDOS AL FINAL */
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #fbe9e7; // Un rojo muy suave
+  color: #d32f2f; // Rojo oscuro para el texto
+  border: 1px solid #ffccbc;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px; // Espacio antes del formulario
+  font-size: 0.9rem;
+  font-weight: 500;
 }

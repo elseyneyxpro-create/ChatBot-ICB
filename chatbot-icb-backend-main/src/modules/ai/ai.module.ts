@@ -9,7 +9,8 @@ import { AiService } from './ai.service';
     HttpModule.registerAsync({
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => ({
-        baseURL: cfg.get<string>('PYTHON_BASE_URL'),
+        // base del servicio python
+        baseURL: cfg.get<string>('PYTHON_BASE_URL') ?? process.env.PYTHON_BASE_URL,
         timeout: Number(cfg.get('PYTHON_TIMEOUT_MS') ?? 15000),
         headers: { 'Content-Type': 'application/json' },
       }),

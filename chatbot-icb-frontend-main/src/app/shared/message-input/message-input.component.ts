@@ -32,14 +32,4 @@ export class MessageInputComponent {
     this.send.emit(t);
     this.text = '';
   }
-  onKeyDown(e: KeyboardEvent) {
-  // evita enviar si está “componiendo” (acentos/IME)
-  if ((e as any).isComposing) return;
-
-  // Enter envía, Shift+Enter deja salto de línea
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    this.onSend();
-  }
-}
 }

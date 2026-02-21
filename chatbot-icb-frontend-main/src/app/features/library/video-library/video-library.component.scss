@@ -1,93 +1,11 @@
-.library { 
-  display: grid; 
-  gap: 1rem; 
-}
+.library { display: grid; gap: 1rem; }
+.filters { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.search { flex: 1 1 320px; }
+.chips { display: flex; gap: .5rem; }
 
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .75rem;
-  align-items: center;
-}
-
-.search {
-  width: min(900px, 100%);
-}
-
-:host ::ng-deep .search .mdc-text-field--outlined {
-  border-radius: 16px;
-}
-
-:host ::ng-deep .search .mat-mdc-form-field-subscript-wrapper {
-  display: none; // quita el espacio de hints/errores si no usas
-}
-
-.chips { 
-  display: flex; 
-  gap: .5rem; 
-}
-
-/* ---------------- GRID ---------------- */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1.25rem;              /* más aire entre cards */
-  align-items: start;         /* evita estiramientos raros */
+  gap: 1rem;
 }
-
-/* ---------------- CARD “PRO” ---------------- */
-.vid {
-  border-radius: 16px;
-  overflow: hidden;           /* clave pa que la imagen no se salga */
-  box-shadow: 0 8px 22px rgba(0,0,0,.08);
-  transition: transform .15s ease, box-shadow .15s ease;
-  background: #fff;
-}
-
-.vid:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px rgba(0,0,0,.10);
-}
-
-/* imagen consistente */
-.vid img[mat-card-image] {
-  margin: 0;                 /* mata márgenes default del mat-card-image */
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  display: block;
-}
-
-/* contenido */
-.vid mat-card-content {
-  padding: 12px 14px;
-}
-
-.vid h3 {
-  margin: 0 0 .25rem;
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-.vid p {
-  margin: 0;
-  opacity: .75;
-  font-size: .9rem;
-}
-
-/* ---------------- BOTONES BONITOS ---------------- */
-.vid mat-card-actions {
-  display: flex;
-  justify-content: flex-end;   /* se ordenan a la derecha */
-  gap: .5rem;
-  padding: 0 14px 14px;
-  margin: 0;
-}
-
-.vid mat-card-actions button {
-  border-radius: 999px;        /* pill buttons */
-}
-
-.vid mat-card-actions button mat-icon {
-  margin-right: .25rem;
-}
+.vid h3 { margin: .25rem 0 .25rem; font-weight: 700; }

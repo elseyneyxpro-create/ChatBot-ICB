@@ -1,8 +1,4 @@
 @import '@angular/material/prebuilt-themes/indigo-pink.css';
-@import 'katex/dist/katex.min.css';
-
-html, body { height: 100%; }
-body { margin: 0; background: #f6f7fb; }
 
 .login-wrapper {
   min-height: 100dvh;
@@ -14,7 +10,7 @@ body { margin: 0; background: #f6f7fb; }
     var(--page-bg);
 }
 
-.login-wrapper mat-card {
+mat-card {
   width: min(92vw, 420px);
   padding: 1.5rem;
   border-radius: 16px;
@@ -25,46 +21,4 @@ body { margin: 0; background: #f6f7fb; }
 h1 { margin-bottom: 1rem; font-weight: 800; }
 button[mat-raised-button] {
   margin-top: .75rem;
-}
-/* ---------- Chat markdown prettifier ---------- */
-.bubble .text {
-  line-height: 1.45;
-  font-size: 14px;
-}
-
-/* Quitar márgenes gigantes del markdown */
-.bubble .text markdown p {
-  margin: 0 0 .5rem;
-}
-.bubble .text markdown p:last-child {
-  margin-bottom: 0;
-}
-
-.bubble .text markdown ul,
-.bubble .text markdown ol {
-  margin: .25rem 0 .5rem 1.25rem;
-}
-
-.bubble .text markdown li {
-  margin: .15rem 0;
-}
-
-/* Código inline y bloques */
-.bubble .text markdown code {
-  padding: 0 .25rem;
-  border-radius: 4px;
-  background: rgba(0,0,0,.06);
-}
-
-.bubble .text markdown pre {
-  padding: .75rem;
-  border-radius: 10px;
-  overflow: auto;
-  background: rgba(0,0,0,.06);
-  margin: .5rem 0 0;
-}
-
-/* Si llega math como texto, al menos que no desborde */
-.bubble .text {
-  overflow-wrap: anywhere;
 }

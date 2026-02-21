@@ -1,82 +1,12 @@
 .container {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 1rem;
-  height: 100%;   /* en vez de 100vh */
-  min-height: 0;
+  display: grid; grid-template-columns: 1fr 320px; gap: 1rem;
+  height: calc(100dvh - 64px); /* resta el toolbar */
 }
-
-.card{
-  border-radius: 14px;
-  border: 1px solid #eceef7;
-  background: #fff;
+.chat {
+  display: grid; grid-template-rows: 1fr auto; background: #fafbff; border-radius: 12px; border: 1px solid #eceef7;
+  overflow: hidden;
 }
-
-.chat{
-  display:grid;
-  grid-template-rows: auto 1fr auto;
-  overflow:hidden;
-  min-height:0;
+.sidebar {
+  border: 1px solid #eceef7; border-radius: 12px; padding: 1rem; background: #fff;
 }
-
-.chat-head{
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  padding: 14px 16px;
-  background: linear-gradient(180deg, #ffffff, #fbfbff);
-  border-bottom: 1px solid #eceef7;
-}
-
-.title h2{
-  margin:0;
-  font-size: 16px;
-  font-weight: 800;
-}
-.hint{
-  display:block;
-  margin-top: 2px;
-  font-size: 12px;
-  opacity: .7;
-}
-
-.status{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  font-size: 12px;
-  opacity: .8;
-}
-.dot{
-  width:8px; height:8px; border-radius:50%;
-  background: #ffb300; /* pensando */
-}
-.status.on .dot{ background: #00c853; }
-
-.chat app-message-list{
-  display:block;
-  min-height:0;
-  overflow:auto;
-  padding: 12px;
-  background: #fafbff;
-}
-
-.sidebar{
-  padding: 16px;
-  min-height:0;
-  overflow:auto;
-}
-.muted{ opacity:.7; margin-top: 4px; }
-
-.rec-grid{ margin-top: 12px; display:grid; gap: 10px; }
-.rec.empty{
-  padding: 12px;
-  border: 1px dashed #cfd6ea;
-  border-radius: 12px;
-  background: #fbfcff;
-  opacity: .8;
-}
-
-@media (max-width: 1100px){
-  .container{ grid-template-columns: 1fr; }
-}
+.spacer { flex: 1 1 auto; }

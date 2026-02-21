@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { AuthService } from '../../core/auth.service';
+import { AuthService } from '../../core/auth.service'; // Asegúrate de que AuthService está importado
 
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -22,5 +22,9 @@ import { MatDividerModule } from '@angular/material/divider';
 export class ShellComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
-  logout() { this.auth.logout(); this.router.navigateByUrl('/login'); }
+
+  // 👇 CAMBIO CLAVE: Llamamos al nuevo método signOut() en lugar de logout()
+  signOut() { 
+    this.auth.signOut(); 
+  }
 }

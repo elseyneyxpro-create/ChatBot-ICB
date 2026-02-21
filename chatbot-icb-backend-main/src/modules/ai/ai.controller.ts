@@ -1,4 +1,6 @@
-import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+// 1. Importamos UseGuards y AuthGuard
+import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { AiService } from './ai.service';
 import { AskDto } from './dto/ask.dto';
 
@@ -8,13 +10,15 @@ export class AiController {
 
   // Proxy principal: POST /v1/ai/answer
   @Post('answer')
+  @UseGuards(AuthGuard('jwt')) // 2. ¡Aquí está el guardia!
   @HttpCode(200)
   async answer(@Body() dto: AskDto) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    // Gracias al guardia, este código solo se ejecutará si el usuario
+    // ha enviado una cookie con un JWT válido.
     return this.ai.askPython(dto);
   }
 
-  // Health del BFF (y útil para monitorizar)
+  // El endpoint de Health sigue siendo público, lo cual es correcto.
   @Get('health')
   ping() {
     return {

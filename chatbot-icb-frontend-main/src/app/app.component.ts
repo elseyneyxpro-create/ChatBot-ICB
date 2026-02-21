@@ -9,5 +9,5 @@ import { RouterOutlet } from '@angular/router';
   styleUrl: './app.component.scss'
 })
 export class AppComponent {
-  title = 'icb-chatbot';
+ //Creo que no lo usamos como tal title = 'icb-chatbot';
 }

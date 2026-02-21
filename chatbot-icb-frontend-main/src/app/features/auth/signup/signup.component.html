@@ -1,0 +1,71 @@
+<div class="signup-layout">
+  <mat-card class="signup-card" appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>Crear una cuenta</mat-card-title>
+      <mat-card-subtitle>Ingresa tus datos para registrarte</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div *ngIf="successMessage()" class="message-banner success">
+        <mat-icon>check_circle</mat-icon>
+        <span>{{ successMessage() }}</span>
+      </div>
+      <div *ngIf="errorMessage()" class="message-banner error">
+        <mat-icon>warning</mat-icon>
+        <span>{{ errorMessage() }}</span>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <div class="name-fields">
+          <mat-form-field appearance="outline">
+            <mat-label>Nombres</mat-label>
+            <input matInput formControlName="first_name" required>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Apellidos</mat-label>
+            <input matInput formControlName="last_name" required>
+          </mat-form-field>
+        </div>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Email UDP</mat-label>
+          <input matInput formControlName="email" type="email" placeholder="tu@mail.udp.cl" required>
+          <mat-error *ngIf="form.get('email')?.hasError('email')">
+            Por favor, ingresa un correo válido.
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Contraseña</mat-label>
+          <input matInput formControlName="password" [type]="hidePassword() ? 'password' : 'text'" required>
+          <button mat-icon-button matSuffix type="button" (click)="hidePassword.set(!hidePassword())">
+            <mat-icon>{{ hidePassword() ? 'visibility' : 'visibility_off' }}</mat-icon>
+          </button>
+          <mat-error *ngIf="form.get('password')?.hasError('minlength')">
+            La contraseña debe tener al menos 8 caracteres.
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Confirmar Contraseña</mat-label>
+          <input matInput formControlName="confirmPassword" [type]="hideConfirmPassword() ? 'password' : 'text'" required>
+          <button mat-icon-button matSuffix type="button" (click)="hideConfirmPassword.set(!hideConfirmPassword())">
+            <mat-icon>{{ hideConfirmPassword() ? 'visibility' : 'visibility_off' }}</mat-icon>
+          </button>
+          <mat-error *ngIf="form.hasError('passwordMismatch')">
+            Las contraseñas no coinciden.
+          </mat-error>
+        </mat-form-field>
+
+        <button mat-raised-button color="primary" class="full-width submit-btn" type="submit" [disabled]="form.invalid || successMessage()">
+          Registrarse
+        </button>
+      </form>
+    </mat-card-content>
+
+    <mat-card-actions>
+      <span>¿Ya tienes una cuenta?</span>
+      <a routerLink="/login">Inicia sesión</a>
+    </mat-card-actions>
+  </mat-card>
+</div>

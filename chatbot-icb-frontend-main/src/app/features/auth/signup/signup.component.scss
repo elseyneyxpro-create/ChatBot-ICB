@@ -1,0 +1,59 @@
+.signup-layout {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  background: #f6f8f9;
+  padding: 24px;
+}
+
+.signup-card {
+  width: 100%;
+  max-width: 480px;
+}
+
+.name-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.submit-btn {
+  margin-top: 16px;
+}
+
+// ... (resto de los estilos)
+
+mat-card-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+}
+
+// ... (resto de los estilos)
+
+.message-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-weight: 500;
+
+  &.success {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+  }
+
+  &.error {
+    background-color: #fbe9e7;
+    color: #d32f2f;
+    border: 1px solid #ffccbc;
+  }
+}

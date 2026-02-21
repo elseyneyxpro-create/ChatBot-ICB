@@ -6,9 +6,8 @@
       placeholder="Escribe tu pregunta de matemáticas..."
       cdkTextareaAutosize
       cdkAutosizeMinRows="1"
-      cdkAutosizeMaxRows="5"
-      (keydown)="onKeyDown($event)"
-    ></textarea>
+      cdkAutosizeMaxRows="5">
+    </textarea>
   </mat-form-field>
 
   <button
@@ -16,9 +15,7 @@
     type="button"
     color="primary"
     aria-label="Enviar"
-    (click)="onSend()"
-    [disabled]="!text?.trim()"
-  >
+    (click)="onSend()">
     <mat-icon>send</mat-icon>
   </button>
 </div>

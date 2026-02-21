@@ -1,8 +1,6 @@
 <div class="list">
   <div *ngFor="let m of group()" class="bubble" [ngClass]="m.from">
-    <div class="text">
-      <markdown [data]="m.text"></markdown>
-    </div>
+    <div class="text">{{ m.text }}</div>
     <div class="time">{{ m.ts | date:'shortTime' }}</div>
   </div>
 </div>
