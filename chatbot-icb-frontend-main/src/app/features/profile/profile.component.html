@@ -1,0 +1,128 @@
+<section class="profile-page">
+  <!-- Header card -->
+  <mat-card class="profile-hero">
+    <div class="hero-left">
+      <ng-container *ngIf="picture(); else initialsAvatar">
+        <img class="avatar-img" [src]="picture()!" [alt]="displayName()" />
+      </ng-container>
+
+      <ng-template #initialsAvatar>
+        <div class="avatar">{{ initials() }}</div>
+      </ng-template>
+
+      <div class="hero-copy">
+        <h2>{{ displayName() }}</h2>
+        <p class="hero-sub">
+          {{ accountType() }}
+          <span *ngIf="isInstitutional()"> • UDP</span>
+        </p>
+        <p class="hero-email">{{ email() }}</p>
+      </div>
+    </div>
+
+    <div class="hero-actions">
+      <button mat-stroked-button color="primary" type="button" (click)="editProfile()">
+        <mat-icon>edit</mat-icon>
+        Editar perfil
+      </button>
+    </div>
+  </mat-card>
+
+  <!-- Grid info -->
+  <div class="profile-grid">
+    <mat-card class="info-card">
+      <mat-card-content>
+        <h3>Información de cuenta</h3>
+
+        <div class="info-list">
+          <div class="info-row">
+            <span class="label">Nombre</span>
+            <span class="value">{{ displayName() }}</span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Correo institucional</span>
+            <span class="value">{{ email() }}</span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Usuario</span>
+            <span class="value">{{ username() }}</span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">ID (sub)</span>
+            <span class="value mono" [title]="sub()">{{ sub() }}</span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Tipo de cuenta</span>
+            <span class="value">{{ accountType() }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="info-card">
+      <mat-card-content>
+        <h3>Información útil</h3>
+
+        <div class="info-list">
+          <div class="info-row">
+            <span class="label">Carrera</span>
+            <span class="value">{{ careerSuggestion() }}</span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Objetivo semanal</span>
+            <span class="value muted">Configurable próximamente</span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Ramos favoritos</span>
+            <span class="value muted">Configurable próximamente</span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Videos guardados</span>
+            <span class="value muted">Se integrará con biblioteca</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="info-card">
+      <mat-card-content>
+        <h3>Preferencias</h3>
+
+        <div class="info-list">
+          <div class="info-row">
+            <span class="label">Idioma</span>
+            <span class="value">Español</span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Tema</span>
+            <span class="value muted">Usa configuración global</span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Recordatorios</span>
+            <span class="value muted">Próximamente</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Estado sin sesión -->
+  <mat-card class="empty-auth" *ngIf="!user()">
+    <mat-card-content>
+      <mat-icon>account_circle</mat-icon>
+      <div>
+        <h3>No hay sesión activa</h3>
+        <p>No se pudo cargar la información del perfil.</p>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</section>

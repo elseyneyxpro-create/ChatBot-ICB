@@ -1,9 +1,48 @@
-<div class="auth-layout">
-  <section class="left-pane">
-    <mat-card class="login-card" appearance="outlined">
+<div class="auth-page-bg">
+  <div class="bg-overlay"></div>
+
+  <!-- Hero flotante superior -->
+  <section class="hero-floating">
+    <div class="hero-content">
+      <h2>Instituto de Ciencias Básicas</h2>
+      <p>Conoce noticias, eventos y recursos destacados.</p>
+
+      <div class="hero-actions">
+        <a
+          mat-flat-button
+          color="primary"
+          class="hero-btn hero-btn-primary"
+          href="https://www.udp.cl/noticias/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <mat-icon>open_in_new</mat-icon>
+          Ver noticias
+        </a>
+
+        <a
+          mat-stroked-button
+          class="hero-btn hero-btn-secondary"
+          href="https://www.udp.cl/calendario-academico/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <mat-icon>calendar_month</mat-icon>
+          Calendario académico
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Login centrado -->
+  <section class="login-center">
+    <mat-card class="login-card glass-card" appearance="outlined">
       <mat-card-header>
         <div mat-card-avatar class="logo-avatar">
-          <img src="https://cienciasbasicas.udp.cl/cms/wp-content/uploads/2019/06/logo-ciencias-basicas.png" alt="UDP" />
+          <img
+            src="https://cienciasbasicas.udp.cl/cms/wp-content/uploads/2019/06/logo-ciencias-basicas.png"
+            alt="UDP"
+          />
         </div>
         <mat-card-title>ICB • Iniciar sesión</mat-card-title>
         <mat-card-subtitle>Chatbot Ciencias Básicas</mat-card-subtitle>
@@ -15,76 +54,24 @@
           <span>{{ errorMessage() }}</span>
         </div>
 
-        <form [formGroup]="form" (ngSubmit)="submit()" class="form">
-          <mat-form-field appearance="outline" class="full">
-            <mat-label>Email UDP</mat-label>
-            <mat-icon matPrefix>person</mat-icon>
-            <input
-              matInput
-              formControlName="email"
-              type="email"
-              placeholder="tu@mail.udp.cl"
-              aria-label="Email UDP"
-            />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full">
-            <mat-label>Contraseña</mat-label>
-            <mat-icon matPrefix>lock</mat-icon>
-            <input
-              matInput
-              [type]="hide() ? 'password' : 'text'"
-              formControlName="password"
-              aria-label="Contraseña"
-            />
-            <button
-              mat-icon-button
-              matSuffix
-              type="button"
-              (click)="toggleHide()"
-              aria-label="Mostrar u ocultar contraseña"
-            >
-              <mat-icon>{{ hide() ? 'visibility' : 'visibility_off' }}</mat-icon>
-            </button>
-          </mat-form-field>
-
-          <button mat-raised-button color="primary" class="btn" type="submit" [disabled]="form.invalid">
-            <mat-icon>login</mat-icon>
-            Ingresar
-          </button>
-        </form>
-
-        <div style="display:flex;align-items:center;gap:12px;margin:16px 0">
-          <hr style="flex:1;border:none;border-top:1px solid #e0e0e0" />
-          <span style="color:#666">o</span>
-          <hr style="flex:1;border:none;border-top:1px solid #e0e0e0" />
-        </div>
-
-        <button mat-stroked-button color="primary" class="btn full" type="button" (click)="loginWithGoogle()" aria-label="Ingresar con Google">
+        <button
+          mat-stroked-button
+          color="primary"
+          class="btn full"
+          type="button"
+          (click)="loginWithGoogle()"
+          aria-label="Ingresar con Google"
+        >
           <mat-icon>account_circle</mat-icon>
           Entrar con Google (&#64;mail.udp.cl)
         </button>
       </mat-card-content>
-
-      <mat-card-actions class="links">
-        <span>¿No tienes una cuenta?</span>
-        <a routerLink="/signup">Regístrate aquí</a>
-      </mat-card-actions>
     </mat-card>
   </section>
 
-  <section class="right-pane">
-    <div class="hero">
-      <div class="hero-overlay"></div>
-      <div class="hero-content">
-        <h2>Instituto de Ciencias Básicas</h2>
-        <p>Conoce noticias, eventos y recursos destacados.</p>
-        <div class="hero-actions">
-          <button mat-stroked-button color="primary">Ver noticias</button>
-          <button mat-stroked-button>Calendario académico</button>
-        </div>
-      </div>
-    </div>
+  <!-- Opción A: cards ocultas temporalmente para un look más limpio/pro -->
+
+  <section class="cards-floating">
     <div class="cards">
       <mat-card class="news">
         <img mat-card-image src="https://eit.udp.cl/cms/wp-content/uploads/2025/07/feria-proyectos-eit-udp-2025-18-scaled.jpg" alt="Noticia 1" />
@@ -93,6 +80,7 @@
           <p>Premiación feria de proyectos EIT</p>
         </mat-card-content>
       </mat-card>
+
       <mat-card class="news">
         <img mat-card-image src="https://cienciasbasicas.udp.cl/cms/wp-content/uploads/2019/04/04_potula-a-una-ayudantia.png" alt="Noticia 2" />
         <mat-card-content>
@@ -102,4 +90,5 @@
       </mat-card>
     </div>
   </section>
+  
 </div>

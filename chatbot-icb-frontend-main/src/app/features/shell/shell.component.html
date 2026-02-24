@@ -1,38 +1,167 @@
 <mat-sidenav-container class="app-shell">
-  <mat-sidenav #sidenav mode="side" [opened]="true" class="app-sidenav">
+  <mat-sidenav
+    #sidenav
+    mode="side"
+    [opened]="true"
+    class="app-sidenav"
+    [class.collapsed]="sidebarCollapsed"
+  >
+    <!-- Header / Brand -->
     <div class="brand">
-      <img src="https://cienciasbasicas.udp.cl/cms/wp-content/uploads/2019/06/logo-ciencias-basicas.png" alt="UDP" />
-      <strong>ICB</strong>
+      <div class="brand-left" *ngIf="!sidebarCollapsed">
+        <img
+          src="https://cienciasbasicas.udp.cl/cms/wp-content/uploads/2019/06/logo-ciencias-basicas.png"
+          alt="UDP"
+          class="brand-logo"
+        />
+        <strong class="brand-text">ICB</strong>
+      </div>
+
+      <div class="brand-mini" *ngIf="sidebarCollapsed" aria-hidden="true">
+        <mat-icon>school</mat-icon>
+      </div>
+
+      <button
+        mat-icon-button
+        type="button"
+        class="collapse-btn"
+        (click)="toggleSidebarCollapse()"
+        [attr.aria-label]="sidebarCollapsed ? 'Expandir menú' : 'Contraer menú'"
+        [matTooltip]="sidebarCollapsed ? 'Expandir menú' : 'Contraer menú'"
+        matTooltipPosition="right"
+      >
+        <mat-icon>{{ sidebarCollapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+      </button>
     </div>
+
     <mat-divider></mat-divider>
 
-    <mat-nav-list>
-      <a mat-list-item routerLink="/app/chat" routerLinkActive="active">
-        <mat-icon matListItemIcon>chat</mat-icon>
-        <span matListItemTitle>Chatbot</span>
-        <span matListItemLine>Haz preguntas y recibe videos</span>
-      </a>
+    <!-- Cuerpo del sidenav -->
+    <div class="sidenav-body">
+      <!-- Navegación principal -->
+      <mat-nav-list class="main-nav">
+        <!-- Chat -->
+        <a
+          mat-list-item
+          class="nav-item"
+          routerLink="/app/chat"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          [matTooltip]="sidebarCollapsed ? 'Chatbot' : ''"
+          matTooltipPosition="right"
+        >
+          <div class="nav-row">
+            <div class="nav-icon">
+              <mat-icon>chat</mat-icon>
+            </div>
 
-      <a mat-list-item routerLink="/app/library" routerLinkActive="active">
-        <mat-icon matListItemIcon>video_library</mat-icon>
-        <span matListItemTitle>Biblioteca de videos</span>
-        <span matListItemLine>Explora por ramo y tema</span>
-      </a>
-    </mat-nav-list>
+            <div class="nav-copy" *ngIf="!sidebarCollapsed">
+              <div class="item-title">Chatbot</div>
+              <div class="item-line">Haz preguntas y</div>
+              <div class="item-line">recibe videos</div>
+            </div>
+          </div>
+        </a>
+
+        <!-- Biblioteca -->
+        <a
+          mat-list-item
+          class="nav-item"
+          routerLink="/app/library"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          [matTooltip]="sidebarCollapsed ? 'Biblioteca de videos' : ''"
+          matTooltipPosition="right"
+        >
+          <div class="nav-row">
+            <div class="nav-icon">
+              <mat-icon>video_library</mat-icon>
+            </div>
+
+            <div class="nav-copy" *ngIf="!sidebarCollapsed">
+              <div class="item-title">Biblioteca de videos</div>
+              <div class="item-line">Explora por ramo y tema</div>
+            </div>
+          </div>
+        </a>
+
+       
+      </mat-nav-list>
+
+      <!-- Footer perfil -->
+      <div class="sidebar-footer">
+        <mat-divider></mat-divider>
+
+        <a
+          mat-list-item
+          class="profile-entry"
+          routerLink="/app/profile"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          [matTooltip]="sidebarCollapsed ? 'Perfil' : ''"
+          matTooltipPosition="right"
+        >
+          <!-- Expandido -->
+          <ng-container *ngIf="!sidebarCollapsed; else collapsedProfile">
+            <div class="profile-row">
+              <ng-container *ngIf="userPicture(); else initialsAvatar">
+                <img
+                  class="profile-avatar-img"
+                  [src]="userPicture()!"
+                  [alt]="displayName()"
+                />
+              </ng-container>
+
+              <ng-template #initialsAvatar>
+                <div class="profile-avatar">{{ userInitials() }}</div>
+              </ng-template>
+
+              <div class="profile-copy">
+                <div class="profile-name">{{ displayName() }}</div>
+                <div class="profile-sub">Perfil y ajustes</div>
+                <div class="profile-badge" *ngIf="isInstitutional()">
+                  Cuenta institucional
+                </div>
+              </div>
+
+              <mat-icon class="profile-chevron">chevron_right</mat-icon>
+            </div>
+          </ng-container>
+
+          <!-- Colapsado -->
+          <ng-template #collapsedProfile>
+            <div class="profile-collapsed">
+              <ng-container *ngIf="userPicture(); else collapsedInitials">
+                <img
+                  class="profile-avatar-img"
+                  [src]="userPicture()!"
+                  [alt]="displayName()"
+                />
+              </ng-container>
+
+              <ng-template #collapsedInitials>
+                <div class="profile-avatar">{{ userInitials() }}</div>
+              </ng-template>
+            </div>
+          </ng-template>
+        </a>
+      </div>
+    </div>
   </mat-sidenav>
 
   <mat-sidenav-content>
     <mat-toolbar color="primary" class="topbar">
-      <button mat-icon-button (click)="sidenav.toggle()" class="only-mobile">
+      <button mat-icon-button (click)="sidenav.toggle()" class="only-mobile" type="button">
         <mat-icon>menu</mat-icon>
       </button>
+
       <span>ICB • Plataforma</span>
       <span class="spacer"></span>
-      <button mat-button (click)="signOut()">Salir</button>
+      <button mat-button type="button" (click)="signOut()">Salir</button>
     </mat-toolbar>
 
     <main class="content">
-      <router-outlet />
+      <router-outlet></router-outlet>
     </main>
   </mat-sidenav-content>
 </mat-sidenav-container>

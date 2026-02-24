@@ -7,10 +7,13 @@ import { tap, catchError, of, Observable, switchMap } from 'rxjs';
 export interface User {
   sub: string;
   email: string;
+  name?: string;       // opcional (si backend lo expone)
+  picture?: string;    // opcional (foto Google)
+  given_name?: string; // opcional
+  family_name?: string;// opcional
   iat?: number;
   exp?: number;
 }
-
 @Injectable({
   providedIn: 'root'
 })

@@ -1,11 +1,34 @@
 <div class="container">
-  <div class="chat">
-    <app-message-list [messages]="messages()"></app-message-list>
-    <app-message-input (send)="send($event)"></app-message-input>
+  <div class="main-panel">
+    <div class="chat-status-bar">
+      <div class="status-pill" [ngClass]="'status-' + botStatus()">
+        <span class="status-dot"></span>
+        <span class="status-text">
+          {{ botStatus() === 'ready' ? 'Listo' : botStatus() === 'thinking' ? 'Pensando' : 'Error' }}
+        </span>
+      </div>
+
+      <span class="status-helper" *ngIf="botStatus() === 'ready'">
+        El chat está listo para responder preguntas.
+      </span>
+
+      <span class="status-helper" *ngIf="botStatus() === 'thinking'">
+        El bot está generando una respuesta...
+      </span>
+
+      <span class="status-helper status-helper-error" *ngIf="botStatus() === 'error'">
+        No pudimos conectar con la API. Intenta nuevamente.
+      </span>
+    </div>
+
+    <div class="chat">
+      <app-message-list [messages]="messages()"></app-message-list>
+      <app-message-input (send)="send($event)"></app-message-input>
+    </div>
   </div>
 
   <aside class="sidebar">
     <h3>Recomendaciones</h3>
-    <p>Cuando el bot responda, aquí mostraremos tarjetas con videos recomendados.</p>
+    <p>Todavía no hay videos en la biblioteca</p>
   </aside>
 </div>

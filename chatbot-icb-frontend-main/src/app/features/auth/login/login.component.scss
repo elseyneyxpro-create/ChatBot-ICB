@@ -1,180 +1,344 @@
-// chatbot-icb-frontend-main/src/app/features/auth/login/login.component.scss
-
 :host {
   display: block;
   min-height: 100dvh;
-  background: #f6f8f9;
   color: #1d1d1f;
 }
 
-/* Grid 2/5 + 3/5 */
-.auth-layout {
-  display: grid;
-  grid-template-columns: 2fr 3fr;
+/* ---------- Página completa con imagen de fondo ---------- */
+.auth-page-bg {
+  position: relative;
   min-height: 100dvh;
-}
-
-/* --- Left pane --- */
-/* layout 2/5 + 3/5 (mantén lo que ya tienes) */
-.auth-layout {
+  background: url("../../../../assets/login/hero.jpg") center / cover no-repeat;
   display: grid;
-  grid-template-columns: 2fr 3fr;
-  min-height: 100dvh;
+  place-items: center;
+  padding: clamp(16px, 3vw, 32px);
+  overflow: hidden;
 }
 
-/* IZQUIERDA */
-.left-pane {
+/* Capa oscura para dar contraste */
+.bg-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.5)),
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.06), transparent 45%);
+  z-index: 0;
+}
+
+/* ---------- Hero superior flotante ---------- */
+.hero-floating {
+  position: absolute;
+  top: clamp(18px, 3vw, 34px);
+  left: clamp(18px, 4vw, 42px);
+  right: clamp(18px, 4vw, 42px);
+  z-index: 3; /* lo subimos un poco por si algo se monta encima */
+}
+.hero-content {
+  color: #fff;
+  max-width: 760px;
+
+  h2 {
+    margin: 0 0 6px;
+    font-size: clamp(1.55rem, 2.4vw, 2.35rem);
+    line-height: 1.1;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+  }
+
+  p {
+    margin: 0 0 16px;
+    font-size: clamp(0.95rem, 1.1vw, 1.08rem);
+    opacity: 0.95;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .hero-btn {
+      border-radius: 999px;
+      padding-inline: 14px;
+      min-height: 42px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition: transform 0.15s ease, box-shadow 0.15s ease,
+        background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .hero-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.24);
+    }
+
+    .hero-btn-primary {
+      // mat-flat-button ya entrega color, esto mejora presencia
+      box-shadow: 0 10px 24px rgba(33, 53, 181, 0.35);
+    }
+
+    .hero-btn-secondary {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.72);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .hero-btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.95);
+    }
+  }
+}
+
+/* ---------- Login centrado ---------- */
+.login-center {
+  position: relative;
+  z-index: 2;
+  width: 100%;
   display: grid;
-  place-items: center; /* centra card */
-  padding: clamp(16px, 4vw, 40px);
-  background: linear-gradient(180deg, #fff, #f7f9fb);
+  place-items: center;
+  padding-top: clamp(80px, 12vh, 140px); // deja espacio para hero arriba
+  padding-bottom: clamp(20px, 4vh, 40px);
 }
 
-/* CARD */
+/* Card */
 .login-card {
-  width: clamp(320px, 92%, 440px);
-  border-radius: 16px;
+  width: clamp(320px, 92vw, 470px);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+/* “Glassmorphism” suave */
+.glass-card {
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  box-shadow:
+    0 18px 45px rgba(0, 0, 0, 0.22),
+    0 2px 8px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Header card */
+.login-card ::ng-deep .mat-mdc-card-header {
+  align-items: center;
+  padding: 18px 18px 4px 18px;
+}
+
+.login-card ::ng-deep .mat-mdc-card-header-text {
+  margin: 0;
+}
+
+.login-card ::ng-deep .mat-mdc-card-title {
+  font-weight: 800;
+  letter-spacing: 0.1px;
+}
+
+.login-card ::ng-deep .mat-mdc-card-subtitle {
+  color: #5f6673;
+  font-weight: 500;
+}
+
+/* Contenido */
+.login-card mat-card-content {
+  padding: 10px 18px 18px 18px;
 }
 
 /* Avatar/logo del header */
 .logo-avatar {
   display: grid;
   place-items: center;
+
   img {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     object-fit: contain;
+    border-radius: 6px;
+    background: #fff;
   }
 }
 
-/* Form */
-.form {
-  .full {
-    width: 100%;
-  }
-  .btn {
-    width: 100%;
-    margin-top: 8px;
-    padding-block: 10px;
-  }
-}
-.links {
-  display: flex;
-  justify-content: center; // Centra horizontalmente
-  align-items: center;    // Centra verticalmente
-  gap: 8px;                 // Añade un espacio entre los textos
-  padding: 0 16px 16px;     // Ajusta el padding
-  flex-wrap: wrap;          // Permite que los elementos se envuelvan si no hay espacio
+/* Botón login */
+.btn,
+.full {
+  width: 100%;
 }
 
-
-@media (max-width: 1100px) {
-  .auth-layout {
-    grid-template-columns: 1fr;
-  }
+.btn {
+  margin-top: 8px;
+  min-height: 46px;
+  border-radius: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
 }
 
-/* --- Right pane --- */
-.right-pane {
-  position: relative;
-  background: #f2fbf6; /* guiño al verde UDP sin saturar */
-  display: grid;
-  grid-template-rows: 2fr 1fr;
-}
-
-/* Hero con imagen de fondo */
-.hero {
-  position: relative;
-  // background: url('assets/login/hero.jpg') center/cover no-repeat;
-  background: url("../../../../assets/login/hero.jpg") center/cover no-repeat;
-
-  min-height: 320px;
-
-  .hero-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      90deg,
-      rgba(0, 0, 0, 0.45),
-      rgba(0, 0, 0, 0.15)
-    );
-  }
-
-  .hero-content {
-    position: relative;
-    z-index: 1;
-    color: #fff;
-    padding: clamp(20px, 4vw, 40px);
-
-    h2 {
-      margin: 0 0 6px;
-      font-weight: 700;
-    }
-
-    p {
-      margin: 0 0 16px;
-      opacity: 0.95;
-    }
-
-    .hero-actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-  }
-}
-
-/* Cards de noticias */
-.cards {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  padding: clamp(16px, 3vw, 24px);
-
-  .news {
-    overflow: hidden;
-
-    img {
-      max-height: 140px;
-      object-fit: cover;
-    }
-
-    h3 {
-      margin: 8px 0 4px;
-      font-weight: 600;
-    }
-
-    p {
-      margin: 0;
-      color: #555;
-    }
-  }
-}
-
-/* Responsivo */
-@media (max-width: 1100px) {
-  .auth-layout {
-    grid-template-columns: 1fr;
-  }
-  .right-pane {
-    grid-template-rows: auto auto;
-  }
-  .cards {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* 👇 ESTILOS PARA EL BANNER DE ERROR AÑADIDOS AL FINAL */
+/* Banner de error */
 .error-banner {
   display: flex;
   align-items: center;
   gap: 8px;
-  background-color: #fbe9e7; // Un rojo muy suave
-  color: #d32f2f; // Rojo oscuro para el texto
+  background-color: #fbe9e7;
+  color: #d32f2f;
   border: 1px solid #ffccbc;
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 20px; // Espacio antes del formulario
-  font-size: 0.9rem;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 0.92rem;
   font-weight: 500;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .hero-floating {
+    top: 14px;
+    left: 14px;
+    right: 14px;
+  }
+
+  .hero-content {
+    h2 {
+      font-size: clamp(1.25rem, 5vw, 1.65rem);
+    }
+
+    p {
+      font-size: 0.92rem;
+      margin-bottom: 12px;
+    }
+
+    .hero-actions {
+      gap: 8px;
+
+      .hero-btn {
+        min-height: 38px;
+        padding-inline: 12px;
+        font-size: 0.9rem;
+      }
+    }
+  }
+
+  .login-center {
+    padding-top: 150px; // evita que se monte con el hero en móvil
+  }
+
+  .login-card {
+    width: min(94vw, 440px);
+    border-radius: 16px;
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
+
+@media (max-width: 520px) {
+  .hero-content .hero-actions {
+    width: 100%;
+    pointer-events: auto;
+    cursor: pointer;
+    .hero-btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .login-center {
+    padding-top: 180px;
+  }
+}
+
+/* ===== Cards flotantes (debajo del panel login) ===== */
+.cards-floating {
+  position: relative;
+  z-index: 2;
+  width: min(1150px, 94vw);
+  margin: 28px auto 0;
+  padding: 0 8px;
+}
+
+/* OJO: este .cards es el del bloque flotante */
+.cards-floating .cards {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: stretch;
+  gap: clamp(20px, 2.4vw, 36px); /* más espacio entre tarjetas */
+  flex-wrap: wrap; /* en pantallas chicas bajan ordenadas */
+}
+
+/* Tarjeta */
+.cards-floating .news {
+  flex: 1 1 420px;     /* base ancha */
+  max-width: 520px;
+  min-width: 320px;
+
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cards-floating .news:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.22);
+}
+
+/* Imagen */
+.cards-floating .news img[mat-card-image] {
+  margin: 0;
+  width: 100%;
+  height: 170px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Contenido */
+.cards-floating .news mat-card-content {
+  padding: 14px 16px 16px;
+}
+
+.cards-floating .news h3 {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.cards-floating .news p {
+  margin: 0;
+  color: #495057;
+  line-height: 1.35;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .cards-floating {
+    margin-top: 18px;
+  }
+
+  .cards-floating .cards {
+    gap: 16px;
+  }
+
+  .cards-floating .news {
+    flex: 1 1 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .cards-floating .news img[mat-card-image] {
+    height: 150px;
+  }
 }

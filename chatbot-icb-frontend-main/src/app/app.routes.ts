@@ -24,6 +24,11 @@ export const routes: Routes = [
         path: 'chat',
         loadComponent: () => import('./features/chat/chat-page/chat-page.component').then(m => m.ChatPageComponent)
       },
+      {
+        path: 'profile',
+        loadComponent: () =>
+        import('./features/profile/profile.component').then(m => m.ProfileComponent)
+      },
       { 
         path: 'library',
         loadComponent: () => import('./features/library/video-library/video-library.component').then(m => m.VideoLibraryComponent)

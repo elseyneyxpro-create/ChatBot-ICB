@@ -1,24 +1,82 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
 .inputbar {
   display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  padding: 12px;
-  border-top: 1px solid #e7e7e7;
-  background: #fafafa;
+  align-items: center; // ✅ centra textarea y botón
+  gap: 12px;
+  padding: 14px 16px;
+  border-top: 1px solid #e7eaf3;
+  background: #fff;
 }
 
+/* Campo */
 .chat-input {
   flex: 1;
-
-  .mdc-text-field--outlined {
-    border-radius: 16px; // bordes más suaves
-  }
-
-  textarea {
-    resize: none;
-  }
+  margin: 0; // evita espacios raros de material
 }
 
-button[mat-icon-button] {
+/* Quita espacio extra inferior del mat-form-field */
+.chat-input ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+/* Hace que el contorno se vea más pro */
+.chat-input ::ng-deep .mdc-notched-outline__leading,
+.chat-input ::ng-deep .mdc-notched-outline__notch,
+.chat-input ::ng-deep .mdc-notched-outline__trailing {
+  border-width: 1.5px !important;
+}
+
+/* Fondo del input */
+.chat-input ::ng-deep .mat-mdc-text-field-wrapper {
+  background: #fff;
+  border-radius: 12px;
+}
+
+/* Ajuste interno del textarea */
+.chat-input textarea {
+  resize: none;
+  line-height: 1.4;
+  padding-top: 2px;
+}
+
+/* Botón enviar */
+.send-btn {
   flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform .12s ease, box-shadow .15s ease, opacity .15s ease;
+}
+
+/* Hover bonito */
+.send-btn:not([disabled]) {
+  box-shadow: 0 6px 16px rgba(75, 86, 192, 0.18);
+}
+
+.send-btn:hover:not([disabled]) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(75, 86, 192, 0.22);
+}
+
+/* ✅ Estado deshabilitado gris */
+.send-btn[disabled] {
+  background: #e5e7eb !important;
+  color: #9ca3af !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+/* Opcional: icono un poquito más visible */
+.send-btn mat-icon {
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
 }

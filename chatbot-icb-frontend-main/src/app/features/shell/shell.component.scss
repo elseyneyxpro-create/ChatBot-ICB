@@ -1,23 +1,450 @@
-.app-shell { height: 100dvh; }
-
-.app-sidenav {
-  width: 280px;
-  padding: .5rem 0;
-  .brand {
-    display: flex; align-items: center; gap: .5rem;
-    padding: .75rem 1rem;
-    img { height: 28px; object-fit: contain; }
-  }
-  a.active { background: rgba(0,0,0,.06); }
+.app-shell {
+  height: 100dvh;
+  overflow: hidden;
 }
 
-.topbar .only-mobile { display: none; }
-.spacer { flex: 1 1 auto; }
+/* wrappers internos de Angular Material que a veces meten scroll horizontal */
+:host ::ng-deep .mat-drawer-inner-container {
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+}
 
-.content { padding: 1rem; height: calc(100dvh - 64px); overflow: auto; }
+:host ::ng-deep .mat-drawer-content {
+  overflow-x: hidden !important;
+}
 
-/* Responsive */
+/* ===== Sidenav base ===== */
+.app-sidenav {
+  width: 280px;
+  transition: width 0.22s ease;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.5rem 0;
+  box-sizing: border-box;
+
+  /* layout vertical para empujar footer abajo */
+  display: flex;
+  flex-direction: column;
+
+  mat-nav-list {
+    width: 100%;
+    box-sizing: border-box;
+    padding-top: 0.35rem;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    padding: 0.75rem 0.5rem 0.75rem 0.75rem;
+    min-height: 56px;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .brand-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .brand-logo {
+    height: 28px;
+    max-width: 130px;
+    object-fit: contain;
+    display: block;
+  }
+
+  .brand-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+  }
+
+  .brand-mini {
+    display: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.05);
+    color: #4a54c5;
+    flex-shrink: 0;
+  }
+
+  .collapse-btn {
+    flex-shrink: 0;
+  }
+
+  /* ===== Items navegación ===== */
+  .nav-item {
+    margin: 0.15rem 0.4rem;
+    border-radius: 10px;
+    width: calc(100% - 0.8rem);
+    box-sizing: border-box;
+    overflow: hidden;
+    min-height: 72px;
+    transition: background-color 0.15s ease;
+  }
+
+  .nav-item.active {
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  .nav-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 4px;
+    box-sizing: border-box;
+  }
+
+  /* columna fija del icono (clave para que no "salte") */
+  .nav-icon {
+    width: 28px;
+    min-width: 28px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 2px;
+    color: rgba(0, 0, 0, 0.54);
+  }
+
+  .nav-copy {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .item-title {
+    font-size: 16px;
+    line-height: 1.2;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.87);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+
+  .item-line {
+    font-size: 14px;
+    line-height: 1.2;
+    color: rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* Angular Material inner container del drawer en vertical */
+:host ::ng-deep .app-sidenav .mat-drawer-inner-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* contenedor principal del cuerpo */
+.sidenav-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* la nav principal ocupa el espacio libre */
+.main-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ===== Footer perfil (mejorado) ===== */
+.sidebar-footer {
+  margin-top: auto;
+  padding: 0.5rem 0.5rem 1rem; /* más aire abajo */
+  background: #fff; /* evita mezcla visual con contenido */
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+.profile-entry {
+  margin-top: 0.5rem;
+  border-radius: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: rgba(63, 81, 181, 0.04);
+  border: 1px solid rgba(63, 81, 181, 0.08);
+}
+
+.profile-entry.active {
+  background: rgba(63, 81, 181, 0.08);
+}
+
+/* fuerza altura suficiente del item de material */
+:host ::ng-deep .profile-entry.mat-mdc-list-item,
+:host ::ng-deep .profile-entry.mdc-list-item {
+  height: auto !important;
+  min-height: 76px !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  align-items: stretch !important;
+}
+
+.profile-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.2rem 0.15rem;
+}
+
+.profile-avatar,
+.profile-avatar-img {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
+}
+
+.profile-avatar {
+  display: grid;
+  place-items: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #3f51b5, #5c6bc0);
+  box-shadow: 0 4px 10px rgba(63, 81, 181, 0.25);
+}
+
+.profile-avatar-img {
+  object-fit: cover;
+  display: block;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
+}
+
+.profile-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+  align-content: center;
+}
+
+.profile-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.15;
+  color: rgba(0, 0, 0, 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-sub {
+  font-size: 0.8rem;
+  line-height: 1.15;
+  color: rgba(0, 0, 0, 0.58);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* badge institucional chico */
+.profile-badge {
+  margin-top: 0.1rem;
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: #2e7d32;
+  background: rgba(46, 125, 50, 0.08);
+  border: 1px solid rgba(46, 125, 50, 0.14);
+  border-radius: 999px;
+  padding: 0.05rem 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.profile-chevron {
+  color: rgba(0, 0, 0, 0.38);
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
+/* versión colapsada */
+.profile-collapsed {
+  width: 100%;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0;
+}
+
+/* ===== Estado colapsado ===== */
+.app-sidenav.collapsed {
+  width: 84px;
+
+  .brand {
+    justify-content: center;
+    padding: 0.5rem;
+    gap: 0.25rem;
+  }
+
+  .brand-mini {
+    display: inline-flex;
+  }
+
+  .collapse-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .nav-item {
+    margin-inline: 0.5rem;
+    width: calc(100% - 1rem);
+    min-height: 56px;
+  }
+
+  /* mantenemos estructura, ocultamos texto vía *ngIf */
+  .nav-row {
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    padding: 0;
+    min-height: 56px;
+  }
+
+  /* en colapsado el icono ocupa todo el ancho */
+  .nav-icon {
+    width: 100%;
+    min-width: 0;
+    margin-top: 0;
+  }
+
+  /* wrappers internos de material */
+  :host ::ng-deep .mdc-list-item__content,
+  ::ng-deep .mdc-list-item__content {
+    width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .sidebar-footer {
+    padding: 0.5rem 0.5rem 0.9rem;
+  }
+
+  .profile-entry {
+    border-radius: 12px;
+  }
+
+  .profile-avatar,
+  .profile-avatar-img {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+  }
+
+  .profile-copy,
+  .profile-chevron {
+    display: none !important;
+  }
+}
+
+/* Topbar */
+.topbar .only-mobile {
+  display: none;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+/* Contenido */
+.content {
+  padding: 1rem;
+  height: calc(100dvh - 64px);
+  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: hidden !important;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+/* ===== Mobile ===== */
 @media (max-width: 960px) {
-  .app-sidenav { width: 260px; }
-  .topbar .only-mobile { display: inline-flex; }
+  .app-sidenav {
+    width: 260px;
+  }
+
+  /* En móvil no usamos rail colapsado visual */
+  .app-sidenav.collapsed {
+    width: 260px;
+
+    .brand {
+      justify-content: space-between;
+      padding: 0.75rem 0.5rem 0.75rem 0.75rem;
+      gap: 0.35rem;
+    }
+
+    .brand-mini {
+      display: none;
+    }
+
+    .nav-item {
+      margin: 0.15rem 0.4rem;
+      width: calc(100% - 0.8rem);
+      min-height: 72px;
+    }
+
+    .nav-row {
+      gap: 12px;
+      padding: 8px 4px;
+      min-height: unset;
+      justify-content: flex-start;
+      align-items: flex-start;
+    }
+
+    .nav-icon {
+      width: 28px;
+      min-width: 28px;
+      margin-top: 2px;
+    }
+
+    /* footer móvil: no sticky para evitar cortes raros */
+    .sidebar-footer {
+      position: static;
+      margin-top: 0.5rem;
+      padding: 0.5rem 0.4rem 0.7rem;
+      background: transparent;
+    }
+
+    .profile-copy,
+    .profile-chevron {
+      display: initial;
+    }
+
+    .profile-avatar,
+    .profile-avatar-img {
+      width: 38px;
+      height: 38px;
+      min-width: 38px;
+    }
+  }
+
+  .topbar .only-mobile {
+    display: inline-flex;
+  }
+
+  .collapse-btn {
+    display: none;
+  }
 }

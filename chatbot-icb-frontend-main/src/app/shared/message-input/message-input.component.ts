@@ -23,12 +23,12 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 export class MessageInputComponent {
   text = '';
 
-  // 👇 El nombre del Output debe ser exactamente "send"
   @Output() send = new EventEmitter<string>();
 
   onSend() {
-    const t = this.text?.trim();
+    const t = this.text.trim();
     if (!t) return;
+
     this.send.emit(t);
     this.text = '';
   }
