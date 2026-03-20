@@ -3,6 +3,8 @@ from typing import Optional
 
 class Ask(BaseModel):
     question: str = Field(..., description="Pregunta del usuario")
-    subject: Optional[str] = Field(None, description="Cálculo | Álgebra | Física")
-    top_k: Optional[int] = Field(4, description="Reservado para RAG")
-    session_id: Optional[str] = Field(None, description="UUID de sesión para memoria")
+    session_id: Optional[str] = Field(None, description="UUID de sesión")
+    uid: Optional[str] = Field(None, description="UID del usuario de Firebase")
+    id_chat_nr: Optional[str] = Field(None, description="ID del chat activo en Firestore")
+    total_hilos: Optional[int] = Field(0, description="Total de hilos del chat antes de este mensaje")
+    image_base64: Optional[str] = Field(None, description="Imagen adjunta en base64 (JPEG/PNG)")

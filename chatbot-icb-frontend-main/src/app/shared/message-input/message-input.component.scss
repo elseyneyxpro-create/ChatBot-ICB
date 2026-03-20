@@ -1,24 +1,74 @@
 .inputbar {
   display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  padding: 12px;
-  border-top: 1px solid #e7e7e7;
-  background: #fafafa;
+  flex-direction: column;
+  padding: 8px 12px 12px;
+  border-top: 1.5px solid #ffd0d0;
+  background: #fff;
+  gap: 6px;
+}
+
+.image-preview-container {
+  position: relative;
+  display: inline-block;
+  align-self: flex-start;
+  margin-left: 44px; // alineado con el textarea
+  animation: fadeIn 0.2s ease;
+}
+
+.image-preview {
+  height: 80px;
+  max-width: 140px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 2px solid #ef9a9a;
+  display: block;
+}
+
+.remove-img-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: unset;
+  background: #c62828;
+  color: #fff;
+  border-radius: 50%;
+
+  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+}
+
+.input-row {
+  display: flex;
+  align-items: center;  // centrado vertical
+  gap: 6px;
+}
+
+.attach-btn {
+  flex-shrink: 0;
+  color: #bbb;
+  transition: color 0.15s;
+  &:hover:not([disabled]) { color: #c62828; }
+  &[disabled] { opacity: 0.35; }
 }
 
 .chat-input {
   flex: 1;
 
-  .mdc-text-field--outlined {
-    border-radius: 16px; // bordes más suaves
-  }
-
-  textarea {
-    resize: none;
-  }
+  .mdc-text-field--outlined { border-radius: 20px; }
+  textarea { resize: none; }
 }
 
-button[mat-icon-button] {
+.send-btn {
   flex-shrink: 0;
+  color: #c62828;
+  transition: transform 0.15s;
+
+  &:hover:not([disabled]) { transform: scale(1.15); }
+  &[disabled] { opacity: 0.35; color: #bbb; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
 }

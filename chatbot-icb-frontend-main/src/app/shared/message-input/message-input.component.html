@@ -1,21 +1,54 @@
 <div class="inputbar">
-  <mat-form-field class="chat-input" appearance="outline">
-    <textarea
-      matInput
-      [(ngModel)]="text"
-      placeholder="Escribe tu pregunta de matemáticas..."
-      cdkTextareaAutosize
-      cdkAutosizeMinRows="1"
-      cdkAutosizeMaxRows="5">
-    </textarea>
-  </mat-form-field>
 
-  <button
-    mat-icon-button
-    type="button"
-    color="primary"
-    aria-label="Enviar"
-    (click)="onSend()">
-    <mat-icon>send</mat-icon>
-  </button>
+  <!-- Preview imagen adjunta -->
+  <div *ngIf="imagePreview" class="image-preview-container">
+    <img [src]="imagePreview" class="image-preview" alt="Imagen adjunta" />
+    <button mat-icon-button class="remove-img-btn" (click)="clearImage()" matTooltip="Quitar imagen">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="input-row">
+    <!-- Botón adjuntar imagen -->
+    <button
+      mat-icon-button
+      type="button"
+      class="attach-btn"
+      [disabled]="disabled"
+      (click)="openFilePicker()"
+      matTooltip="Adjuntar imagen (o Ctrl+V)">
+      <mat-icon>image</mat-icon>
+    </button>
+
+    <input
+      #fileInput
+      type="file"
+      accept="image/*"
+      style="display:none"
+      (change)="onFileSelected($event)" />
+
+    <mat-form-field class="chat-input" appearance="outline">
+      <textarea
+        matInput
+        [(ngModel)]="text"
+        placeholder="Escribe tu pregunta... (Enter para enviar)"
+        cdkTextareaAutosize
+        cdkAutosizeMinRows="1"
+        cdkAutosizeMaxRows="5"
+        [disabled]="disabled"
+        (keydown.enter)="$event.preventDefault(); onSend()">
+      </textarea>
+    </mat-form-field>
+
+    <button
+      mat-icon-button
+      type="button"
+      class="send-btn"
+      [disabled]="disabled || (!text.trim() && !imageBase64)"
+      (click)="onSend()"
+      matTooltip="Enviar">
+      <mat-icon>send</mat-icon>
+    </button>
+  </div>
+
 </div>

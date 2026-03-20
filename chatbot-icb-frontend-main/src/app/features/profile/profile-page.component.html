@@ -1,0 +1,89 @@
+<div class="profile-page">
+
+  <div class="profile-header">
+    <button mat-icon-button (click)="goToChat()" title="Volver al chat">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <h1>Mi Perfil Académico</h1>
+  </div>
+
+  <div *ngIf="loading()" class="loading-state">
+    <p>Cargando tu historial...</p>
+  </div>
+
+  <ng-container *ngIf="!loading()">
+
+    <!-- Sin datos aún -->
+    <div *ngIf="snapshots().length === 0" class="empty-state">
+      <mat-icon>school</mat-icon>
+      <p>Tu perfil académico se construirá a medida que hagas preguntas.</p>
+      <p class="hint">Cada 10 mensajes se genera un snapshot de tu progreso por tema.</p>
+      <button mat-flat-button color="primary" (click)="goToChat()">Ir al chat</button>
+    </div>
+
+    <ng-container *ngIf="snapshots().length > 0">
+
+      <!-- Resumen (último snapshot por tema) -->
+      <section class="section">
+        <h2>Resumen actual</h2>
+        <p class="section-desc">Estado más reciente de cada tema que has trabajado.</p>
+        <div class="topics-grid">
+          <div *ngFor="let s of latestPerTema()" class="topic-card">
+            <div class="topic-name">{{ s.tema }}</div>
+            <div class="topic-date">{{ s.fecha | date:'d MMM yyyy' }}</div>
+
+            <div class="points-section" *ngIf="s.puntos_fuertes.length > 0">
+              <div class="points-label strong">Puntos fuertes</div>
+              <ul>
+                <li *ngFor="let p of s.puntos_fuertes">{{ p }}</li>
+              </ul>
+            </div>
+            <div class="points-section" *ngIf="s.puntos_debiles.length > 0">
+              <div class="points-label weak">Puntos débiles</div>
+              <ul>
+                <li *ngFor="let p of s.puntos_debiles">{{ p }}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Timelapse filtrado por tema -->
+      <section class="section">
+        <div class="timelapse-header">
+          <h2>Timelapse por tema</h2>
+          <mat-form-field appearance="outline" class="tema-select">
+            <mat-label>Filtrar por tema</mat-label>
+            <mat-select [ngModel]="selectedTema()" (ngModelChange)="setTema($event)">
+              <mat-option value="">Todos los temas</mat-option>
+              <mat-option *ngFor="let t of temas()" [value]="t">{{ t }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="timeline">
+          <div *ngFor="let s of filteredSnapshots()" class="timeline-entry">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <div class="timeline-meta">
+                <span class="timeline-tema">{{ s.tema }}</span>
+                <span class="timeline-date">{{ s.fecha | date:'d MMM yyyy, HH:mm' }}</span>
+              </div>
+              <div class="timeline-body">
+                <div class="points-section" *ngIf="s.puntos_fuertes.length > 0">
+                  <div class="points-label strong">Puntos fuertes</div>
+                  <ul><li *ngFor="let p of s.puntos_fuertes">{{ p }}</li></ul>
+                </div>
+                <div class="points-section" *ngIf="s.puntos_debiles.length > 0">
+                  <div class="points-label weak">Puntos débiles</div>
+                  <ul><li *ngFor="let p of s.puntos_debiles">{{ p }}</li></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </ng-container>
+  </ng-container>
+</div>
