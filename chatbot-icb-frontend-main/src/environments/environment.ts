@@ -1,7 +1,7 @@
 export const environment = {
   production: false,
   API_URL: 'http://localhost:3000',
-  AGENTS_URL: 'http://localhost:8000',
+  AGENTS_URL: 'http://localhost:8009',
   auth: {
     loginUrl: 'http://localhost:3000/auth/google',
   },

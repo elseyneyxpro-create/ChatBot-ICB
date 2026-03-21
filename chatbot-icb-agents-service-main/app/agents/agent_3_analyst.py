@@ -1,14 +1,61 @@
 import logging
+import time
 from datetime import datetime
+from google.cloud import firestore as fs_module
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from app.core.config import settings
 
 logger = logging.getLogger("icb.ai")
 
 llm = ChatOpenAI(model=settings.OPENAI_MODEL, api_key=settings.OPENAI_API_KEY, temperature=0)
 embeddings = OpenAIEmbeddings(model=settings.OPENAI_EMBEDDING_MODEL, api_key=settings.OPENAI_API_KEY)
+
+# ── Resumen de conversación ───────────────────────────────────────────────────
+_summary_prompt = ChatPromptTemplate.from_messages([
+    ("system", """Eres un asistente que mantiene un resumen acumulativo de una sesión de tutoría de Cálculo 1.
+Se te dará el resumen actual y el último intercambio. Actualiza el resumen incorporando el nuevo intercambio.
+
+REGLAS:
+- Máximo 6 oraciones.
+- Menciona los temas matemáticos tratados (derivadas, límites, integrales, etc.).
+- Destaca si el alumno cometió errores conceptuales importantes.
+- Escribe en español, en tercera persona ("El alumno preguntó...", "Se discutió...").
+- Si el resumen actual está vacío, crea uno nuevo basado solo en el intercambio.
+- NO incluyas la respuesta completa del tutor, solo el tema y punto clave."""),
+    ("human", """Resumen actual:
+{resumen_actual}
+
+Último intercambio:
+Alumno: {question}
+Tutor: {answer}
+
+Escribe el resumen actualizado:"""),
+])
+
+_summary_chain = _summary_prompt | llm | StrOutputParser()
+
+
+def update_conversation_summary(id_chat_nr: str, resumen_actual: str, question: str, answer: str) -> None:
+    """
+    Genera un resumen actualizado de la conversación y lo persiste en Chat_nr/{id_chat_nr}.
+    Corre en background — no bloquea la respuesta al usuario.
+    """
+    try:
+        from app.core.firestore_client import db
+        nuevo_resumen = _summary_chain.invoke({
+            "resumen_actual": resumen_actual or "Sin resumen previo.",
+            "question": question[:600],
+            "answer": answer[:800],
+        })
+        db.collection("Chat_nr").document(id_chat_nr).update({
+            "resumen_conversacion": nuevo_resumen,
+            "fecha_resumen": datetime.utcnow(),
+        })
+        logger.info(f"Resumen actualizado para chat={id_chat_nr}")
+    except Exception as e:
+        logger.warning(f"update_conversation_summary falló: {e}")
 
 snapshot_prompt = ChatPromptTemplate.from_messages([
     ("system", """Eres un analista académico especializado en Cálculo 1. \
@@ -46,34 +93,85 @@ Responde SOLO con JSON válido:
 snapshot_chain = snapshot_prompt | llm | JsonOutputParser()
 
 
-def get_latest_weak_points(uid: str) -> str:
+def update_leaderboard(uid: str, display_name: str | None, email: str | None, photo_url: str | None) -> None:
     """
-    Lee los snapshots más recientes del alumno y retorna sus puntos débiles combinados.
-    Se usa para alimentar al Agente 1 en cada consulta.
+    Incrementa total_matematicas en Leaderboard/{uid} cada vez que el alumno
+    hace una pregunta matemática (tema != None). Crea el doc si no existe.
     """
     try:
         from app.core.firestore_client import db
-        snaps = (
-            db.collection("Perfil_usuario").document(uid)
-            .collection("snapshots")
-            .order_by("fecha", direction="DESCENDING")
-            .limit(5)
-            .stream()
-        )
-        weak_points = []
-        seen_temas: set[str] = set()
-        for snap in snaps:
-            data = snap.to_dict()
-            tema = data.get("tema", "")
-            if tema not in seen_temas:
-                seen_temas.add(tema)
-                debiles = data.get("puntos_debiles", [])
-                if debiles:
-                    weak_points.append(f"[{tema}] " + "; ".join(debiles))
-        return "\n".join(weak_points)
+        ref = db.collection("Leaderboard").document(uid)
+        ref.set({
+            "uid": uid,
+            "display_name": display_name or (email.split("@")[0] if email else "Estudiante"),
+            "email": email,
+            "photo_url": photo_url,
+            "total_matematicas": fs_module.Increment(1),
+            "fecha_actualizacion": datetime.utcnow(),
+        }, merge=True)
+        logger.info(f"Leaderboard: uid={uid} +1 total_matematicas")
+    except Exception as e:
+        logger.warning(f"update_leaderboard falló uid={uid}: {e}")
+
+
+def increment_hilo_counters(uid: str) -> int:
+    """
+    Incrementa atómicamente total_hilos_global y hilos_desde_snapshot en
+    Perfil_usuario/{uid}. Retorna el nuevo valor de hilos_desde_snapshot.
+    Esto permite disparar el análisis de perfil con umbrales globales
+    (todos los chats del usuario), no solo por chat individual.
+    """
+    try:
+        from app.core.firestore_client import db
+        ref = db.collection("Perfil_usuario").document(uid)
+        ref.set({
+            "total_hilos_global": fs_module.Increment(1),
+            "hilos_desde_snapshot": fs_module.Increment(1),
+        }, merge=True)
+        doc = ref.get()
+        value = doc.to_dict().get("hilos_desde_snapshot", 1) if doc.exists else 1
+        logger.info(f"Agent3 counters: uid={uid} hilos_desde_snapshot={value}")
+        return int(value)
+    except Exception as e:
+        logger.warning(f"increment_hilo_counters falló uid={uid}: {e}")
+        return 1
+
+
+def get_latest_weak_points(uid: str) -> str:
+    """
+    Lee el campo weak_points_text pre-computado en Perfil_usuario/{uid}.
+    Una sola lectura de documento (mucho más rápida que consultar snapshots).
+    El campo es actualizado por generate_snapshots() cada 5 o 25 hilos.
+    """
+    try:
+        from app.core.firestore_client import db
+        doc = db.collection("Perfil_usuario").document(uid).get()
+        if doc.exists:
+            return doc.to_dict().get("weak_points_text", "")
+        return ""
     except Exception as e:
         logger.warning(f"get_latest_weak_points falló: {e}")
         return ""
+
+
+def save_reinforcement_to_firestore(id_chat_nr: str, reinforcement: dict) -> None:
+    """
+    Guarda el reinforcement generado en background en Chat_nr/{id_chat_nr}.
+    El frontend lo lee mediante polling después de recibir la respuesta principal.
+    """
+    try:
+        from app.core.firestore_client import db
+        db.collection("Chat_nr").document(id_chat_nr).update({
+            "last_reinforcement": {
+                "nivel": reinforcement.get("nivel", "amarillo"),
+                "texto": reinforcement.get("texto", ""),
+                "ejercicios": reinforcement.get("ejercicios", []),
+                "saved_at": time.time(),
+            }
+        })
+        logger.info(f"Reinforcement guardado en Chat_nr/{id_chat_nr}")
+    except Exception as e:
+        logger.warning(f"save_reinforcement_to_firestore falló: {e}")
 
 
 def _get_existing_nivel_tema(db, uid: str, tema: str) -> dict | None:
@@ -265,6 +363,16 @@ def generate_snapshots(uid: str, id_chat_nr: str, full_reread: bool = False) -> 
 
         # 8. Recomputar y guardar weak_points_vector (evita llamar a OpenAI en cada consulta)
         _update_weak_points_vector(db, uid)
+
+        # 9. Resetear hilos_desde_snapshot para el próximo ciclo
+        try:
+            db.collection("Perfil_usuario").document(uid).update({
+                "hilos_desde_snapshot": 0,
+                "fecha_ultimo_snapshot": datetime.utcnow(),
+            })
+            logger.info(f"Agent3: hilos_desde_snapshot reseteado → uid={uid}")
+        except Exception as e:
+            logger.warning(f"Error reseteando hilos_desde_snapshot uid={uid}: {e}")
 
     except Exception as e:
         logger.exception(f"generate_snapshots falló para uid={uid}: {e}")

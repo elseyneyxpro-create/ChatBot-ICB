@@ -1,45 +1,110 @@
 <div class="profile-page">
 
-  <div class="profile-header">
-    <button mat-icon-button (click)="goToChat()" title="Volver al chat">
-      <mat-icon>arrow_back</mat-icon>
-    </button>
-    <h1>Mi Perfil Académico</h1>
-  </div>
-
   <div *ngIf="loading()" class="loading-state">
-    <p>Cargando tu historial...</p>
+    <p>Cargando tu perfil...</p>
   </div>
 
   <ng-container *ngIf="!loading()">
 
-    <!-- Sin datos aún -->
+    <!-- ══ SECCIÓN 1: Identidad ══════════════════════════════════════════════ -->
+    <section class="identity-section">
+
+      <!-- Avatar grande -->
+      <div class="identity-avatar-wrap">
+        <ng-container *ngIf="photoURL(); else initialsAvatar">
+          <img class="identity-avatar" [src]="photoURL()!" [alt]="displayName()" />
+        </ng-container>
+        <ng-template #initialsAvatar>
+          <div class="identity-avatar identity-avatar--initials">{{ initials() }}</div>
+        </ng-template>
+      </div>
+
+      <!-- Nombre + badge -->
+      <div class="identity-info">
+        <h1 class="identity-name">{{ displayName() }}</h1>
+        <div class="identity-badge" *ngIf="email()?.endsWith('@mail.udp.cl') || email()?.endsWith('@udp.cl')">
+          <mat-icon>verified</mat-icon>
+          Cuenta institucional UDP
+        </div>
+      </div>
+
+      <!-- Stats chips -->
+      <div class="identity-stats">
+        <div class="stat-card">
+          <mat-icon>mail_outline</mat-icon>
+          <div class="stat-body">
+            <span class="stat-label">Correo</span>
+            <span class="stat-value stat-value--sm">{{ email() ?? '—' }}</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <mat-icon>school</mat-icon>
+          <div class="stat-body">
+            <span class="stat-label">Institución</span>
+            <span class="stat-value">{{ carrera() }}</span>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card--accent">
+          <mat-icon>forum</mat-icon>
+          <div class="stat-body">
+            <span class="stat-label">Preguntas totales</span>
+            <span class="stat-value stat-value--big">{{ totalPreguntas() }}</span>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card--accent">
+          <mat-icon>topic</mat-icon>
+          <div class="stat-body">
+            <span class="stat-label">Temas trabajados</span>
+            <span class="stat-value stat-value--big">{{ temas().length }}</span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ══ Sin snapshots ════════════════════════════════════════════════════ -->
     <div *ngIf="snapshots().length === 0" class="empty-state">
-      <mat-icon>school</mat-icon>
-      <p>Tu perfil académico se construirá a medida que hagas preguntas.</p>
-      <p class="hint">Cada 10 mensajes se genera un snapshot de tu progreso por tema.</p>
+      <mat-icon>psychology</mat-icon>
+      <p>Tu perfil académico se construirá a medida que hagas preguntas de matemáticas.</p>
+      <p class="hint">Cada 5 mensajes se genera un análisis de tu progreso por tema.</p>
       <button mat-flat-button color="primary" (click)="goToChat()">Ir al chat</button>
     </div>
 
     <ng-container *ngIf="snapshots().length > 0">
 
-      <!-- Resumen (último snapshot por tema) -->
+      <!-- ══ SECCIÓN 2: Resumen de aptitudes ══════════════════════════════ -->
       <section class="section">
-        <h2>Resumen actual</h2>
-        <p class="section-desc">Estado más reciente de cada tema que has trabajado.</p>
+        <div class="section-header">
+          <mat-icon class="section-icon">auto_graph</mat-icon>
+          <div>
+            <h2>Resumen de aptitudes</h2>
+            <p class="section-desc">Estado más reciente por cada tema que has trabajado.</p>
+          </div>
+        </div>
+
         <div class="topics-grid">
           <div *ngFor="let s of latestPerTema()" class="topic-card">
-            <div class="topic-name">{{ s.tema }}</div>
-            <div class="topic-date">{{ s.fecha | date:'d MMM yyyy' }}</div>
+            <div class="topic-head">
+              <span class="topic-name">{{ s.tema }}</span>
+              <span class="topic-date">{{ s.fecha | date:'d MMM yyyy' }}</span>
+            </div>
 
             <div class="points-section" *ngIf="s.puntos_fuertes.length > 0">
-              <div class="points-label strong">Puntos fuertes</div>
+              <div class="points-label strong">
+                <mat-icon>thumb_up</mat-icon> Puntos fuertes
+              </div>
               <ul>
                 <li *ngFor="let p of s.puntos_fuertes">{{ p }}</li>
               </ul>
             </div>
+
             <div class="points-section" *ngIf="s.puntos_debiles.length > 0">
-              <div class="points-label weak">Puntos débiles</div>
+              <div class="points-label weak">
+                <mat-icon>priority_high</mat-icon> Puntos a mejorar
+              </div>
               <ul>
                 <li *ngFor="let p of s.puntos_debiles">{{ p }}</li>
               </ul>
@@ -48,14 +113,18 @@
         </div>
       </section>
 
-      <!-- Timelapse filtrado por tema -->
+      <!-- ══ SECCIÓN 3: Timelapse ══════════════════════════════════════════ -->
       <section class="section">
-        <div class="timelapse-header">
-          <h2>Timelapse por tema</h2>
+        <div class="section-header">
+          <mat-icon class="section-icon">history</mat-icon>
+          <div class="timelapse-header-text">
+            <h2>Evolución por tema</h2>
+            <p class="section-desc">Historial completo de tus análisis anteriores.</p>
+          </div>
           <mat-form-field appearance="outline" class="tema-select">
-            <mat-label>Filtrar por tema</mat-label>
+            <mat-label>Filtrar tema</mat-label>
             <mat-select [ngModel]="selectedTema()" (ngModelChange)="setTema($event)">
-              <mat-option value="">Todos los temas</mat-option>
+              <mat-option value="">Todos</mat-option>
               <mat-option *ngFor="let t of temas()" [value]="t">{{ t }}</mat-option>
             </mat-select>
           </mat-form-field>
@@ -71,11 +140,11 @@
               </div>
               <div class="timeline-body">
                 <div class="points-section" *ngIf="s.puntos_fuertes.length > 0">
-                  <div class="points-label strong">Puntos fuertes</div>
+                  <div class="points-label strong"><mat-icon>thumb_up</mat-icon> Puntos fuertes</div>
                   <ul><li *ngFor="let p of s.puntos_fuertes">{{ p }}</li></ul>
                 </div>
                 <div class="points-section" *ngIf="s.puntos_debiles.length > 0">
-                  <div class="points-label weak">Puntos débiles</div>
+                  <div class="points-label weak"><mat-icon>priority_high</mat-icon> A mejorar</div>
                   <ul><li *ngFor="let p of s.puntos_debiles">{{ p }}</li></ul>
                 </div>
               </div>

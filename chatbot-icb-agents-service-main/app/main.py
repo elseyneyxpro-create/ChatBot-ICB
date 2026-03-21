@@ -3,6 +3,10 @@ from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env", override=True)
 
+import logging
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("icb.ai").setLevel(logging.INFO)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.answer import router as answer_router

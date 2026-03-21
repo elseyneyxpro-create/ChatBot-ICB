@@ -1,21 +1,18 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatCardModule } from '@angular/material/card';
-
-type Subject = 'Todos' | 'Cálculo' | 'Álgebra' | 'Física';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { environment } from '../../../../environments/environment';
 
 interface Video {
-  id: string;
-  title: string;
-  subject: Subject;
-  duration: string;
-  channel: string;
-  thumb: string;
+  url: string;
+  tema: string;
 }
 
 @Component({
@@ -24,33 +21,59 @@ interface Video {
   imports: [
     CommonModule, FormsModule,
     MatFormFieldModule, MatInputModule, MatIconModule,
-    MatChipsModule, MatCardModule
+    MatChipsModule, MatCardModule, MatProgressSpinnerModule,
   ],
   templateUrl: './video-library.component.html',
   styleUrls: ['./video-library.component.scss']
 })
-export class VideoLibraryComponent {
+export class VideoLibraryComponent implements OnInit {
+  private http = inject(HttpClient);
+  private base = environment.AGENTS_URL;
+
   query = signal('');
-  subject = signal<Subject>('Todos');
+  selectedTema = signal('Todos');
+  allVideos = signal<Video[]>([]);
+  temas = signal<string[]>([]);
+  loading = signal(true);
+  error = signal(false);
 
-  videos = signal<Video[]>([
-    { id:'1', title:'Límites: intuición y propiedades', subject:'Cálculo', duration:'12:03', channel:'ICB', thumb:'https://i.ytimg.com/vi/5qap5aO4i9A/hqdefault.jpg' },
-    { id:'2', title:'Autovalores y Autovectores',       subject:'Álgebra', duration:'16:40', channel:'ICB', thumb:'https://i.ytimg.com/vi/OHnq79rI1Wg/hqdefault.jpg' },
-    { id:'3', title:'Cinemática: MRU y MRUA',           subject:'Física',  duration:'10:22', channel:'ICB', thumb:'https://i.ytimg.com/vi/2Vv-BfVoq4g/hqdefault.jpg' },
-  ]);
+  filtered = computed(() => {
+    const q = this.query().toLowerCase();
+    const t = this.selectedTema();
+    return this.allVideos().filter(v =>
+      (t === 'Todos' || v.tema === t) &&
+      (v.url.toLowerCase().includes(q) || v.tema.toLowerCase().includes(q))
+    );
+  });
 
-  filtered = computed(() =>
-    this.videos().filter(v =>
-      (this.subject() === 'Todos' || v.subject === this.subject()) &&
-      v.title.toLowerCase().includes(this.query().toLowerCase())
-    )
-  );
-
-  // ← usa un método TS en vez de cast en el template
-  updateQuery(ev: Event) {
-    const target = ev.target as HTMLInputElement | null;
-    this.query.set(target?.value ?? '');
+  ngOnInit() {
+    this.http.get<{ videos: Video[]; temas: string[] }>(`${this.base}/ai/videos`).subscribe({
+      next: (res) => {
+        this.allVideos.set(res.videos ?? []);
+        this.temas.set(res.temas ?? []);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.error.set(true);
+      },
+    });
   }
 
-  setSubject(s: Subject) { this.subject.set(s); }
+  updateQuery(ev: Event) {
+    this.query.set((ev.target as HTMLInputElement).value ?? '');
+  }
+
+  getYouTubeId(url: string): string | null {
+    const patterns = [
+      /youtube\.com\/watch\?v=([^&]+)/,
+      /youtu\.be\/([^?&]+)/,
+      /youtube\.com\/embed\/([^?&]+)/,
+    ];
+    for (const p of patterns) {
+      const m = url.match(p);
+      if (m) return m[1];
+    }
+    return null;
+  }
 }

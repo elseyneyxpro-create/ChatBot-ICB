@@ -1,14 +1,23 @@
-<div class="messages" #scrollContainer>
+<div class="messages" #scrollContainer (scroll)="onContainerScroll()">
   <div
-    *ngFor="let m of messages"
+    *ngFor="let m of messages; trackBy: trackById"
     class="msg"
     [class.user]="m.role === 'user'"
     [class.bot]="m.role === 'bot'"
   >
     <div class="bubble">
       <img *ngIf="m.imagePreview" [src]="m.imagePreview" class="msg-image" alt="Imagen adjunta" />
-      <div *ngIf="m.text" [innerHTML]="m.text | katexRender"></div>
+      <div *ngIf="m.text && !m.isTyping" [innerHTML]="m.text | katexRender"></div>
+      <div *ngIf="m.isTyping" class="typing-text">{{ m.text }}<span class="typing-cursor">▋</span></div>
     </div>
     <div class="time">{{ m.ts | date:'shortTime' }}</div>
   </div>
 </div>
+
+<button
+  *ngIf="showScrollBtn()"
+  class="scroll-to-bottom-btn"
+  (click)="scrollToBottom()"
+  aria-label="Ir al final del chat">
+  <mat-icon>expand_more</mat-icon>
+</button>

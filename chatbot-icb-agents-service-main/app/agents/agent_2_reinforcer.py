@@ -1,66 +1,69 @@
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
+import json
+import logging
+from openai import OpenAI
 from app.core.config import settings
 
-llm = ChatOpenAI(model=settings.OPENAI_MODEL, api_key=settings.OPENAI_API_KEY)
+logger = logging.getLogger("icb.ai")
 
-prompt = ChatPromptTemplate.from_messages([
-    ("system", """Eres un agente de pensamiento crítico para estudiantes de Cálculo 1 del ICB (UDP).
+client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
-Analiza la pregunta del alumno e identifica posibles errores conceptuales o áreas de refuerzo.
+SYSTEM_PROMPT = """Eres un agente de pensamiento crítico para estudiantes de Cálculo 1 del ICB (UDP).
 
-━━━ CLASIFICACIÓN ━━━
-1. "trivial" → La pregunta NO es de contenido matemático (saludos, agradecimientos, off-topic).
-2. "amarillo" → Pregunta matemática válida, sin errores graves evidentes.
-3. "rojo" → La pregunta revela un error conceptual grave en el razonamiento del alumno.
+Recibirás la pregunta del alumno (siempre matemática) y la respuesta del tutor.
+Tu tarea: generar retroalimentación y ejercicios basados en lo explicado.
 
-━━━ TEXTO PRINCIPAL ━━━
-- trivial: reflexión interesante sobre Cálculo 1.
-- amarillo: acotación de pensamiento crítico, conexión con otro tema o profundización.
-- rojo: señala el error claramente y guía al alumno a reflexionar.
+CLASIFICACIÓN (campo "nivel") — elige UNO:
+- "rojo": la pregunta revela un error conceptual grave del alumno (confundió definiciones, aplicó mal una regla, etc.).
+- "amarillo": cualquier otro caso (pedido de explicación, ejercicio, duda válida sin error grave).
 
-━━━ 3 EJERCICIOS ━━━
-Genera exactamente 3 ejercicios enfocados en el tema y el error detectado (si hubo).
-Sé conciso — los ejercicios deben ser claros pero breves.
+TEXTO (campo "texto") — obligatorio, mínimo 1 oración:
+- amarillo: conecta con otro tema, advierte sobre errores comunes en este concepto, o profundiza algo de la respuesta del tutor.
+- rojo: señala el error claramente y guía al alumno a reflexionar sobre por qué está equivocado.
 
-Ejercicio 1 "verdadero_falso": afirmación sobre el tema (sin respuesta).
-Ejercicio 2 "encuentra_el_error": desarrollo matemático incorrecto breve (3-4 pasos), el alumno identifica el error.
-Ejercicio 3 "concepto": pregunta conceptual abierta.
+EJERCICIOS (campo "ejercicios") — genera SIEMPRE exactamente 3, basados en la respuesta del tutor:
+1. tipo "verdadero_falso": afirmación V o F sobre el concepto (sin indicar cuál). Solo campo "enunciado".
+2. tipo "encuentra_el_error": campo "enunciado" con instrucción + campo "desarrollo" con 3-4 pasos separados por " | ".
+3. tipo "concepto": pregunta abierta que exija aplicar el concepto. Solo campo "enunciado".
 
-Contexto del material:
-{rag_context}
-
-Responde en JSON exacto:
-{{
-  "nivel": "trivial" | "amarillo" | "rojo",
-  "texto": "acotación breve",
-  "ejercicios": [
-    {{"tipo": "verdadero_falso", "enunciado": "..."}},
-    {{"tipo": "encuentra_el_error", "enunciado": "...", "desarrollo": "paso1\\npaso2\\npaso3"}},
-    {{"tipo": "concepto", "enunciado": "..."}}
-  ]
-}}"""),
-    ("human", "Pregunta del alumno: {question}"),
-])
-
-chain = prompt | llm | JsonOutputParser()
+Responde SOLO con un objeto JSON válido, sin texto adicional."""
 
 
-def reinforce(question: str, rag_context: str) -> dict:
+def reinforce(question: str, answer: str, rag_context: str, tema: str | None = None) -> dict:
+    user_content = f"Pregunta del alumno: {question}\n\nRespuesta del tutor: {answer[:1500]}"
+    if rag_context:
+        user_content += f"\n\nContexto del material: {rag_context[:500]}"
+
     try:
-        result = chain.invoke({
-            "question": question,
-            "rag_context": rag_context or "No hay contexto disponible.",
-        })
-        if result.get("nivel") not in ("trivial", "amarillo", "rojo"):
+        response = client.chat.completions.create(
+            model=settings.OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_content},
+            ],
+            response_format={"type": "json_object"},
+            timeout=45,
+            max_tokens=800,
+        )
+        raw = response.choices[0].message.content
+        logger.info(f"Reinforcer raw: {raw[:200]}")
+        result = json.loads(raw)
+
+        # El reinforcer solo se llama en preguntas matemáticas, nunca debe ser trivial
+        if result.get("nivel") not in ("amarillo", "rojo"):
             result["nivel"] = "amarillo"
-        if "ejercicios" not in result or not isinstance(result["ejercicios"], list):
+        if not isinstance(result.get("ejercicios"), list):
             result["ejercicios"] = []
+
+        for ej in result["ejercicios"]:
+            if ej.get("desarrollo"):
+                ej["desarrollo"] = ej["desarrollo"].replace(" | ", "\n")
+
         return result
-    except Exception:
+
+    except Exception as e:
+        logger.error(f"Reinforcer falló: {e}")
         return {
             "nivel": "amarillo",
-            "texto": "¿Puedes explicar con tus propias palabras el concepto que acabas de ver?",
+            "texto": "Reflexiona sobre el concepto que acabas de ver: ¿puedes aplicarlo a un caso distinto?",
             "ejercicios": [],
         }

@@ -1,7 +1,7 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Auth } from '@angular/fire/auth';
-import { FirestoreService } from './firestore.service';
+import { FirestoreService, type Reinforcement } from './firestore.service';
 import { environment } from '../../environments/environment';
 
 export type Role = 'user' | 'bot';
@@ -12,19 +12,10 @@ export interface ChatMessage {
   text: string;
   ts: number;
   imagePreview?: string;
+  isTyping?: boolean;
 }
 
-export interface Ejercicio {
-  tipo: 'verdadero_falso' | 'encuentra_el_error' | 'concepto';
-  enunciado: string;
-  desarrollo?: string;
-}
-
-export interface Reinforcement {
-  nivel: 'rojo' | 'amarillo' | 'trivial';
-  texto: string;
-  ejercicios?: Ejercicio[];
-}
+export type { Ejercicio, Reinforcement } from './firestore.service';
 
 export interface AgentsAnswer {
   ok: boolean;
@@ -49,17 +40,19 @@ export class ChatService {
 
   private currentChatId: string | null = null;
   private currentTotalHilos = 0;
+  private currentResumen = '';
 
-  setActiveChat(id: string, totalHilos = 0) {
+  setActiveChat(id: string, totalHilos = 0, resumen = '') {
     this.currentChatId = id;
     this.currentTotalHilos = totalHilos;
+    this.currentResumen = resumen;
   }
 
   getActiveChatId(): string | null {
     return this.currentChatId;
   }
 
-  async loadUserMessages(id_chat_nr: string): Promise<void> {
+  async loadUserMessages(id_chat_nr: string, lastReinforcement?: Reinforcement | null): Promise<void> {
     const history = await this.firestoreService.loadHistory(id_chat_nr);
     const messages: ChatMessage[] = [];
 
@@ -80,18 +73,39 @@ export class ChatService {
 
     this.currentTotalHilos = history.length;
     this.messagesSig.set(messages);
+    this.reinforcementSig.set(lastReinforcement ?? null);
+  }
+
+  setResumen(resumen: string) {
+    this.currentResumen = resumen;
   }
 
   ask(question: string, imageBase64?: string) {
-    const uid = this.auth.currentUser?.uid ?? 'anon';
+    const u = this.auth.currentUser;
     return this.http.post<AgentsAnswer>(`${this.base}/ai/answer`, {
       question,
       session_id: this.currentChatId ?? 'demo',
-      uid,
+      uid: u?.uid ?? null,
       id_chat_nr: this.currentChatId,
       total_hilos: this.currentTotalHilos,
       image_base64: imageBase64 ?? null,
+      display_name: u?.displayName ?? null,
+      email: u?.email ?? null,
+      photo_url: u?.photoURL ?? null,
+      context: this._buildContext(),
+      resumen_conversacion: this.currentResumen || null,
     });
+  }
+
+  /** Últimos 3 intercambios como texto para dar contexto al bot. */
+  private _buildContext(): string {
+    const msgs = this.messagesSig();
+    if (msgs.length === 0) return '';
+    // Take last 6 messages (3 exchanges), cap each at 400 chars
+    return msgs
+      .slice(-6)
+      .map(m => `${m.role === 'user' ? 'Alumno' : 'Tutor'}: ${m.text.slice(0, 400)}`)
+      .join('\n');
   }
 
   push(role: Role, text: string, imagePreview?: string) {
@@ -103,6 +117,30 @@ export class ChatService {
       imagePreview,
     };
     this.messagesSig.update(arr => [...arr, msg]);
+  }
+
+  async pushWithTypewriter(role: Role, text: string): Promise<void> {
+    const id = crypto.randomUUID();
+    // Mensaje vacío con isTyping=true — muestra texto plano sin KaTeX durante la animación
+    this.messagesSig.update(arr => [...arr, { id, role, text: '', ts: Date.now(), isTyping: true }]);
+
+    const words = text.split(' ');
+    const delay = 45; // velocidad fija: ~22 palabras/seg
+    let current = '';
+
+    for (const word of words) {
+      current += (current ? ' ' : '') + word;
+      const snapshot = current;
+      this.messagesSig.update(arr =>
+        arr.map(m => m.id === id ? { ...m, text: snapshot } : m)
+      );
+      await new Promise<void>(resolve => setTimeout(resolve, delay));
+    }
+
+    // Animación terminada: desactivar isTyping para que KaTeX renderice el texto final
+    this.messagesSig.update(arr =>
+      arr.map(m => m.id === id ? { ...m, isTyping: false } : m)
+    );
   }
 
   async saveExchange(input: string, output: string, tema: string | null): Promise<void> {
@@ -126,5 +164,6 @@ export class ChatService {
     this.reinforcementSig.set(null);
     this.videosSig.set([]);
     this.currentTotalHilos = 0;
+    this.currentResumen = '';
   }
 }

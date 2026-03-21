@@ -1,7 +1,11 @@
 <div class="layout">
 
+  <!-- ── Backdrop overlay (mobile) ── -->
+  <div class="chat-overlay-backdrop" *ngIf="showMobileChats()" (click)="showMobileChats.set(false)"></div>
+  <div class="chat-overlay-backdrop" *ngIf="showMobileReinforcement()" (click)="showMobileReinforcement.set(false)"></div>
+
   <!-- ── Sidebar izquierda: lista de chats ── -->
-  <aside class="chat-sidebar">
+  <aside class="chat-sidebar" [class.mobile-open]="showMobileChats()">
     <div class="sidebar-header">
       <span class="sidebar-title">Mis chats</span>
       <button mat-icon-button
@@ -24,50 +28,88 @@
         *ngFor="let c of chatList()"
         class="chat-item"
         [class.active]="c.id === activeChatId()"
-        (click)="selectChat(c)">
+        (click)="renamingChatId() !== c.id && selectChat(c)">
+
         <mat-icon class="chat-icon">chat_bubble_outline</mat-icon>
-        <span class="chat-name">{{ c.nombre }}</span>
+
+        <input
+          *ngIf="renamingChatId() === c.id"
+          class="chat-rename-input"
+          [value]="renamingName()"
+          (input)="renamingName.set($any($event.target).value)"
+          (keydown.enter)="confirmRename(c)"
+          (blur)="confirmRename(c)"
+          (click)="$event.stopPropagation()"
+          autofocus />
+
+        <span *ngIf="renamingChatId() !== c.id" class="chat-name">{{ c.nombre }}</span>
+
+        <div class="chat-actions" *ngIf="renamingChatId() !== c.id" (click)="$event.stopPropagation()">
+          <button mat-icon-button class="action-btn" title="Renombrar" (click)="startRename(c, $event)">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button class="action-btn delete-btn" title="Eliminar" (click)="deleteChat(c, $event)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
       </div>
     </div>
 
-    <div class="sidebar-footer">
-      <button mat-button class="profile-btn" (click)="goToProfile()">
-        <mat-icon>person</mat-icon>
-        Mi perfil
-      </button>
-    </div>
   </aside>
 
   <!-- ── Chat principal ── -->
   <div class="chat-area">
+
+    <!-- FABs mobile -->
+    <button mat-fab class="mobile-chats-fab" (click)="showMobileChats.set(true)" aria-label="Mis chats">
+      <mat-icon>chat</mat-icon>
+    </button>
+    <button mat-fab class="mobile-reinf-fab" [class.has-content]="reinforcement() || videos().length > 0" (click)="showMobileReinforcement.set(true)" aria-label="Pensamiento crítico">
+      <mat-icon>psychology</mat-icon>
+      <span class="reinf-badge" *ngIf="videos().length > 0">{{ videos().length }}</span>
+    </button>
+
+    <!-- Status bar -->
+    <div class="chat-status-bar">
+      <div class="status-pill" [ngClass]="'status-' + botStatus()">
+        <span class="status-dot"></span>
+        <span>{{ botStatus() === 'ready' ? 'Listo' : botStatus() === 'thinking' ? 'Pensando' : 'Error' }}</span>
+      </div>
+      <span class="status-helper" *ngIf="botStatus() === 'ready'">El chat está listo para responder.</span>
+      <span class="status-helper" *ngIf="botStatus() === 'thinking'">Generando respuesta... {{ elapsedSeconds() }}s</span>
+      <span class="status-helper status-helper-error" *ngIf="botStatus() === 'error'">No se pudo conectar. Intenta nuevamente.</span>
+    </div>
+
     <div *ngIf="!activeChatId()" class="no-chat-selected">
       <mat-icon>chat</mat-icon>
       <p>Selecciona o crea un chat para comenzar</p>
     </div>
 
     <ng-container *ngIf="activeChatId()">
-      <app-message-list [messages]="messages()"></app-message-list>
-
-      <!-- Loader (typing indicator) -->
-      <div *ngIf="loading()" class="typing-indicator">
-        <span></span><span></span><span></span>
-        <span class="thinking-label">Pensando... {{ elapsedSeconds() }}s</span>
+      <div class="chat-box">
+        <app-message-list [messages]="messages()"></app-message-list>
+        <app-message-input
+          (send)="send($event)"
+          [disabled]="loading()"
+          [class.input-hidden-mobile]="chatScrolledUp()">
+        </app-message-input>
       </div>
-
-      <app-message-input (send)="send($event)" [disabled]="loading()"></app-message-input>
     </ng-container>
   </div>
 
   <!-- ── Panel derecho: refuerzo + ejercicios + videos ── -->
-  <aside class="reinforcement-sidebar">
+  <aside class="reinforcement-sidebar" [class.mobile-open]="showMobileReinforcement()">
 
-    <!-- Placeholder cuando no hay nada aún -->
-    <div *ngIf="!reinforcement()" class="reinforcement-placeholder">
+    <div *ngIf="!reinforcement() && !reinforcementLoading()" class="reinforcement-placeholder">
       <mat-icon>psychology</mat-icon>
       <p>Aquí aparecerá retroalimentación personalizada después de tu primera pregunta.</p>
     </div>
 
-    <!-- Panel de pensamiento crítico -->
+    <div *ngIf="reinforcementLoading() && !reinforcement()" class="reinforcement-loading">
+      <mat-spinner [diameter]="28"></mat-spinner>
+      <p>Analizando tu respuesta...</p>
+    </div>
+
     <ng-container *ngIf="reinforcement() as r">
       <div class="reinforcement-panel" [ngClass]="r.nivel">
         <h3>
@@ -78,45 +120,35 @@
         <p>{{ r.texto }}</p>
       </div>
 
-      <!-- Ejercicios -->
       <div *ngIf="r.ejercicios && r.ejercicios.length > 0" class="ejercicios-panel">
         <h3 class="ejercicios-title">📝 Ejercicios para ti</h3>
 
         <div *ngFor="let ej of r.ejercicios" class="ejercicio-card" [ngClass]="ej.tipo">
-
-          <!-- Verdadero o Falso -->
           <ng-container *ngIf="ej.tipo === 'verdadero_falso'">
             <div class="ej-badge vf">V / F</div>
             <p class="ej-enunciado">{{ ej.enunciado }}</p>
           </ng-container>
 
-          <!-- Encuentra el error -->
           <ng-container *ngIf="ej.tipo === 'encuentra_el_error'">
             <div class="ej-badge error">Encuentra el error</div>
             <p class="ej-enunciado">{{ ej.enunciado }}</p>
             <pre *ngIf="ej.desarrollo" class="ej-desarrollo">{{ ej.desarrollo }}</pre>
           </ng-container>
 
-          <!-- Pregunta conceptual -->
           <ng-container *ngIf="ej.tipo === 'concepto'">
             <div class="ej-badge concepto">Concepto</div>
             <p class="ej-enunciado">{{ ej.enunciado }}</p>
           </ng-container>
-
         </div>
       </div>
     </ng-container>
 
-    <!-- Videos relacionados -->
     <div *ngIf="videos().length > 0" class="videos-panel">
       <h3 class="videos-title">📹 Videos relacionados</h3>
       <div *ngFor="let url of videos()" class="video-card">
         <ng-container *ngIf="getYouTubeId(url) as ytId; else plainLink">
           <a [href]="url" target="_blank" rel="noopener" class="video-thumb-link">
-            <img
-              [src]="'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg'"
-              class="video-thumb"
-              alt="Video relacionado" />
+            <img [src]="'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg'" class="video-thumb" alt="Video relacionado" />
             <div class="video-play-overlay">
               <mat-icon>play_circle_filled</mat-icon>
             </div>

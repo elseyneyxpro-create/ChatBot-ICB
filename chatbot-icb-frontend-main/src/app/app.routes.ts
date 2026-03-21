@@ -31,6 +31,10 @@ export const routes: Routes = [
         path: 'library',
         loadComponent: () => import('./features/library/video-library/video-library.component').then(m => m.VideoLibraryComponent)
       },
+      {
+        path: 'leaderboard',
+        loadComponent: () => import('./features/leaderboard/leaderboard-page.component').then(m => m.LeaderboardPageComponent)
+      },
     ]
   },
   { path: '**', redirectTo: 'login' }
