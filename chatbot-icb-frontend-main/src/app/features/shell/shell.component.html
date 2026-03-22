@@ -150,8 +150,20 @@
   </mat-sidenav>
 
   <mat-sidenav-content>
+    <!-- Botón hamburguesa flotante: solo visible en mobile cuando el topbar está oculto -->
+    <button
+      *ngIf="topbarHidden() && isMobile()"
+      mat-icon-button
+      type="button"
+      class="floating-menu-btn"
+      (click)="$event.stopPropagation(); toggleSidenav()"
+      aria-label="Abrir menú"
+    >
+      <mat-icon>menu</mat-icon>
+    </button>
+
     <mat-toolbar color="primary" class="topbar" [class.topbar--hidden]="topbarHidden()">
-      <button mat-icon-button (click)="toggleSidenav()" class="only-mobile" type="button">
+      <button mat-icon-button (click)="$event.stopPropagation(); toggleSidenav()" class="only-mobile" type="button">
         <mat-icon>menu</mat-icon>
       </button>
       <span>ICB • Plataforma</span>

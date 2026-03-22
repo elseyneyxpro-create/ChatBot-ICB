@@ -18,9 +18,17 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       { clientID: !!clientID, clientSecret: !!clientSecret, callbackURL });
 
     if (!clientID || !clientSecret || !callbackURL) {
-      throw new InternalServerErrorException(
-        'Google OAuth mal configurado (clientID/secret/callback). Revisa tu .env y ConfigModule.forRoot().',
-      );
+      // En producción sin OAuth configurado: usar placeholders para no bloquear el arranque
+      // El endpoint /auth/google simplemente no funcionará pero el resto del backend sí
+      super({
+        clientID: clientID || 'DISABLED',
+        clientSecret: clientSecret || 'DISABLED',
+        callbackURL: callbackURL || 'http://localhost/auth/google/callback',
+        scope: ['profile', 'email'],
+        state: false,
+        passReqToCallback: false,
+      });
+      return;
     }
 
     super({
