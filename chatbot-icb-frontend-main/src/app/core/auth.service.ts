@@ -1,8 +1,10 @@
 import { Injectable, signal, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { Auth, GoogleAuthProvider, signInWithPopup, signOut, user } from '@angular/fire/auth';
+import { Auth, GoogleAuthProvider, signInWithPopup, signOut, deleteUser, user } from '@angular/fire/auth';
 import { Observable, from, of } from 'rxjs';
-import { tap, catchError, map } from 'rxjs/operators';
+import { tap, catchError, map, switchMap } from 'rxjs/operators';
+
+const ALLOWED_DOMAIN = 'mail.udp.cl';
 
 export interface User {
   uid: string;
@@ -44,11 +46,18 @@ export class AuthService {
   signInWithGoogle(): Observable<any> {
     const provider = new GoogleAuthProvider();
     return from(signInWithPopup(this.auth, provider)).pipe(
-      tap(() => this.router.navigateByUrl('/app')),
-      catchError(err => {
-        console.error('Error al iniciar sesión con Google', err);
-        return of(null);
-      })
+      switchMap(result => {
+        const email = result.user?.email ?? '';
+        if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
+          return from(deleteUser(result.user)).pipe(
+            switchMap(() => from(signOut(this.auth))),
+            map(() => { throw new Error(`Solo se permiten correos @${ALLOWED_DOMAIN}`); }),
+          );
+        }
+        this.router.navigateByUrl('/app');
+        return of(result);
+      }),
+      catchError(err => { throw err; }),
     );
   }
 

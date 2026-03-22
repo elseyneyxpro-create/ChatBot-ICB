@@ -23,7 +23,7 @@ export class LoginComponent {
 
   loginWithGoogle(): void {
     this.auth.signInWithGoogle().subscribe({
-      error: () => this.errorMessage.set('Error al iniciar sesión con Google. Inténtalo de nuevo.')
+      error: (err) => this.errorMessage.set(err?.message ?? 'Error al iniciar sesión con Google. Inténtalo de nuevo.')
     });
   }
 }
