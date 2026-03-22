@@ -107,7 +107,7 @@
     min-width: 0;
   }
 
-  @media (hover: hover) {
+  @media (hover: hover) and (pointer: fine) {
     &:hover {
       background: rgba(63, 81, 181, 0.06);
       .chat-icon { color: #7986cb; }
@@ -379,6 +379,9 @@
 
 // ── Responsive ────────────────────────────────────────────────────────────────
 @media (max-width: 1100px) {
+  // En mobile: ocultar chat-actions del item activo (no hay hover real)
+  .chat-item.active .chat-actions { display: none; }
+
   .layout {
     grid-template-columns: 1fr;
     grid-template-rows: 1fr;

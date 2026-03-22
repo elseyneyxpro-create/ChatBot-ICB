@@ -2,6 +2,9 @@
   display: block;
   min-height: 100dvh;
   color: #1d1d1f;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .auth-page-bg {
@@ -11,8 +14,7 @@
   display: grid;
   place-items: center;
   padding: clamp(16px, 3vw, 32px);
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: visible;
 }
 
 .bg-overlay {
