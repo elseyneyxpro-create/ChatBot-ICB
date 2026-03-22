@@ -160,7 +160,7 @@ def classify_and_retrieve(question: str, uid: str | None = None) -> dict:
             if matching_id:
                 vr = supabase.table("videos").select("url, categoria").eq("id_tema", matching_id).execute()
                 videos = [{"url": item["url"], "categoria": item.get("categoria") or ""} for item in vr.data] if vr.data else []
-            logger.info(f"Agent0: videos={len(videos)} para tema='{tema}' (matched_id={matching_id})")
+            logger.info(f"Agent0: videos={len(videos)} para tema='{tema}' (matched_id={matching_id}) — con categoria")
         except Exception as e:
             logger.warning(f"Error videos: {e}")
 
