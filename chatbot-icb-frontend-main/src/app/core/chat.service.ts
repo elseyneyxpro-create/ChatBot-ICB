@@ -74,6 +74,7 @@ export class ChatService {
         role: 'bot',
         text: hilo.output,
         ts: (hilo.created_at as any)?.toDate?.()?.getTime() ?? Date.now(),
+        ejemploVideos: hilo.ejemplo_videos ?? [],
       });
     }
 
@@ -149,10 +150,10 @@ export class ChatService {
     );
   }
 
-  async saveExchange(input: string, output: string, tema: string | null): Promise<void> {
+  async saveExchange(input: string, output: string, tema: string | null, ejemploVideos: string[] = []): Promise<void> {
     if (!this.currentChatId) return;
     const newTotal = await this.firestoreService.appendHilo(
-      this.currentChatId, input, output, tema
+      this.currentChatId, input, output, tema, ejemploVideos
     );
     this.currentTotalHilos = newTotal;
   }

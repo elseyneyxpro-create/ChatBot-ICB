@@ -154,7 +154,7 @@ def get_latest_weak_points(uid: str) -> str:
         return ""
 
 
-def save_reinforcement_to_firestore(id_chat_nr: str, reinforcement: dict) -> None:
+def save_reinforcement_to_firestore(id_chat_nr: str, reinforcement: dict, videos: list = None) -> None:
     """
     Guarda el reinforcement generado en background en Chat_nr/{id_chat_nr}.
     El frontend lo lee mediante polling después de recibir la respuesta principal.
@@ -166,6 +166,7 @@ def save_reinforcement_to_firestore(id_chat_nr: str, reinforcement: dict) -> Non
                 "nivel": reinforcement.get("nivel", "amarillo"),
                 "texto": reinforcement.get("texto", ""),
                 "ejercicios": reinforcement.get("ejercicios", []),
+                "videos": videos or [],
                 "saved_at": time.time(),
             }
         })

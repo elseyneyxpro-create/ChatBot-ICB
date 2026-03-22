@@ -22,12 +22,12 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 
 
 def _run_reinforcement_background(
-    question: str, answer: str, rag_context: str, tema: str, id_chat_nr: str
+    question: str, answer: str, rag_context: str, tema: str, id_chat_nr: str, videos: list = None
 ) -> None:
     """Corre el reforzador en background y guarda el resultado en Firestore."""
     try:
         reinforcement = reinforce(question=question, answer=answer, rag_context=rag_context, tema=tema)
-        save_reinforcement_to_firestore(id_chat_nr, reinforcement)
+        save_reinforcement_to_firestore(id_chat_nr, reinforcement, videos=videos)
     except Exception as e:
         logger.warning(f"Background reinforcement falló: {e}")
 
@@ -145,6 +145,7 @@ async def ai_answer(payload: Ask, background_tasks: BackgroundTasks):
             rag_context=rag_result["rag_context"],
             tema=tema,
             id_chat_nr=payload.id_chat_nr,
+            videos=rag_result["videos"],
         )
 
     if payload.id_chat_nr:

@@ -15,8 +15,7 @@ export interface Reinforcement {
   nivel: 'rojo' | 'amarillo' | 'trivial';
   texto: string;
   ejercicios?: Ejercicio[];
-  /** Timestamp Unix (segundos) del servidor cuando el backend guardó este reinforcement.
-   *  Presente solo en reinforcements generados en background (no en los guardados por el frontend antiguo). */
+  videos?: { url: string; categoria: string }[];
   saved_at?: number;
 }
 
@@ -43,6 +42,7 @@ export interface HiloChat {
   count: number;
   id_next: string;
   created_at: Date;
+  ejemplo_videos?: string[];
 }
 
 export interface LeaderboardEntry {
@@ -128,6 +128,7 @@ export class FirestoreService {
       nivel: raw['nivel'],
       texto: raw['texto'] ?? '',
       ejercicios: raw['ejercicios'] ?? [],
+      videos: raw['videos'] ?? [],
       saved_at: raw['saved_at'] ?? undefined,
     } as Reinforcement;
   }
@@ -175,6 +176,7 @@ export class FirestoreService {
     input: string,
     output: string,
     tema: string | null,
+    ejemploVideos: string[] = [],
   ): Promise<number> {
     const chatRef = doc(this.firestore, 'Chat_nr', id_chat_nr);
     const chatSnap = await getDoc(chatRef);
@@ -192,6 +194,7 @@ export class FirestoreService {
       count: newCount,
       id_next: '',
       created_at: new Date(),
+      ejemplo_videos: ejemploVideos,
     });
 
     // Actualizar id_next del tail anterior

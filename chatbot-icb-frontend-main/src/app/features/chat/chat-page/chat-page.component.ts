@@ -101,6 +101,9 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     this.chat.setActiveChat(chat.id, chat.total_hilos, chat.resumen_conversacion ?? '');
     this.chat.clear();
     await this.chat.loadUserMessages(chat.id, chat.last_reinforcement);
+    if (chat.last_reinforcement?.videos?.length) {
+      this.chat.setVideos(chat.last_reinforcement.videos);
+    }
   }
 
   startRename(chat: ChatNr, event: Event) {
@@ -199,7 +202,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
         const ejemploUrls = allVideos.filter(v => v.categoria === 'ejemplo').map(v => v.url);
         await this.chat.pushWithTypewriter('bot', reply, ejemploUrls);
         this.chat.setVideos(allVideos);
-        this.chat.saveExchange(payload.text, reply, res.tema ?? null);
+        this.chat.saveExchange(payload.text, reply, res.tema ?? null, ejemploUrls);
 
         // Start listening for reinforcement via Firestore (comes in background)
         if (res.tema && this.activeChatId()) {
