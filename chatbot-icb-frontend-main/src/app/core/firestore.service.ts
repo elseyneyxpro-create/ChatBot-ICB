@@ -28,6 +28,7 @@ export interface ChatNr {
   total_hilos: number;
   created_at: Date;
   last_reinforcement?: Reinforcement | null;
+  last_videos?: { url: string; categoria: string }[];
   resumen_conversacion?: string | null;
 }
 
@@ -91,6 +92,7 @@ export class FirestoreService {
         total_hilos: data['total_hilos'] ?? 0,
         created_at: (data['created_at'] as Timestamp)?.toDate?.() ?? new Date(),
         last_reinforcement: this._mapReinforcement(data['last_reinforcement']),
+        last_videos: data['last_videos'] ?? [],
         resumen_conversacion: data['resumen_conversacion'] ?? null,
       } as ChatNr;
     });
@@ -131,6 +133,14 @@ export class FirestoreService {
       videos: raw['videos'] ?? [],
       saved_at: raw['saved_at'] ?? undefined,
     } as Reinforcement;
+  }
+
+  async saveLastVideos(id_chat_nr: string, videos: { url: string; categoria: string }[]): Promise<void> {
+    try {
+      await updateDoc(doc(this.firestore, 'Chat_nr', id_chat_nr), { last_videos: videos });
+    } catch (e) {
+      console.warn('[FirestoreService] saveLastVideos falló:', e);
+    }
   }
 
   async renameChat(id: string, nombre: string): Promise<void> {

@@ -266,7 +266,47 @@
   .cards-floating .news img[mat-card-image] { height: 150px; }
 }
 
-@media (max-width: 520px) {
-  .hero-content .hero-actions .hero-btn { width: 100%; justify-content: center; }
-  .login-center { padding-top: 180px; }
+/* En mobile pequeño: ocultar el hero, centrar el card limpiamente */
+@media (max-width: 640px) {
+  .hero-floating { display: none; }
+
+  .auth-page-bg {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: clamp(24px, 8vw, 40px) 16px 24px;
+  }
+
+  .login-center {
+    padding-top: 0;
+    padding-bottom: 20px;
+    width: 100%;
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 400px;
+    border-radius: 18px;
+  }
+
+  .cards-floating {
+    width: 100%;
+    margin-top: 0;
+    padding: 0;
+  }
+
+  .cards-floating .cards {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .cards-floating .news {
+    flex: none;
+    min-width: 0;
+    max-width: 100%;
+    border-radius: 14px;
+  }
+
+  .cards-floating .news img[mat-card-image] { height: 130px; }
 }
