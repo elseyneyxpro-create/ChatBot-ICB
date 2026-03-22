@@ -73,6 +73,8 @@
   font-size: 0.875rem;
   color: #444;
   position: relative;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 
   .chat-icon { font-size: 17px; width: 17px; height: 17px; color: #ccc; flex-shrink: 0; }
   .chat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
@@ -112,6 +114,11 @@
       background: rgba(63, 81, 181, 0.06);
       .chat-icon { color: #7986cb; }
       .chat-actions { display: flex; }
+    }
+  }
+  @media (hover: none) {
+    &:hover {
+      background: transparent;
     }
   }
   &.active {
