@@ -266,8 +266,8 @@
   .cards-floating .news img[mat-card-image] { height: 150px; }
 }
 
-/* En mobile pequeño: ocultar el hero, centrar el card limpiamente */
-@media (max-width: 640px) {
+/* En mobile: ocultar el hero, centrar el card limpiamente */
+@media (max-width: 768px) {
   .hero-floating { display: none; }
 
   .auth-page-bg {
