@@ -1,9 +1,9 @@
 export const environment = {
-  production: false,
-  API_URL: 'http://localhost:3000',
-  AGENTS_URL: 'http://localhost:8009',
+  production: true, // Cámbialo a true para que Angular sepa que es real
+  API_URL: '/api',
+  AGENTS_URL: '/agents',
   auth: {
-    loginUrl: 'http://localhost:3000/auth/google',
+    loginUrl: '/api/auth/google',
   },
   firebase: {
     apiKey: "AIzaSyB03EfnfWmKIOfLDe5PO9uAHLPbUkR1m4o",
