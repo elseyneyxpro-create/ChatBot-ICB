@@ -70,13 +70,13 @@ async def get_videos():
     try:
         vt_result = supabase.table("videos_tema").select("id_tema, tema").execute()
         temas_data = vt_result.data or []
-        vr_result = supabase.table("videos").select("url, id_tema").execute()
+        vr_result = supabase.table("videos").select("url, id_tema, categoria").execute()
         videos_data = vr_result.data or []
 
         tema_map = {t["id_tema"]: t["tema"] for t in temas_data}
         all_temas = sorted(set(t["tema"] for t in temas_data))
         videos = [
-            {"url": v["url"], "tema": tema_map.get(v["id_tema"], "")}
+            {"url": v["url"], "tema": tema_map.get(v["id_tema"], ""), "categoria": v.get("categoria") or ""}
             for v in videos_data
         ]
         return JSONResponse({"videos": videos, "temas": all_temas})

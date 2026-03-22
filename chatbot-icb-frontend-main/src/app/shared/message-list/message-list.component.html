@@ -9,6 +9,22 @@
       <img *ngIf="m.imagePreview" [src]="m.imagePreview" class="msg-image" alt="Imagen adjunta" />
       <div *ngIf="m.text && !m.isTyping" [innerHTML]="m.text | katexRender"></div>
       <div *ngIf="m.isTyping" class="typing-text">{{ m.text }}<span class="typing-cursor">▋</span></div>
+      <div *ngIf="m.role === 'bot' && m.ejemploVideos && m.ejemploVideos.length > 0" class="ejemplo-videos">
+        <div class="ejemplo-label"><mat-icon>play_lesson</mat-icon> Ejemplo en video</div>
+        <div *ngFor="let url of m.ejemploVideos" class="ejemplo-video-card">
+          <ng-container *ngIf="getYouTubeId(url) as ytId; else plainEjemplo">
+            <a [href]="url" target="_blank" rel="noopener" class="video-thumb-link">
+              <img [src]="'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg'" class="video-thumb" alt="Ejemplo en video" />
+              <div class="video-play-overlay"><mat-icon>play_circle_filled</mat-icon></div>
+            </a>
+          </ng-container>
+          <ng-template #plainEjemplo>
+            <a [href]="url" target="_blank" rel="noopener" class="video-plain-link">
+              <mat-icon>open_in_new</mat-icon> Ver ejemplo
+            </a>
+          </ng-template>
+        </div>
+      </div>
     </div>
     <div class="time">{{ m.ts | date:'shortTime' }}</div>
   </div>

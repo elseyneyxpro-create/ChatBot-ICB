@@ -1,5 +1,5 @@
 export const environment = {
-  production: true, // Cámbialo a true para que Angular sepa que es real
+  production: true,
   API_URL: '/api',
   AGENTS_URL: '/agents',
   auth: {

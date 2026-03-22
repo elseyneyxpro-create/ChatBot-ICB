@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { firstValueFrom } from 'rxjs';
-import { ChatService } from '../../../core/chat.service';
+import { ChatService, type VideoItem } from '../../../core/chat.service';
 import { FirestoreService, type ChatNr } from '../../../core/firestore.service';
 import { UiService } from '../../../core/ui.service';
 import { MessageListComponent } from '../../../shared/message-list/message-list.component';
@@ -167,6 +167,15 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     return null;
   }
 
+  getVideoByCategoria(categoria: string): string | null {
+    const v = this.videos().find(v => v.categoria === categoria);
+    return v?.url ?? null;
+  }
+
+  sidebarVideos = computed(() =>
+    this.videos().filter(v => !['concepto', 'v o f', 'encuentre el error', 'ejemplo'].includes(v.categoria))
+  );
+
   async send(payload: SendPayload) {
     if (!this.activeChatId()) return;
     this.chat.push('user', payload.text, payload.imagePreview);
@@ -186,8 +195,10 @@ export class ChatPageComponent implements OnInit, OnDestroy {
 
       if (res?.ok) {
         const reply = res.reply ?? '';
-        await this.chat.pushWithTypewriter('bot', reply);
-        this.chat.setVideos(res.videos ?? []);
+        const allVideos = res.videos ?? [];
+        const ejemploUrls = allVideos.filter(v => v.categoria === 'ejemplo').map(v => v.url);
+        await this.chat.pushWithTypewriter('bot', reply, ejemploUrls);
+        this.chat.setVideos(allVideos);
         this.chat.saveExchange(payload.text, reply, res.tema ?? null);
 
         // Start listening for reinforcement via Firestore (comes in background)

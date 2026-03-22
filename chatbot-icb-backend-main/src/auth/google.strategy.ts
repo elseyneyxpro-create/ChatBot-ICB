@@ -6,37 +6,16 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(private readonly cfg: ConfigService) {
-    const clientID     = cfg.get<string>('GOOGLE_CLIENT_ID');
-    const clientSecret = cfg.get<string>('GOOGLE_CLIENT_SECRET');
-    const callbackURL  = cfg.get<string>('GOOGLE_CALLBACK_URL');
-
-    // Logs de diagnóstico
-    // (se verán cuando entres a /auth/google)
-    // OJO: no logeamos valores reales, solo si existen.
-    // eslint-disable-next-line no-console
-    console.log('[GOOGLE_STRATEGY]',
-      { clientID: !!clientID, clientSecret: !!clientSecret, callbackURL });
-
-    if (!clientID || !clientSecret || !callbackURL) {
-      // En producción sin OAuth configurado: usar placeholders para no bloquear el arranque
-      // El endpoint /auth/google simplemente no funcionará pero el resto del backend sí
-      super({
-        clientID: clientID || 'DISABLED',
-        clientSecret: clientSecret || 'DISABLED',
-        callbackURL: callbackURL || 'http://localhost/auth/google/callback',
-        scope: ['profile', 'email'],
-        state: false,
-        passReqToCallback: false,
-      });
-      return;
-    }
+    const clientID     = cfg.get<string>('GOOGLE_CLIENT_ID')     || 'DISABLED';
+    const clientSecret = cfg.get<string>('GOOGLE_CLIENT_SECRET') || 'DISABLED';
+    const callbackURL  = cfg.get<string>('GOOGLE_CALLBACK_URL')  || 'http://localhost/auth/google/callback';
 
     super({
       clientID,
       clientSecret,
       callbackURL,
       scope: ['profile', 'email'],
-      state: false,                 // importante: sin sesiones con Fastify
+      state: false,
       passReqToCallback: false,
     });
   }

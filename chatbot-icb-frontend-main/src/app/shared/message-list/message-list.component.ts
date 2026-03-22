@@ -33,6 +33,19 @@ export class MessageListComponent implements AfterViewChecked {
 
   trackById(_: number, m: ChatMessage) { return m.id; }
 
+  getYouTubeId(url: string): string | null {
+    const patterns = [
+      /youtube\.com\/watch\?v=([^&]+)/,
+      /youtu\.be\/([^?&]+)/,
+      /youtube\.com\/embed\/([^?&]+)/,
+    ];
+    for (const p of patterns) {
+      const m = url.match(p);
+      if (m) return m[1];
+    }
+    return null;
+  }
+
   onContainerScroll() {
     const el = this.scrollContainer?.nativeElement;
     if (!el) return;

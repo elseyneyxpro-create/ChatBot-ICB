@@ -13,6 +13,7 @@ import { environment } from '../../../../environments/environment';
 interface Video {
   url: string;
   tema: string;
+  categoria: string;
 }
 
 @Component({

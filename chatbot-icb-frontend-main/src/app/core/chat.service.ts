@@ -13,15 +13,21 @@ export interface ChatMessage {
   ts: number;
   imagePreview?: string;
   isTyping?: boolean;
+  ejemploVideos?: string[];
 }
 
 export type { Ejercicio, Reinforcement } from './firestore.service';
+
+export interface VideoItem {
+  url: string;
+  categoria: string;
+}
 
 export interface AgentsAnswer {
   ok: boolean;
   reply?: string;
   reinforcement?: Reinforcement;
-  videos?: string[];
+  videos?: VideoItem[];
   tema?: string | null;
   latency_ms?: number;
   error?: string;
@@ -36,7 +42,7 @@ export class ChatService {
 
   messagesSig = signal<ChatMessage[]>([]);
   reinforcementSig = signal<Reinforcement | null>(null);
-  videosSig = signal<string[]>([]);
+  videosSig = signal<VideoItem[]>([]);
 
   private currentChatId: string | null = null;
   private currentTotalHilos = 0;
@@ -119,7 +125,7 @@ export class ChatService {
     this.messagesSig.update(arr => [...arr, msg]);
   }
 
-  async pushWithTypewriter(role: Role, text: string): Promise<void> {
+  async pushWithTypewriter(role: Role, text: string, ejemploVideos?: string[]): Promise<void> {
     const id = crypto.randomUUID();
     // Mensaje vacío con isTyping=true — muestra texto plano sin KaTeX durante la animación
     this.messagesSig.update(arr => [...arr, { id, role, text: '', ts: Date.now(), isTyping: true }]);
@@ -137,9 +143,9 @@ export class ChatService {
       await new Promise<void>(resolve => setTimeout(resolve, delay));
     }
 
-    // Animación terminada: desactivar isTyping para que KaTeX renderice el texto final
+    // Animación terminada: desactivar isTyping y adjuntar videos de ejemplo si hay
     this.messagesSig.update(arr =>
-      arr.map(m => m.id === id ? { ...m, isTyping: false } : m)
+      arr.map(m => m.id === id ? { ...m, isTyping: false, ejemploVideos: ejemploVideos ?? [] } : m)
     );
   }
 
@@ -155,14 +161,14 @@ export class ChatService {
     this.reinforcementSig.set(reinforcement);
   }
 
-  setVideos(videos: string[]) {
+  setVideos(videos: VideoItem[]) {
     this.videosSig.set(videos);
   }
 
   clear() {
     this.messagesSig.set([]);
     this.reinforcementSig.set(null);
-    this.videosSig.set([]);
+    this.videosSig.set([] as VideoItem[]);
     this.currentTotalHilos = 0;
     this.currentResumen = '';
   }

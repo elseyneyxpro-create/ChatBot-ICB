@@ -107,10 +107,12 @@
     min-width: 0;
   }
 
-  &:hover {
-    background: rgba(63, 81, 181, 0.06);
-    .chat-icon { color: #7986cb; }
-    .chat-actions { display: flex; }
+  @media (hover: hover) {
+    &:hover {
+      background: rgba(63, 81, 181, 0.06);
+      .chat-icon { color: #7986cb; }
+      .chat-actions { display: flex; }
+    }
   }
   &.active {
     background: rgba(63, 81, 181, 0.08);
@@ -300,6 +302,8 @@
 
 .ej-enunciado { font-size: 0.845rem; line-height: 1.6; margin: 0; color: #222; }
 
+.ej-video { margin-top: 0.6rem; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+
 .ej-desarrollo {
   margin: 8px 0 0;
   padding: 8px 10px;
@@ -396,6 +400,8 @@
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
     transform: translateX(-100%);
     transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+    will-change: transform;
+    backface-visibility: hidden;
 
     &.mobile-open { transform: translateX(0); }
   }
@@ -414,6 +420,8 @@
     overflow-y: auto;
     transform: translateX(100%);
     transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+    will-change: transform;
+    backface-visibility: hidden;
 
     &.mobile-open { transform: translateX(0); }
   }

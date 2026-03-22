@@ -127,42 +127,53 @@
           <ng-container *ngIf="ej.tipo === 'verdadero_falso'">
             <div class="ej-badge vf">V / F</div>
             <p class="ej-enunciado">{{ ej.enunciado }}</p>
+            <div *ngIf="getVideoByCategoria('v o f') as vidUrl" class="ej-video">
+              <ng-container *ngTemplateOutlet="videoThumb; context: { url: vidUrl }"></ng-container>
+            </div>
           </ng-container>
 
           <ng-container *ngIf="ej.tipo === 'encuentra_el_error'">
             <div class="ej-badge error">Encuentra el error</div>
             <p class="ej-enunciado">{{ ej.enunciado }}</p>
             <pre *ngIf="ej.desarrollo" class="ej-desarrollo">{{ ej.desarrollo }}</pre>
+            <div *ngIf="getVideoByCategoria('encuentre el error') as vidUrl" class="ej-video">
+              <ng-container *ngTemplateOutlet="videoThumb; context: { url: vidUrl }"></ng-container>
+            </div>
           </ng-container>
 
           <ng-container *ngIf="ej.tipo === 'concepto'">
             <div class="ej-badge concepto">Concepto</div>
             <p class="ej-enunciado">{{ ej.enunciado }}</p>
+            <div *ngIf="getVideoByCategoria('concepto') as vidUrl" class="ej-video">
+              <ng-container *ngTemplateOutlet="videoThumb; context: { url: vidUrl }"></ng-container>
+            </div>
           </ng-container>
         </div>
       </div>
     </ng-container>
 
-    <div *ngIf="videos().length > 0" class="videos-panel">
+    <div *ngIf="sidebarVideos().length > 0" class="videos-panel">
       <h3 class="videos-title">📹 Videos relacionados</h3>
-      <div *ngFor="let url of videos()" class="video-card">
-        <ng-container *ngIf="getYouTubeId(url) as ytId; else plainLink">
-          <a [href]="url" target="_blank" rel="noopener" class="video-thumb-link">
-            <img [src]="'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg'" class="video-thumb" alt="Video relacionado" />
-            <div class="video-play-overlay">
-              <mat-icon>play_circle_filled</mat-icon>
-            </div>
-          </a>
-        </ng-container>
-        <ng-template #plainLink>
-          <a [href]="url" target="_blank" rel="noopener" class="video-plain-link">
-            <mat-icon>open_in_new</mat-icon>
-            Ver video
-          </a>
-        </ng-template>
+      <div *ngFor="let v of sidebarVideos()" class="video-card">
+        <ng-container *ngTemplateOutlet="videoThumb; context: { url: v.url }"></ng-container>
       </div>
     </div>
 
   </aside>
 
 </div>
+
+<!-- Template reutilizable para miniaturas de video -->
+<ng-template #videoThumb let-url="url">
+  <ng-container *ngIf="getYouTubeId(url) as ytId; else plainVid">
+    <a [href]="url" target="_blank" rel="noopener" class="video-thumb-link">
+      <img [src]="'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg'" class="video-thumb" alt="Video" />
+      <div class="video-play-overlay"><mat-icon>play_circle_filled</mat-icon></div>
+    </a>
+  </ng-container>
+  <ng-template #plainVid>
+    <a [href]="url" target="_blank" rel="noopener" class="video-plain-link">
+      <mat-icon>open_in_new</mat-icon> Ver video
+    </a>
+  </ng-template>
+</ng-template>

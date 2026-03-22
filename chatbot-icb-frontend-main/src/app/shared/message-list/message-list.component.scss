@@ -42,7 +42,7 @@
 }
 
 .bubble {
-  max-width: min(78ch, calc(100vw - 2rem));
+  max-width: 100%;
   width: 100%;
   box-sizing: border-box;
   padding: 0.75rem 1rem;
@@ -105,6 +105,79 @@
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(8px) scale(0.98); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+// ── Video de ejemplo en mensaje bot ──────────────────────────────────────────
+.ejemplo-videos {
+  margin-top: 0.75rem;
+  border-top: 1px solid #eceef7;
+  padding-top: 0.6rem;
+}
+
+.ejemplo-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #5c6bc0;
+  margin-bottom: 0.5rem;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; line-height: 1; }
+}
+
+.ejemplo-video-card {
+  position: relative;
+  display: block;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 0.4rem;
+}
+
+.video-thumb-link {
+  display: block;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+
+  .video-thumb {
+    width: 100%;
+    max-width: 280px;
+    height: auto;
+    display: block;
+    border-radius: 8px;
+  }
+
+  .video-play-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.25);
+    transition: background 0.15s;
+
+    mat-icon {
+      font-size: 44px;
+      width: 44px;
+      height: 44px;
+      color: #fff;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+    }
+
+    &:hover { background: rgba(0,0,0,0.38); }
+  }
+}
+
+.video-plain-link {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: #3f51b5;
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
 }
 
 // ── Botón scroll-to-bottom ────────────────────────────────────────────────────
