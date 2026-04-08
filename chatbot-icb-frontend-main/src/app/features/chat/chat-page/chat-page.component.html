@@ -54,7 +54,6 @@
         </div>
       </div>
     </div>
-
   </aside>
 
   <!-- ── Chat principal ── -->
@@ -64,9 +63,14 @@
     <button mat-fab class="mobile-chats-fab" (click)="showMobileChats.set(true)" aria-label="Mis chats">
       <mat-icon>chat</mat-icon>
     </button>
-    <button mat-fab class="mobile-reinf-fab" [class.has-content]="reinforcement() || videos().length > 0" (click)="showMobileReinforcement.set(true)" aria-label="Pensamiento crítico">
+    <button mat-fab class="mobile-reinf-fab"
+      [class.has-content]="reinforcement() || videos().length > 0"
+      [class.bloqueado]="chatBloqueado()"
+      (click)="showMobileReinforcement.set(true)"
+      aria-label="Pensamiento crítico">
       <mat-icon>psychology</mat-icon>
-      <span class="reinf-badge" *ngIf="videos().length > 0">{{ videos().length }}</span>
+      <span class="reinf-badge" *ngIf="chatBloqueado()">!</span>
+      <span class="reinf-badge" *ngIf="!chatBloqueado() && videos().length > 0">{{ videos().length }}</span>
     </button>
 
     <!-- Status bar -->
@@ -75,7 +79,11 @@
         <span class="status-dot"></span>
         <span>{{ botStatus() === 'ready' ? 'Listo' : botStatus() === 'thinking' ? 'Pensando' : 'Error' }}</span>
       </div>
-      <span class="status-helper" *ngIf="botStatus() === 'ready'">El chat está listo para responder.</span>
+      <span class="status-helper" *ngIf="botStatus() === 'ready' && !chatBloqueado()">El chat está listo para responder.</span>
+      <span class="status-helper status-helper-blocked" *ngIf="botStatus() === 'ready' && chatBloqueado()">
+        <mat-icon class="lock-icon">lock</mat-icon>
+        Completa los ejercicios del panel para continuar.
+      </span>
       <span class="status-helper" *ngIf="botStatus() === 'thinking'">Generando respuesta... {{ elapsedSeconds() }}s</span>
       <span class="status-helper status-helper-error" *ngIf="botStatus() === 'error'">No se pudo conectar. Intenta nuevamente.</span>
     </div>
@@ -90,14 +98,14 @@
         <app-message-list [messages]="messages()"></app-message-list>
         <app-message-input
           (send)="send($event)"
-          [disabled]="loading()"
+          [disabled]="loading() || chatBloqueado()"
           [class.input-hidden-mobile]="chatScrolledUp()">
         </app-message-input>
       </div>
     </ng-container>
   </div>
 
-  <!-- ── Panel derecho: refuerzo + ejercicios + videos ── -->
+  <!-- ── Panel derecho: pensamiento crítico ── -->
   <aside class="reinforcement-sidebar" [class.mobile-open]="showMobileReinforcement()">
 
     <div *ngIf="!reinforcement() && !reinforcementLoading()" class="reinforcement-placeholder">
@@ -111,47 +119,173 @@
     </div>
 
     <ng-container *ngIf="reinforcement() as r">
+
+      <!-- Banner nivel -->
       <div class="reinforcement-panel" [ngClass]="r.nivel">
         <h3>
           <span *ngIf="r.nivel === 'rojo'">⚠️ Error detectado</span>
           <span *ngIf="r.nivel === 'amarillo'">💡 Pensamiento crítico</span>
-          <span *ngIf="r.nivel === 'trivial'">🧠 ¿Lo habías pensado?</span>
         </h3>
-        <p>{{ r.texto }}</p>
+        <p [innerHTML]="r.texto | katexRender"></p>
       </div>
 
+      <!-- ── EJERCICIOS ── -->
       <div *ngIf="r.ejercicios && r.ejercicios.length > 0" class="ejercicios-panel">
-        <h3 class="ejercicios-title">📝 Ejercicios para ti</h3>
 
-        <div *ngFor="let ej of r.ejercicios" class="ejercicio-card" [ngClass]="ej.tipo">
-          <ng-container *ngIf="ej.tipo === 'verdadero_falso'">
-            <div class="ej-badge vf">V / F</div>
-            <p class="ej-enunciado">{{ ej.enunciado }}</p>
-            <div *ngIf="getVideoByCategoria('v o f') as vidUrl" class="ej-video">
-              <ng-container *ngTemplateOutlet="videoThumb; context: { url: vidUrl }"></ng-container>
-            </div>
+        <!-- ── 1. CONCEPTO ── -->
+        <div *ngIf="ejercicioConcepto() as ej" class="ejercicio-card concepto-card"
+          [class.answered]="ejercState().concepto.answered">
+
+          <div class="ej-header">
+            <span class="ej-badge concepto">Concepto</span>
+            <mat-icon class="ej-check" *ngIf="ejercState().concepto.answered && ejercState().concepto.es_correcto">check_circle</mat-icon>
+            <mat-icon class="ej-wrong" *ngIf="ejercState().concepto.answered && !ejercState().concepto.es_correcto">cancel</mat-icon>
+          </div>
+
+          <p class="ej-enunciado" [innerHTML]="ej.enunciado | katexRender"></p>
+
+          <ng-container *ngIf="!ejercState().concepto.answered">
+            <textarea
+              class="concepto-textarea"
+              placeholder="Escribe tu respuesta aquí..."
+              [value]="ejercState().concepto.texto"
+              (input)="setConceptoTexto($any($event.target).value)"
+              rows="3">
+            </textarea>
+            <button
+              class="concepto-send-btn"
+              [disabled]="!ejercState().concepto.texto.trim() || ejercState().concepto.loading"
+              (click)="responderConcepto()">
+              <mat-spinner *ngIf="ejercState().concepto.loading" [diameter]="16"></mat-spinner>
+              <mat-icon *ngIf="!ejercState().concepto.loading">send</mat-icon>
+              {{ ejercState().concepto.loading ? 'Evaluando...' : 'Responder' }}
+            </button>
           </ng-container>
 
-          <ng-container *ngIf="ej.tipo === 'encuentra_el_error'">
-            <div class="ej-badge error">Encuentra el error</div>
-            <p class="ej-enunciado">{{ ej.enunciado }}</p>
-            <pre *ngIf="ej.desarrollo" class="ej-desarrollo">{{ ej.desarrollo }}</pre>
-            <div *ngIf="getVideoByCategoria('encuentre el error') as vidUrl" class="ej-video">
-              <ng-container *ngTemplateOutlet="videoThumb; context: { url: vidUrl }"></ng-container>
-            </div>
-          </ng-container>
+          <div *ngIf="ejercState().concepto.answered" class="ej-feedback"
+            [class.correct]="ejercState().concepto.es_correcto"
+            [class.incorrect]="!ejercState().concepto.es_correcto">
+            <p [innerHTML]="(ejercState().concepto.feedback || '') | katexRender"></p>
+          </div>
 
-          <ng-container *ngIf="ej.tipo === 'concepto'">
-            <div class="ej-badge concepto">Concepto</div>
-            <p class="ej-enunciado">{{ ej.enunciado }}</p>
+          <div *ngIf="!ejercState().concepto.es_correcto && ejercState().concepto.answered">
             <div *ngIf="getVideoByCategoria('concepto') as vidUrl" class="ej-video">
               <ng-container *ngTemplateOutlet="videoThumb; context: { url: vidUrl }"></ng-container>
             </div>
-          </ng-container>
+          </div>
+        </div>
+
+        <!-- ── 2. VERDADERO O FALSO ── -->
+        <div *ngIf="ejercicioVoF() as ej" class="ejercicio-card vof-card"
+          [class.answered]="ejercState().vof.answered">
+
+          <div class="ej-header">
+            <span class="ej-badge vf">Verdadero o Falso</span>
+            <mat-icon class="ej-check" *ngIf="ejercState().vof.answered && ejercState().vof.es_correcto">check_circle</mat-icon>
+            <mat-icon class="ej-wrong" *ngIf="ejercState().vof.answered && !ejercState().vof.es_correcto">cancel</mat-icon>
+          </div>
+
+          <p class="ej-enunciado" [innerHTML]="ej.enunciado | katexRender"></p>
+
+          <div class="vof-buttons" *ngIf="!ejercState().vof.answered">
+            <button class="vof-btn verdadero" (click)="responderVoF(true)">
+              <mat-icon>check</mat-icon> Verdadero
+            </button>
+            <button class="vof-btn falso" (click)="responderVoF(false)">
+              <mat-icon>close</mat-icon> Falso
+            </button>
+          </div>
+
+          <div *ngIf="ejercState().vof.answered" class="vof-result">
+            <div class="vof-selected"
+              [class.correct]="ejercState().vof.es_correcto"
+              [class.incorrect]="!ejercState().vof.es_correcto">
+              <mat-icon>{{ ejercState().vof.es_correcto ? 'check_circle' : 'cancel' }}</mat-icon>
+              <span>{{ ejercState().vof.es_correcto ? '¡Correcto!' : 'Incorrecto' }}</span>
+              <span class="vof-respuesta-text">
+                — Seleccionaste: <strong>{{ ejercState().vof.selected ? 'Verdadero' : 'Falso' }}</strong>
+                <span *ngIf="!ejercState().vof.es_correcto">
+                  · La respuesta era: <strong>{{ ej.respuesta_correcta ? 'Verdadero' : 'Falso' }}</strong>
+                </span>
+              </span>
+            </div>
+            <div *ngIf="!ejercState().vof.es_correcto">
+              <div *ngIf="getVideoByCategoria('v o f') as vidUrl" class="ej-video">
+                <p class="video-hint">Revisa este video para reforzar el concepto:</p>
+                <ng-container *ngTemplateOutlet="videoThumb; context: { url: vidUrl }"></ng-container>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 3. ENCUENTRA EL ERROR ── -->
+        <div *ngIf="ejercicioError() as ej" class="ejercicio-card error-card"
+          [class.answered]="ejercState().error.answered">
+
+          <div class="ej-header">
+            <span class="ej-badge error">Encuentra el Error</span>
+            <mat-icon class="ej-check" *ngIf="ejercState().error.answered && ejercState().error.es_correcto">check_circle</mat-icon>
+            <mat-icon class="ej-wrong" *ngIf="ejercState().error.answered && !ejercState().error.es_correcto">cancel</mat-icon>
+          </div>
+
+          <p class="ej-enunciado" [innerHTML]="ej.enunciado | katexRender"></p>
+
+          <div class="error-steps">
+            <button
+              *ngFor="let paso of ej.desarrollo; let i = index"
+              class="step-btn"
+              [class.selected]="ejercState().error.answered && ejercState().error.selected_paso === i + 1"
+              [class.correct-step]="ejercState().error.answered && ejercState().error.es_correcto && ejercState().error.selected_paso === i + 1"
+              [class.wrong-step]="ejercState().error.answered && !ejercState().error.es_correcto && ejercState().error.selected_paso === i + 1"
+              [class.reveal-step]="ejercState().error.answered && !ejercState().error.es_correcto && ej.paso_error === i + 1"
+              [disabled]="ejercState().error.answered"
+              (click)="responderError(i + 1)">
+              <span class="step-num">Paso {{ i + 1 }}</span>
+              <span class="step-text" [innerHTML]="paso | katexRender"></span>
+            </button>
+          </div>
+
+          <div *ngIf="ejercState().error.answered" class="error-result"
+            [class.correct]="ejercState().error.es_correcto"
+            [class.incorrect]="!ejercState().error.es_correcto">
+            <mat-icon>{{ ejercState().error.es_correcto ? 'check_circle' : 'cancel' }}</mat-icon>
+            <span *ngIf="ejercState().error.es_correcto">¡Correcto! Identificaste el error en el paso {{ ej.paso_error }}.</span>
+            <span *ngIf="!ejercState().error.es_correcto">Incorrecto. El error estaba en el paso {{ ej.paso_error }}.</span>
+          </div>
+
+          <div *ngIf="ejercState().error.answered && !ejercState().error.es_correcto">
+            <div *ngIf="getVideoByCategoria('encuentre el error') as vidUrl" class="ej-video">
+              <p class="video-hint">Revisa este video para reforzar el concepto:</p>
+              <ng-container *ngTemplateOutlet="videoThumb; context: { url: vidUrl }"></ng-container>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Progreso de ejercicios -->
+      <div class="ejercicios-progreso" *ngIf="r.ejercicios && r.ejercicios.length > 0">
+        <div class="progreso-item" [class.done]="ejercState().concepto.answered">
+          <mat-icon>{{ ejercState().concepto.answered ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+          <span>Concepto</span>
+        </div>
+        <div class="progreso-item" [class.done]="ejercState().vof.answered || ejercState().error.answered">
+          <mat-icon>{{ (ejercState().vof.answered || ejercState().error.answered) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+          <span>V/F o Encuentra el error</span>
+        </div>
+        <div class="progreso-unlock" *ngIf="ejercCompletados()">
+          <mat-icon>lock_open</mat-icon>
+          <span>¡Chat desbloqueado!</span>
+        </div>
+        <div class="progreso-lock" *ngIf="!ejercCompletados()">
+          <mat-icon>lock</mat-icon>
+          <span>Completa para continuar</span>
         </div>
       </div>
+
     </ng-container>
 
+    <!-- Videos relacionados (sin categoría de ejercicio) -->
     <div *ngIf="sidebarVideos().length > 0" class="videos-panel">
       <h3 class="videos-title">📹 Videos relacionados</h3>
       <div *ngFor="let v of sidebarVideos()" class="video-card">

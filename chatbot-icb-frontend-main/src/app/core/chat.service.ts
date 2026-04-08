@@ -21,6 +21,7 @@ export type { Ejercicio, Reinforcement } from './firestore.service';
 export interface VideoItem {
   url: string;
   categoria: string;
+  contenido_video?: string;
 }
 
 export interface AgentsAnswer {
@@ -31,6 +32,12 @@ export interface AgentsAnswer {
   tema?: string | null;
   latency_ms?: number;
   error?: string;
+}
+
+export interface EvaluateConceptoResult {
+  ok: boolean;
+  es_correcto: boolean;
+  feedback: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -104,11 +111,31 @@ export class ChatService {
     });
   }
 
-  /** Últimos 3 intercambios como texto para dar contexto al bot. */
+  evaluateConcepto(enunciado: string, respuesta_usuario: string, tema: string) {
+    const u = this.auth.currentUser;
+    return this.http.post<EvaluateConceptoResult>(`${this.base}/ai/evaluate-concepto`, {
+      uid: u?.uid ?? null,
+      tema,
+      enunciado,
+      respuesta_usuario,
+      id_chat_nr: this.currentChatId,
+    });
+  }
+
+  saveExerciseResult(tema: string, tipo: 'vof' | 'error', es_correcto: boolean) {
+    const u = this.auth.currentUser;
+    if (!u?.uid) return;
+    this.http.post(`${this.base}/ai/save-exercise-result`, {
+      uid: u.uid,
+      tema,
+      tipo,
+      es_correcto,
+    }).subscribe({ error: (e) => console.warn('[ChatService] saveExerciseResult error:', e) });
+  }
+
   private _buildContext(): string {
     const msgs = this.messagesSig();
     if (msgs.length === 0) return '';
-    // Take last 6 messages (3 exchanges), cap each at 400 chars
     return msgs
       .slice(-6)
       .map(m => `${m.role === 'user' ? 'Alumno' : 'Tutor'}: ${m.text.slice(0, 400)}`)
@@ -128,11 +155,10 @@ export class ChatService {
 
   async pushWithTypewriter(role: Role, text: string, ejemploVideos?: string[]): Promise<void> {
     const id = crypto.randomUUID();
-    // Mensaje vacío con isTyping=true — muestra texto plano sin KaTeX durante la animación
     this.messagesSig.update(arr => [...arr, { id, role, text: '', ts: Date.now(), isTyping: true }]);
 
     const words = text.split(' ');
-    const delay = 45; // velocidad fija: ~22 palabras/seg
+    const delay = 45;
     let current = '';
 
     for (const word of words) {
@@ -144,7 +170,6 @@ export class ChatService {
       await new Promise<void>(resolve => setTimeout(resolve, delay));
     }
 
-    // Animación terminada: desactivar isTyping y adjuntar videos de ejemplo si hay
     this.messagesSig.update(arr =>
       arr.map(m => m.id === id ? { ...m, isTyping: false, ejemploVideos: ejemploVideos ?? [] } : m)
     );

@@ -12,8 +12,23 @@ import { UiService } from '../../../core/ui.service';
 import { MessageListComponent } from '../../../shared/message-list/message-list.component';
 import { MessageInputComponent, type SendPayload } from '../../../shared/message-input/message-input.component';
 import { NewChatDialogComponent } from './new-chat-dialog.component';
+import { KatexRenderPipe } from '../../../shared/katex-render.pipe';
 
 const MAX_CHATS = 6;
+
+export interface EjercicioEstado {
+  concepto: { answered: boolean; loading: boolean; es_correcto?: boolean; feedback?: string; texto: string };
+  vof:     { answered: boolean; es_correcto?: boolean; selected?: boolean };
+  error:   { answered: boolean; es_correcto?: boolean; selected_paso?: number };
+}
+
+function emptyEjercicioEstado(): EjercicioEstado {
+  return {
+    concepto: { answered: false, loading: false, texto: '' },
+    vof:      { answered: false },
+    error:    { answered: false },
+  };
+}
 
 @Component({
   selector: 'app-chat-page',
@@ -21,7 +36,7 @@ const MAX_CHATS = 6;
   imports: [
     CommonModule, FormsModule,
     MatIconModule, MatButtonModule, MatDialogModule, MatProgressSpinnerModule,
-    MessageListComponent, MessageInputComponent,
+    MessageListComponent, MessageInputComponent, KatexRenderPipe,
   ],
   templateUrl: './chat-page.component.html',
   styleUrls: ['./chat-page.component.scss'],
@@ -31,7 +46,6 @@ export class ChatPageComponent implements OnInit, OnDestroy {
   private firestoreService = inject(FirestoreService);
   private ui = inject(UiService);
   private dialog = inject(MatDialog);
-  private cdr = inject(ChangeDetectorRef);
   private zone = inject(NgZone);
 
   chatScrolledUp = computed(() => this.ui.chatScrolledUp());
@@ -51,6 +65,35 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     this.hasError() ? 'error' : this.loading() ? 'thinking' : 'ready'
   );
 
+  // ── Estado ejercicios ──────────────────────────────────────────────────────
+  ejercState = signal<EjercicioEstado>(emptyEjercicioEstado());
+  currentTema = signal<string | null>(null);
+
+  /** Ejercicios suficientes completados: concepto + (vof O error) */
+  ejercCompletados = computed(() => {
+    const s = this.ejercState();
+    return s.concepto.answered && (s.vof.answered || s.error.answered);
+  });
+
+  /** El chat queda bloqueado mientras haya ejercicios pendientes */
+  chatBloqueado = computed(() => {
+    const r = this.reinforcement();
+    if (!r?.ejercicios?.length) return false;
+    return !this.ejercCompletados();
+  });
+
+  // Ejercicios indexados por tipo para acceso rápido en el template
+  ejercicioConcepto = computed(() =>
+    this.reinforcement()?.ejercicios?.find(e => e.tipo === 'concepto') ?? null
+  );
+  ejercicioVoF = computed(() =>
+    this.reinforcement()?.ejercicios?.find(e => e.tipo === 'verdadero_falso') ?? null
+  );
+  ejercicioError = computed(() =>
+    this.reinforcement()?.ejercicios?.find(e => e.tipo === 'encuentra_el_error') ?? null
+  );
+
+  // ── Chats ──────────────────────────────────────────────────────────────────
   chatList = signal<ChatNr[]>([]);
   activeChatId = signal<string | null>(null);
   maxChatsReached = signal(false);
@@ -100,6 +143,8 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     this.showMobileChats.set(false);
     this.chat.setActiveChat(chat.id, chat.total_hilos, chat.resumen_conversacion ?? '');
     this.chat.clear();
+    this.ejercState.set(emptyEjercicioEstado());
+    this.currentTema.set(null);
     await this.chat.loadUserMessages(chat.id, chat.last_reinforcement);
     const videos = chat.last_videos?.length
       ? chat.last_videos
@@ -148,17 +193,88 @@ export class ChatPageComponent implements OnInit, OnDestroy {
 
   async openNewChatDialog() {
     if (this.maxChatsReached()) return;
-
     const ref = this.dialog.open(NewChatDialogComponent, { width: '320px' });
     const nombre = await ref.afterClosed().toPromise();
     if (!nombre?.trim()) return;
-
     const newChat = await this.firestoreService.createChat(nombre.trim());
     const updated = [newChat, ...this.chatList()];
     this.chatList.set(updated);
     this.maxChatsReached.set(updated.length >= MAX_CHATS);
     await this.selectChat(newChat);
   }
+
+  // ── Ejercicios ─────────────────────────────────────────────────────────────
+
+  setConceptoTexto(texto: string) {
+    this.ejercState.update(s => ({ ...s, concepto: { ...s.concepto, texto } }));
+  }
+
+  async responderConcepto() {
+    const texto = this.ejercState().concepto.texto.trim();
+    const ej = this.ejercicioConcepto();
+    const tema = this.currentTema();
+    if (!texto || !ej || !tema) return;
+
+    this.ejercState.update(s => ({ ...s, concepto: { ...s.concepto, loading: true } }));
+
+    try {
+      const res = await firstValueFrom(
+        this.chat.evaluateConcepto(ej.enunciado, texto, tema)
+      );
+      this.zone.run(() => {
+        this.ejercState.update(s => ({
+          ...s,
+          concepto: {
+            ...s.concepto,
+            answered: true,
+            loading: false,
+            es_correcto: res.es_correcto,
+            feedback: res.feedback,
+          },
+        }));
+      });
+    } catch (e) {
+      console.error('[ChatPage] evaluateConcepto error:', e);
+      this.ejercState.update(s => ({
+        ...s,
+        concepto: { ...s.concepto, loading: false, answered: true, es_correcto: false, feedback: 'Error al evaluar.' },
+      }));
+    }
+  }
+
+  responderVoF(seleccion: boolean) {
+    const ej = this.ejercicioVoF();
+    const tema = this.currentTema();
+    if (!ej || this.ejercState().vof.answered) return;
+
+    const es_correcto = seleccion === ej.respuesta_correcta;
+    this.ejercState.update(s => ({
+      ...s,
+      vof: { answered: true, es_correcto, selected: seleccion },
+    }));
+
+    if (tema) {
+      this.chat.saveExerciseResult(tema, 'vof', es_correcto);
+    }
+  }
+
+  responderError(paso: number) {
+    const ej = this.ejercicioError();
+    const tema = this.currentTema();
+    if (!ej || this.ejercState().error.answered) return;
+
+    const es_correcto = paso === ej.paso_error;
+    this.ejercState.update(s => ({
+      ...s,
+      error: { answered: true, es_correcto, selected_paso: paso },
+    }));
+
+    if (tema) {
+      this.chat.saveExerciseResult(tema, 'error', es_correcto);
+    }
+  }
+
+  // ── Videos ─────────────────────────────────────────────────────────────────
 
   getYouTubeId(url: string): string | null {
     const patterns = [
@@ -182,15 +298,20 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     this.videos().filter(v => !['concepto', 'v o f', 'encuentre el error', 'ejemplo'].includes(v.categoria))
   );
 
+  // ── Envío de mensajes ──────────────────────────────────────────────────────
+
   async send(payload: SendPayload) {
-    if (!this.activeChatId()) return;
+    if (!this.activeChatId() || this.chatBloqueado()) return;
+
     this.chat.push('user', payload.text, payload.imagePreview);
     this.loading.set(true);
     this.elapsedSeconds.set(0);
-    // Clear old reinforcement and stop any pending listener
     this._stopReinforcementListener();
     this.chat.setReinforcement(null);
-    const requestTime = Date.now() / 1000; // Unix seconds, to match backend saved_at
+    // Resetear estado de ejercicios para la nueva ronda
+    this.ejercState.set(emptyEjercicioEstado());
+
+    const requestTime = Date.now() / 1000;
 
     this.timerInterval = setInterval(() => {
       this.elapsedSeconds.update(s => s + 1);
@@ -210,7 +331,12 @@ export class ChatPageComponent implements OnInit, OnDestroy {
         }
         this.chat.saveExchange(payload.text, reply, res.tema ?? null, ejemploUrls);
 
-        // Start listening for reinforcement via Firestore (comes in background)
+        // Guardar tema para los ejercicios
+        if (res.tema) {
+          this.currentTema.set(res.tema);
+        }
+
+        // Escuchar reinforcement por Firestore
         if (res.tema && this.activeChatId()) {
           this.zone.run(() => this.reinforcementLoading.set(true));
           this.reinforcementUnsubscribe = this.firestoreService.watchReinforcement(
@@ -219,6 +345,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
               if (r && r.saved_at && r.saved_at > requestTime) {
                 this.zone.run(() => {
                   this.chat.setReinforcement(r);
+                  this.ejercState.set(emptyEjercicioEstado());
                   this._stopReinforcementListener();
                 });
               }

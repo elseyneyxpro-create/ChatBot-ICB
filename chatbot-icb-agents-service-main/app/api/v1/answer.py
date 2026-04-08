@@ -5,16 +5,15 @@ from fastapi import APIRouter, BackgroundTasks
 from fastapi.responses import JSONResponse
 from app.agents.agent_0_classifier import classify_and_retrieve
 from app.agents.agent_1_responder import respond
-from app.agents.agent_2_reinforcer import reinforce
+from app.agents.agent_2_reinforcer import reinforce, evaluate_concepto
 from app.agents.agent_3_analyst import (
     get_latest_weak_points,
-    generate_snapshots,
-    increment_hilo_counters,
-    update_leaderboard,
     update_conversation_summary,
     save_reinforcement_to_firestore,
+    update_profile_from_rojo,
+    update_profile_from_exercises,
 )
-from app.schemas.ask import Ask
+from app.schemas.ask import Ask, EvaluateConcepto, SaveExerciseResult
 from app.core.supabase_client import supabase
 
 logger = logging.getLogger("icb.ai")
@@ -22,12 +21,25 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 
 
 def _run_reinforcement_background(
-    question: str, answer: str, rag_context: str, tema: str, id_chat_nr: str, videos: list = None
+    question: str, answer: str, rag_context: str, tema: str,
+    id_chat_nr: str, uid: str | None, videos: list = None,
+    contenido_video: str = "",
 ) -> None:
     """Corre el reforzador en background y guarda el resultado en Firestore."""
     try:
-        reinforcement = reinforce(question=question, answer=answer, rag_context=rag_context, tema=tema)
+        reinforcement = reinforce(
+            question=question,
+            answer=answer,
+            rag_context=rag_context,
+            tema=tema,
+            contenido_video=contenido_video,
+        )
         save_reinforcement_to_firestore(id_chat_nr, reinforcement, videos=videos)
+
+        # Si el nivel es rojo, actualizar el perfil del usuario
+        if reinforcement.get("nivel") == "rojo" and uid:
+            update_profile_from_rojo(uid=uid, tema=tema, question=question)
+
     except Exception as e:
         logger.warning(f"Background reinforcement falló: {e}")
 
@@ -41,27 +53,6 @@ async def _get_weak_points_safe(uid: str) -> str:
     except Exception as e:
         logger.warning(f"get_latest_weak_points falló: {e}")
         return ""
-
-
-def _post_response_tasks(
-    uid: str,
-    id_chat_nr: str,
-    is_math: bool,
-    display_name: str | None,
-    email: str | None,
-    photo_url: str | None,
-) -> None:
-    if is_math and uid:
-        update_leaderboard(uid, display_name, email, photo_url)
-
-    if uid:
-        hilos = increment_hilo_counters(uid)
-        if hilos % 25 == 0:
-            generate_snapshots(uid, id_chat_nr, full_reread=True)
-            logger.info(f"Agent3 COMPLETO → uid={uid}, hilo_global={hilos}")
-        elif hilos % 5 == 0:
-            generate_snapshots(uid, id_chat_nr, full_reread=False)
-            logger.info(f"Agent3 INCREMENTAL → uid={uid}, hilo_global={hilos}")
 
 
 @router.get("/videos")
@@ -124,6 +115,7 @@ async def ai_answer(payload: Ask, background_tasks: BackgroundTasks):
             image_base64=payload.image_base64 or None,
             context=payload.context or "",
             resumen_conversacion=payload.resumen_conversacion or "",
+            formato=rag_result.get("formato"),
         )
     except Exception as e:
         logger.exception("Error en responder")
@@ -136,7 +128,7 @@ async def ai_answer(payload: Ask, background_tasks: BackgroundTasks):
     total = time.time() - t_start
     logger.info(f"TOTAL (sin reinforcer): {total:.2f}s | tema={tema} | is_math={is_math}")
 
-    # ── Background: reinforcer + resumen + leaderboard + contadores ──────────
+    # ── Background: reinforcer + resumen ──────────────────────────────────────
     if tema and payload.id_chat_nr:
         background_tasks.add_task(
             _run_reinforcement_background,
@@ -145,7 +137,9 @@ async def ai_answer(payload: Ask, background_tasks: BackgroundTasks):
             rag_context=rag_result["rag_context"],
             tema=tema,
             id_chat_nr=payload.id_chat_nr,
+            uid=payload.uid,
             videos=rag_result["videos"],
+            contenido_video=rag_result.get("contenido_video", ""),
         )
 
     if payload.id_chat_nr:
@@ -157,17 +151,6 @@ async def ai_answer(payload: Ask, background_tasks: BackgroundTasks):
             answer=answer,
         )
 
-    if payload.uid:
-        background_tasks.add_task(
-            _post_response_tasks,
-            uid=payload.uid,
-            id_chat_nr=payload.id_chat_nr or "",
-            is_math=is_math,
-            display_name=payload.display_name,
-            email=payload.email,
-            photo_url=payload.photo_url,
-        )
-
     return JSONResponse({
         "ok": True,
         "reply": answer,
@@ -175,3 +158,62 @@ async def ai_answer(payload: Ask, background_tasks: BackgroundTasks):
         "tema": tema,
         "latency_ms": int(total * 1000),
     })
+
+
+@router.post("/evaluate-concepto")
+async def evaluate_concepto_endpoint(payload: EvaluateConcepto, background_tasks: BackgroundTasks):
+    """Evalúa la respuesta del alumno a la pregunta de concepto y actualiza el perfil."""
+    if not payload.enunciado or not payload.respuesta_usuario:
+        return JSONResponse({"ok": False, "error": "Enunciado o respuesta vacíos."})
+
+    try:
+        result = await asyncio.to_thread(
+            evaluate_concepto,
+            enunciado=payload.enunciado,
+            respuesta_usuario=payload.respuesta_usuario,
+            tema=payload.tema,
+        )
+
+        # Actualizar perfil en background si hay uid
+        if payload.uid:
+            background_tasks.add_task(
+                update_profile_from_exercises,
+                uid=payload.uid,
+                tema=payload.tema,
+                results={
+                    "concepto": {"answered": True, "es_correcto": result.get("es_correcto", False)},
+                    "vof": {"answered": False},
+                    "error": {"answered": False},
+                },
+            )
+
+        return JSONResponse({
+            "ok": True,
+            "es_correcto": result.get("es_correcto", False),
+            "feedback": result.get("feedback", ""),
+        })
+    except Exception as e:
+        logger.exception("evaluate-concepto falló")
+        return JSONResponse({"ok": False, "error": str(e)})
+
+
+@router.post("/save-exercise-result")
+async def save_exercise_result(payload: SaveExerciseResult, background_tasks: BackgroundTasks):
+    """Guarda el resultado de un ejercicio VoF o Encuentra el error en el perfil."""
+    if payload.tipo not in ("vof", "error"):
+        return JSONResponse({"ok": False, "error": "tipo debe ser 'vof' o 'error'."})
+
+    results = {
+        "concepto": {"answered": False},
+        "vof": {"answered": payload.tipo == "vof", "es_correcto": payload.es_correcto} if payload.tipo == "vof" else {"answered": False},
+        "error": {"answered": payload.tipo == "error", "es_correcto": payload.es_correcto} if payload.tipo == "error" else {"answered": False},
+    }
+
+    background_tasks.add_task(
+        update_profile_from_exercises,
+        uid=payload.uid,
+        tema=payload.tema,
+        results=results,
+    )
+
+    return JSONResponse({"ok": True})

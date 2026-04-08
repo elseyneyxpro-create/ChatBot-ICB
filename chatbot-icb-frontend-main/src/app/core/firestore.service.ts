@@ -1,14 +1,16 @@
 import { Injectable, inject } from '@angular/core';
 import {
   Firestore, collection, addDoc, getDocs, query, where, orderBy,
-  doc, updateDoc, setDoc, getDoc, getDocFromServer, increment, Timestamp, limit, onSnapshot, deleteDoc
+  doc, updateDoc, setDoc, getDoc, increment, Timestamp, limit, onSnapshot, deleteDoc
 } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 
 export interface Ejercicio {
   tipo: 'verdadero_falso' | 'encuentra_el_error' | 'concepto';
   enunciado: string;
-  desarrollo?: string;
+  desarrollo?: string[];        // array de pasos (encuentra_el_error)
+  respuesta_correcta?: boolean; // clave de respuesta VoF
+  paso_error?: number;          // 1-indexado, clave para encuentra_el_error
 }
 
 export interface Reinforcement {
@@ -44,15 +46,6 @@ export interface HiloChat {
   id_next: string;
   created_at: Date;
   ejemplo_videos?: string[];
-}
-
-export interface LeaderboardEntry {
-  uid: string;
-  display_name: string;
-  email: string | null;
-  photo_url: string | null;
-  total_matematicas: number;
-  fecha_actualizacion: Date;
 }
 
 export interface ProfileSnapshot {
@@ -123,13 +116,18 @@ export class FirestoreService {
     return snap.data()?.['total_hilos'] ?? 0;
   }
 
-  /** Mapea el campo raw de Firestore a la interfaz Reinforcement (incluye saved_at si existe). */
   private _mapReinforcement(raw: any): Reinforcement | null {
     if (!raw?.['nivel']) return null;
     return {
       nivel: raw['nivel'],
       texto: raw['texto'] ?? '',
-      ejercicios: raw['ejercicios'] ?? [],
+      ejercicios: (raw['ejercicios'] ?? []).map((ej: any) => ({
+        tipo: ej['tipo'],
+        enunciado: ej['enunciado'] ?? '',
+        desarrollo: Array.isArray(ej['desarrollo']) ? ej['desarrollo'] : undefined,
+        respuesta_correcta: typeof ej['respuesta_correcta'] === 'boolean' ? ej['respuesta_correcta'] : undefined,
+        paso_error: typeof ej['paso_error'] === 'number' ? ej['paso_error'] : undefined,
+      })),
       videos: raw['videos'] ?? [],
       saved_at: raw['saved_at'] ?? undefined,
     } as Reinforcement;
@@ -154,21 +152,6 @@ export class FirestoreService {
     await deleteDoc(doc(this.firestore, 'Chat_nr', id));
   }
 
-  async saveReinforcement(id_chat_nr: string, reinforcement: Reinforcement): Promise<void> {
-    await updateDoc(doc(this.firestore, 'Chat_nr', id_chat_nr), {
-      last_reinforcement: {
-        nivel: reinforcement.nivel,
-        texto: reinforcement.texto,
-        ejercicios: reinforcement.ejercicios ?? [],
-      },
-    });
-  }
-
-  /**
-   * Escucha en tiempo real el campo last_reinforcement del chat.
-   * Llama al callback cada vez que Firestore actualiza el documento.
-   * Retorna una función de unsubscribe.
-   */
   watchReinforcement(
     id_chat_nr: string,
     callback: (r: Reinforcement | null) => void,
@@ -207,7 +190,6 @@ export class FirestoreService {
       ejemplo_videos: ejemploVideos,
     });
 
-    // Actualizar id_next del tail anterior
     if (chatData['id_tail']) {
       await updateDoc(doc(this.firestore, 'Hilo_chat', chatData['id_tail']), {
         id_next: newDoc.id,
@@ -233,9 +215,7 @@ export class FirestoreService {
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as HiloChat));
   }
 
-  // ─── Perfil / Snapshots ────────────────────────────────────────────────────
-
-  // ─── Leaderboard ───────────────────────────────────────────────────────────
+  // ─── Perfil ────────────────────────────────────────────────────────────────
 
   async getUserStats(): Promise<{ total_hilos_global: number }> {
     try {
@@ -245,59 +225,6 @@ export class FirestoreService {
       return { total_hilos_global: 0 };
     }
   }
-
-  async getLeaderboard(): Promise<LeaderboardEntry[]> {
-    const q = query(
-      collection(this.firestore, 'Leaderboard'),
-      orderBy('total_matematicas', 'desc'),
-      limit(20)
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map(d => {
-      const data = d.data();
-      return {
-        uid: d.id,
-        display_name: data['display_name'] ?? 'Estudiante',
-        email: data['email'] ?? null,
-        photo_url: data['photo_url'] ?? null,
-        total_matematicas: data['total_matematicas'] ?? 0,
-        fecha_actualizacion: (data['fecha_actualizacion'] as Timestamp)?.toDate?.() ?? new Date(),
-      } as LeaderboardEntry;
-    });
-  }
-
-  /**
-   * Escucha en tiempo real la colección Leaderboard.
-   * Retorna una función de unsubscribe.
-   */
-  watchLeaderboard(
-    callback: (entries: LeaderboardEntry[]) => void,
-    onError?: (err: any) => void,
-  ): () => void {
-    const q = query(
-      collection(this.firestore, 'Leaderboard'),
-      orderBy('total_matematicas', 'desc'),
-      limit(20)
-    );
-    return onSnapshot(q, (snap) => {
-      const entries = snap.docs.map(d => {
-        const data = d.data();
-        return {
-          uid: d.id,
-          display_name: data['display_name'] ?? 'Estudiante',
-          email: data['email'] ?? null,
-          photo_url: data['photo_url'] ?? null,
-          total_matematicas: data['total_matematicas'] ?? 0,
-          fecha_actualizacion: (data['fecha_actualizacion'] as Timestamp)?.toDate?.() ?? new Date(),
-        } as LeaderboardEntry;
-      });
-      callback(entries);
-    }, (err) => {
-      if (onError) onError(err);
-    });
-  }
-
-  // ─── Perfil / Snapshots ────────────────────────────────────────────────────
 
   async getSnapshots(): Promise<ProfileSnapshot[]> {
     const q = query(

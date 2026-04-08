@@ -21,12 +21,10 @@ def _get_temas_cached() -> dict[str, str]:
     if time.time() - _temas_cache_ts < _TEMAS_TTL and _temas_cache:
         return _temas_cache
 
-    # 1. Obtener todos los temas (con descripcion enriquecida si existe)
     result = supabase.table("tema").select("id_tema, tema, descripcion").execute()
     _temas_cache = {row["tema"]: row["id_tema"] for row in result.data} if result.data else {}
     descripcion_por_id = {row["id_tema"]: row.get("descripcion") or "" for row in (result.data or [])}
 
-    # 2. Si faltan descripciones, usar primer chunk de contenido como fallback
     temas_sin_desc = [tid for tid, desc in descripcion_por_id.items() if not desc]
     first_chunk: dict[str, str] = {}
     if temas_sin_desc:
@@ -37,7 +35,6 @@ def _get_temas_cached() -> dict[str, str]:
                 if tid in temas_sin_desc and tid not in first_chunk:
                     first_chunk[tid] = row["texto"][:300]
 
-    # 3. Construir textos a embeder: descripcion rica > primer chunk > solo nombre
     temas_list = list(_temas_cache.keys())
     embed_texts = []
     for tema_name in temas_list:
@@ -56,10 +53,6 @@ def _get_temas_cached() -> dict[str, str]:
 
 
 def _classify_by_similarity(question: str, temas_map: dict[str, str]) -> str | None:
-    """
-    Clasifica el tema por similitud coseno entre el embedding de la pregunta
-    y los embeddings pre-computados de los temas. Sin llamada a LLM.
-    """
     if not _temas_embeddings:
         return None
 
@@ -78,7 +71,6 @@ def _classify_by_similarity(question: str, temas_map: dict[str, str]) -> str | N
             best_score = score
             best_tema = tema
 
-    # Umbral: si la similitud es baja, probablemente es off-topic
     THRESHOLD = 0.35
     logger.info(f"Agent0: mejor tema='{best_tema}' score={best_score:.3f}")
     return best_tema if best_score >= THRESHOLD else None
@@ -98,24 +90,25 @@ def _get_weak_points_vector(uid: str) -> list[float] | None:
 def classify_and_retrieve(question: str, uid: str | None = None) -> dict:
     t0 = time.time()
 
-    # 1. Temas desde cache
     temas_map = _get_temas_cached()
-
-    # 2. Clasificar por similitud de embeddings (sin LLM)
     tema = _classify_by_similarity(question, temas_map)
     logger.info(f"Agent0: clasificacion={tema} ({time.time()-t0:.2f}s)")
 
-    # 3. Fuente A: chunks del tema exacto (limitados a 8 para evitar contextos gigantes)
+    # Fuente A: chunks del tema + formato de respuesta
     exact_chunks: list[str] = []
+    formato: str | None = None
     if tema:
         try:
             id_tema = temas_map[tema]
-            content = supabase.table("contenido_tema").select("texto").eq("id_tema", id_tema).limit(8).execute()
-            exact_chunks = [row["texto"] for row in content.data] if content.data else []
+            content = supabase.table("contenido_tema").select("texto, formato").eq("id_tema", id_tema).limit(8).execute()
+            if content.data:
+                exact_chunks = [row["texto"] for row in content.data]
+                # Tomar el primer formato no nulo del tema
+                formato = next((row.get("formato") for row in content.data if row.get("formato")), None)
         except Exception as e:
             logger.warning(f"Error contenido exacto: {e}")
 
-    # 4. Búsqueda semántica con weak_points_vector o fallback por pregunta
+    # Fuente B: búsqueda semántica
     semantic_chunks: list[str] = []
     if tema:
         wp_vector = _get_weak_points_vector(uid) if uid else None
@@ -132,22 +125,21 @@ def classify_and_retrieve(question: str, uid: str | None = None) -> dict:
         except Exception as e:
             logger.warning(f"Semantico fallo: {e}")
 
-    # 5. Videos — matching bidireccional + fallback por palabras de la pregunta
-    videos: list[str] = []
+    # Videos — matching bidireccional + contenido_video para el reinforcer
+    videos: list[dict] = []
+    contenido_video: str = ""
     if tema:
         try:
             all_vt = supabase.table("videos_tema").select("id_tema, tema").execute()
             matching_id = None
             tema_lower = tema.lower()
 
-            # Paso 1: coincidencia bidireccional con el tema clasificado
             for row in (all_vt.data or []):
                 vt_tema = row["tema"].lower()
                 if vt_tema in tema_lower or tema_lower in vt_tema:
                     matching_id = row["id_tema"]
                     break
 
-            # Paso 2: fallback — buscar por palabras clave de la pregunta original
             if not matching_id:
                 keywords = [w for w in question.lower().split() if len(w) > 4]
                 for row in (all_vt.data or []):
@@ -158,13 +150,25 @@ def classify_and_retrieve(question: str, uid: str | None = None) -> dict:
                         break
 
             if matching_id:
-                vr = supabase.table("videos").select("url, categoria").eq("id_tema", matching_id).execute()
-                videos = [{"url": item["url"], "categoria": item.get("categoria") or ""} for item in vr.data] if vr.data else []
-            logger.info(f"Agent0: videos={len(videos)} para tema='{tema}' (matched_id={matching_id}) — con categoria")
+                vr = supabase.table("videos").select("url, categoria, contenido_video").eq("id_tema", matching_id).execute()
+                if vr.data:
+                    videos = [
+                        {
+                            "url": item["url"],
+                            "categoria": item.get("categoria") or "",
+                            "contenido_video": item.get("contenido_video") or "",
+                        }
+                        for item in vr.data
+                    ]
+                    # Concatenar todos los contenidos de video del tema para el reinforcer
+                    contenido_video = "\n\n".join(
+                        v["contenido_video"] for v in videos if v["contenido_video"]
+                    )
+            logger.info(f"Agent0: videos={len(videos)} para tema='{tema}' | contenido_video={len(contenido_video)} chars")
         except Exception as e:
             logger.warning(f"Error videos: {e}")
 
-    # 6. Combinar y deduplicar
+    # Combinar y deduplicar chunks
     seen: set[str] = set()
     all_chunks: list[str] = []
     for chunk in exact_chunks + semantic_chunks:
@@ -173,5 +177,12 @@ def classify_and_retrieve(question: str, uid: str | None = None) -> dict:
             all_chunks.append(chunk)
 
     rag_context = "\n\n".join(all_chunks)
-    logger.info(f"Agent0: total={len(all_chunks)} chunks, {len(rag_context)} chars, tiempo={time.time()-t0:.2f}s")
-    return {"rag_context": rag_context, "videos": videos, "tema": tema}
+    logger.info(f"Agent0: total={len(all_chunks)} chunks, {len(rag_context)} chars | formato={'sí' if formato else 'no'} | tiempo={time.time()-t0:.2f}s")
+
+    return {
+        "rag_context": rag_context,
+        "videos": videos,
+        "tema": tema,
+        "formato": formato,
+        "contenido_video": contenido_video,
+    }
