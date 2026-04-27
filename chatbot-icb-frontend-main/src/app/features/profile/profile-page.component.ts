@@ -4,15 +4,20 @@ import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { FirestoreService, ProfileSnapshot } from '../../core/firestore.service';
+import { FirestoreService, type ProfileTemaStats } from '../../core/firestore.service';
 import { AuthService } from '../../core/auth.service';
+
+interface TemaCard extends ProfileTemaStats {
+  total_aciertos: number;
+  total_errores: number;
+  total: number;
+  porcentaje: number;
+}
 
 @Component({
   selector: 'app-profile-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatSelectModule, MatFormFieldModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule],
   templateUrl: './profile-page.component.html',
   styleUrls: ['./profile-page.component.scss'],
 })
@@ -22,9 +27,11 @@ export class ProfilePageComponent implements OnInit {
   private auth = inject(AuthService);
 
   loading = signal(true);
-  snapshots = signal<ProfileSnapshot[]>([]);
-  selectedTema = signal<string>('');
-  totalPreguntas = signal(0);
+  totalAciertos = signal(0);
+  totalErrores = signal(0);
+  porcentaje = signal(0);
+  weakPointsText = signal('');
+  temas = signal<TemaCard[]>([]);
 
   // Datos del usuario desde Firebase Auth
   user = computed(() => this.auth.currentUser());
@@ -43,31 +50,39 @@ export class ProfilePageComponent implements OnInit {
     return name.trim().split(/\s+/).map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
   });
 
-  temas = computed(() => [...new Set(this.snapshots().map(s => s.tema))].sort());
+  weakPointsLines = computed(() =>
+    this.weakPointsText().split('\n').map(l => l.trim()).filter(Boolean)
+  );
 
-  filteredSnapshots = computed(() => {
-    const tema = this.selectedTema();
-    return tema ? this.snapshots().filter(s => s.tema === tema) : this.snapshots();
-  });
-
-  latestPerTema = computed(() => {
-    const map = new Map<string, ProfileSnapshot>();
-    for (const s of this.snapshots()) {
-      if (!map.has(s.tema)) map.set(s.tema, s);
-    }
-    return [...map.values()];
-  });
+  totalEjercicios = computed(() => this.totalAciertos() + this.totalErrores());
 
   async ngOnInit() {
-    const [data, stats] = await Promise.all([
-      this.fs.getSnapshots(),
-      this.fs.getUserStats(),
-    ]);
-    this.snapshots.set(data);
-    this.totalPreguntas.set(stats.total_hilos_global);
-    this.loading.set(false);
+    try {
+      const stats = await this.fs.getProfileStats();
+      this.totalAciertos.set(stats.total_aciertos);
+      this.totalErrores.set(stats.total_errores);
+      this.porcentaje.set(stats.porcentaje);
+      this.weakPointsText.set(stats.weak_points_text);
+      this.temas.set(this._toTemaCards(stats.temas));
+    } catch (e) {
+      console.error('[ProfilePage] error cargando perfil:', e);
+    } finally {
+      this.loading.set(false);
+    }
   }
 
-  setTema(tema: string) { this.selectedTema.set(tema); }
+  private _toTemaCards(temas: ProfileTemaStats[]): TemaCard[] {
+    return temas
+      .map(t => {
+        const total_aciertos = t.vof_aciertos + t.error_aciertos + t.concepto_aciertos;
+        const total_errores = t.vof_errores + t.error_errores + t.concepto_errores;
+        const total = total_aciertos + total_errores;
+        const porcentaje = total > 0 ? Math.round((total_aciertos / total) * 100) : 0;
+        return { ...t, total_aciertos, total_errores, total, porcentaje };
+      })
+      .filter(t => t.total > 0)
+      .sort((a, b) => (b.ultima_actividad?.getTime() ?? 0) - (a.ultima_actividad?.getTime() ?? 0));
+  }
+
   goToChat() { this.router.navigate(['/app/chat']); }
 }

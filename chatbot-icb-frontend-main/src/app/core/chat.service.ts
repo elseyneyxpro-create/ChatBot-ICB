@@ -1,10 +1,10 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Auth } from '@angular/fire/auth';
-import { FirestoreService, type Reinforcement } from './firestore.service';
+import { FirestoreService, type Reinforcement, type Ejercicio } from './firestore.service';
 import { environment } from '../../environments/environment';
 
-export type Role = 'user' | 'bot';
+export type Role = 'user' | 'bot' | 'system';
 
 export interface ChatMessage {
   id: string;
@@ -50,6 +50,10 @@ export class ChatService {
   messagesSig = signal<ChatMessage[]>([]);
   reinforcementSig = signal<Reinforcement | null>(null);
   videosSig = signal<VideoItem[]>([]);
+  lastTemaSig = signal<string | null>(null);
+  lastHiloIdSig = signal<string | null>(null);
+  /** Estado de ejercicios restaurado desde el último hilo del historial (si hay reinforcement). */
+  restoredEjerciciosSig = signal<Ejercicio[] | null>(null);
 
   private currentChatId: string | null = null;
   private currentTotalHilos = 0;
@@ -69,25 +73,49 @@ export class ChatService {
     const history = await this.firestoreService.loadHistory(id_chat_nr);
     const messages: ChatMessage[] = [];
 
+    let lastRespuestaHiloId: string | null = null;
+    let lastHiloReinforcement: Reinforcement | null = null;
+
     for (const hilo of history) {
+      const ts = (hilo.created_at as any)?.getTime?.() ?? Date.now();
+      if (hilo.tipo === 'system') {
+        messages.push({
+          id: hilo.id ?? `${ts}_sys`,
+          role: 'system',
+          text: hilo.texto ?? '',
+          ts,
+        });
+        continue;
+      }
       messages.push({
         id: `${hilo.id}_user`,
         role: 'user',
-        text: hilo.input,
-        ts: (hilo.created_at as any)?.toDate?.()?.getTime() ?? Date.now(),
+        text: hilo.input ?? '',
+        ts,
       });
       messages.push({
         id: `${hilo.id}_bot`,
         role: 'bot',
-        text: hilo.output,
-        ts: (hilo.created_at as any)?.toDate?.()?.getTime() ?? Date.now(),
+        text: hilo.output ?? '',
+        ts,
         ejemploVideos: hilo.ejemplo_videos ?? [],
       });
+      lastRespuestaHiloId = hilo.id ?? null;
+      if (hilo.reinforcement) lastHiloReinforcement = hilo.reinforcement;
     }
 
     this.currentTotalHilos = history.length;
     this.messagesSig.set(messages);
-    this.reinforcementSig.set(lastReinforcement ?? null);
+
+    // Prefiere reinforcement embebido en el último hilo (con respuestas del alumno).
+    // Cae en el last_reinforcement del Chat_nr si el hilo no lo tiene.
+    const reinforcementToUse = lastHiloReinforcement ?? lastReinforcement ?? null;
+    this.reinforcementSig.set(reinforcementToUse);
+    this.restoredEjerciciosSig.set(reinforcementToUse?.ejercicios ?? null);
+    this.lastHiloIdSig.set(lastRespuestaHiloId);
+
+    const lastTema = [...history].reverse().find(h => h.tema)?.tema ?? null;
+    this.lastTemaSig.set(lastTema);
   }
 
   setResumen(resumen: string) {
@@ -122,7 +150,7 @@ export class ChatService {
     });
   }
 
-  saveExerciseResult(tema: string, tipo: 'vof' | 'error', es_correcto: boolean) {
+  saveExerciseResult(tema: string, tipo: 'vof' | 'error' | 'concepto', es_correcto: boolean) {
     const u = this.auth.currentUser;
     if (!u?.uid) return;
     this.http.post(`${this.base}/ai/save-exercise-result`, {
@@ -130,6 +158,7 @@ export class ChatService {
       tema,
       tipo,
       es_correcto,
+      id_chat_nr: this.currentChatId,
     }).subscribe({ error: (e) => console.warn('[ChatService] saveExerciseResult error:', e) });
   }
 
@@ -175,12 +204,14 @@ export class ChatService {
     );
   }
 
-  async saveExchange(input: string, output: string, tema: string | null, ejemploVideos: string[] = []): Promise<void> {
-    if (!this.currentChatId) return;
-    const newTotal = await this.firestoreService.appendHilo(
+  async saveExchange(input: string, output: string, tema: string | null, ejemploVideos: string[] = []): Promise<string | null> {
+    if (!this.currentChatId) return null;
+    const { count, hiloId } = await this.firestoreService.appendHilo(
       this.currentChatId, input, output, tema, ejemploVideos
     );
-    this.currentTotalHilos = newTotal;
+    this.currentTotalHilos = count;
+    this.lastHiloIdSig.set(hiloId);
+    return hiloId;
   }
 
   setReinforcement(reinforcement: Reinforcement | null) {
@@ -195,6 +226,9 @@ export class ChatService {
     this.messagesSig.set([]);
     this.reinforcementSig.set(null);
     this.videosSig.set([] as VideoItem[]);
+    this.lastTemaSig.set(null);
+    this.lastHiloIdSig.set(null);
+    this.restoredEjerciciosSig.set(null);
     this.currentTotalHilos = 0;
     this.currentResumen = '';
   }

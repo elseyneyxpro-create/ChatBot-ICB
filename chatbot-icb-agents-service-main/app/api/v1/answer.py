@@ -55,6 +55,24 @@ async def _get_weak_points_safe(uid: str) -> str:
         return ""
 
 
+def _get_memory_layers(id_chat_nr: str) -> dict:
+    """Lee las capas de memoria del Chat_nr en Firestore. Tolera campo legacy resumen_conversacion."""
+    try:
+        from app.core.firestore_client import db
+        snap = db.collection("Chat_nr").document(id_chat_nr).get()
+        if not snap.exists:
+            return {"resumen_rolling": "", "resumenes": [], "super_resumenes": []}
+        d = snap.to_dict() or {}
+        return {
+            "resumen_rolling": d.get("resumen_rolling") or d.get("resumen_conversacion") or "",
+            "resumenes": d.get("resumenes") or [],
+            "super_resumenes": d.get("super_resumenes") or [],
+        }
+    except Exception as e:
+        logger.warning(f"_get_memory_layers falló: {e}")
+        return {"resumen_rolling": "", "resumenes": [], "super_resumenes": []}
+
+
 @router.get("/videos")
 async def get_videos():
     """Retorna todos los videos de la BD con su tema, y la lista de temas disponibles."""
@@ -86,23 +104,37 @@ async def ai_answer(payload: Ask, background_tasks: BackgroundTasks):
     t_start = time.time()
     logger.info(f"REQUEST uid={payload.uid} pregunta='{user_text[:60]}'")
 
-    # ── Fase 1: clasificador + puntos débiles EN PARALELO ─────────────────────
+    # ── Fase 1: clasificador + puntos débiles + capas de memoria EN PARALELO ──
     t0 = time.time()
     classifier_task = asyncio.to_thread(classify_and_retrieve, user_text, payload.uid)
     weak_points_task = _get_weak_points_safe(payload.uid) if payload.uid else asyncio.sleep(0)
+    memory_task = (
+        asyncio.to_thread(_get_memory_layers, payload.id_chat_nr)
+        if payload.id_chat_nr else asyncio.sleep(0)
+    )
 
-    results = await asyncio.gather(classifier_task, weak_points_task, return_exceptions=True)
+    results = await asyncio.gather(classifier_task, weak_points_task, memory_task, return_exceptions=True)
 
     rag_result = results[0]
     weak_points = results[1] if not isinstance(results[1], Exception) else ""
     if weak_points is None:
         weak_points = ""
+    memory_layers = results[2] if isinstance(results[2], dict) else {
+        "resumen_rolling": payload.resumen_conversacion or "",
+        "resumenes": [],
+        "super_resumenes": [],
+    }
 
     if isinstance(rag_result, Exception):
         logger.exception("Error en classify_and_retrieve")
         return JSONResponse({"ok": False, "error": str(rag_result)})
 
-    logger.info(f"Fase 1 (clasificador+puntos): {time.time()-t0:.2f}s | tema={rag_result.get('tema')}")
+    logger.info(
+        f"Fase 1 (clasificador+puntos+memoria): {time.time()-t0:.2f}s | "
+        f"tema={rag_result.get('tema')} | "
+        f"capas=rolling:{len(memory_layers['resumen_rolling'])}c, "
+        f"bloques:{len(memory_layers['resumenes'])}, super:{len(memory_layers['super_resumenes'])}"
+    )
 
     # ── Fase 2: responder ─────────────────────────────────────────────────────
     t0 = time.time()
@@ -114,7 +146,9 @@ async def ai_answer(payload: Ask, background_tasks: BackgroundTasks):
             weak_points=weak_points,
             image_base64=payload.image_base64 or None,
             context=payload.context or "",
-            resumen_conversacion=payload.resumen_conversacion or "",
+            resumen_rolling=memory_layers["resumen_rolling"],
+            resumenes=memory_layers["resumenes"],
+            super_resumenes=memory_layers["super_resumenes"],
             formato=rag_result.get("formato"),
         )
     except Exception as e:
@@ -143,12 +177,17 @@ async def ai_answer(payload: Ask, background_tasks: BackgroundTasks):
         )
 
     if payload.id_chat_nr:
+        # total_hilos del payload representa el conteo ANTES de este intercambio.
+        # +1 para reflejar el que estamos guardando ahora — así update_conversation_summary
+        # detecta correctamente el cierre de bloques cada BLOCK_SIZE hilos.
+        nuevo_total = (payload.total_hilos or 0) + 1
         background_tasks.add_task(
             update_conversation_summary,
             id_chat_nr=payload.id_chat_nr,
-            resumen_actual=payload.context or "",
+            resumen_actual=memory_layers["resumen_rolling"],
             question=user_text,
             answer=answer,
+            total_hilos=nuevo_total,
         )
 
     return JSONResponse({
@@ -174,18 +213,9 @@ async def evaluate_concepto_endpoint(payload: EvaluateConcepto, background_tasks
             tema=payload.tema,
         )
 
-        # Actualizar perfil en background si hay uid
-        if payload.uid:
-            background_tasks.add_task(
-                update_profile_from_exercises,
-                uid=payload.uid,
-                tema=payload.tema,
-                results={
-                    "concepto": {"answered": True, "es_correcto": result.get("es_correcto", False)},
-                    "vof": {"answered": False},
-                    "error": {"answered": False},
-                },
-            )
+        # El frontend ya llama a /save-exercise-result con tipo='concepto', que también
+        # incrementa contadores en Chat_nr. Este endpoint solo evalúa — la persistencia
+        # de contadores corre allá para tener una sola fuente de verdad.
 
         return JSONResponse({
             "ok": True,
@@ -199,12 +229,12 @@ async def evaluate_concepto_endpoint(payload: EvaluateConcepto, background_tasks
 
 @router.post("/save-exercise-result")
 async def save_exercise_result(payload: SaveExerciseResult, background_tasks: BackgroundTasks):
-    """Guarda el resultado de un ejercicio VoF o Encuentra el error en el perfil."""
-    if payload.tipo not in ("vof", "error"):
-        return JSONResponse({"ok": False, "error": "tipo debe ser 'vof' o 'error'."})
+    """Guarda el resultado de un ejercicio (concepto/VoF/error) en el perfil del usuario y en Chat_nr."""
+    if payload.tipo not in ("vof", "error", "concepto"):
+        return JSONResponse({"ok": False, "error": "tipo debe ser 'concepto', 'vof' o 'error'."})
 
     results = {
-        "concepto": {"answered": False},
+        "concepto": {"answered": payload.tipo == "concepto", "es_correcto": payload.es_correcto} if payload.tipo == "concepto" else {"answered": False},
         "vof": {"answered": payload.tipo == "vof", "es_correcto": payload.es_correcto} if payload.tipo == "vof" else {"answered": False},
         "error": {"answered": payload.tipo == "error", "es_correcto": payload.es_correcto} if payload.tipo == "error" else {"answered": False},
     }
@@ -214,6 +244,7 @@ async def save_exercise_result(payload: SaveExerciseResult, background_tasks: Ba
         uid=payload.uid,
         tema=payload.tema,
         results=results,
+        id_chat_nr=payload.id_chat_nr,
     )
 
     return JSONResponse({"ok": True})

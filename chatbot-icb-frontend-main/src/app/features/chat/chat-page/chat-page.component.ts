@@ -141,17 +141,54 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     this._stopReinforcementListener();
     this.activeChatId.set(chat.id);
     this.showMobileChats.set(false);
-    this.chat.setActiveChat(chat.id, chat.total_hilos, chat.resumen_conversacion ?? '');
+    this.chat.setActiveChat(chat.id, chat.total_hilos, chat.resumen_rolling ?? '');
     this.chat.clear();
     this.ejercState.set(emptyEjercicioEstado());
     this.currentTema.set(null);
     await this.chat.loadUserMessages(chat.id, chat.last_reinforcement);
+    this.currentTema.set(this.chat.lastTemaSig());
+    this._restoreEjercicioEstadoFromHilo();
     const videos = chat.last_videos?.length
       ? chat.last_videos
       : (chat.last_reinforcement?.videos ?? []);
     if (videos.length) {
       this.chat.setVideos(videos);
     }
+  }
+
+  /**
+   * Reconstruye el estado del panel de ejercicios desde el reinforcement
+   * persistido en el último hilo (incluye respuestas previas del alumno).
+   */
+  private _restoreEjercicioEstadoFromHilo() {
+    const ejs = this.chat.restoredEjerciciosSig();
+    if (!ejs?.length) return;
+    const estado = emptyEjercicioEstado();
+    for (const ej of ejs) {
+      if (!ej.respondido) continue;
+      if (ej.tipo === 'concepto') {
+        estado.concepto = {
+          answered: true,
+          loading: false,
+          texto: typeof ej.respuesta_alumno === 'string' ? ej.respuesta_alumno : '',
+          es_correcto: ej.es_correcto,
+          feedback: ej.feedback ?? '',
+        };
+      } else if (ej.tipo === 'verdadero_falso') {
+        estado.vof = {
+          answered: true,
+          es_correcto: ej.es_correcto,
+          selected: typeof ej.respuesta_alumno === 'boolean' ? ej.respuesta_alumno : undefined,
+        };
+      } else if (ej.tipo === 'encuentra_el_error') {
+        estado.error = {
+          answered: true,
+          es_correcto: ej.es_correcto,
+          selected_paso: typeof ej.respuesta_alumno === 'number' ? ej.respuesta_alumno : undefined,
+        };
+      }
+    }
+    this.ejercState.set(estado);
   }
 
   startRename(chat: ChatNr, event: Event) {
@@ -233,6 +270,12 @@ export class ChatPageComponent implements OnInit, OnDestroy {
           },
         }));
       });
+      this._persistEjercicio('concepto', {
+        es_correcto: res.es_correcto,
+        respuesta_alumno: texto,
+        feedback: res.feedback,
+      });
+      this.chat.saveExerciseResult(tema, 'concepto', res.es_correcto);
     } catch (e) {
       console.error('[ChatPage] evaluateConcepto error:', e);
       this.ejercState.update(s => ({
@@ -253,6 +296,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
       vof: { answered: true, es_correcto, selected: seleccion },
     }));
 
+    this._persistEjercicio('verdadero_falso', { es_correcto, respuesta_alumno: seleccion });
     if (tema) {
       this.chat.saveExerciseResult(tema, 'vof', es_correcto);
     }
@@ -269,9 +313,21 @@ export class ChatPageComponent implements OnInit, OnDestroy {
       error: { answered: true, es_correcto, selected_paso: paso },
     }));
 
+    this._persistEjercicio('encuentra_el_error', { es_correcto, respuesta_alumno: paso });
     if (tema) {
       this.chat.saveExerciseResult(tema, 'error', es_correcto);
     }
+  }
+
+  /** Persiste la respuesta del alumno en el reinforcement embebido del último hilo. */
+  private _persistEjercicio(
+    tipo: 'concepto' | 'verdadero_falso' | 'encuentra_el_error',
+    update: { es_correcto: boolean; respuesta_alumno: any; feedback?: string },
+  ) {
+    const hiloId = this.chat.lastHiloIdSig();
+    if (!hiloId) return;
+    this.firestoreService.updateHiloEjercicio(hiloId, tipo, update)
+      .catch(e => console.warn('[ChatPage] persistEjercicio falló:', e));
   }
 
   // ── Videos ─────────────────────────────────────────────────────────────────
@@ -348,6 +404,12 @@ export class ChatPageComponent implements OnInit, OnDestroy {
                   this.ejercState.set(emptyEjercicioEstado());
                   this._stopReinforcementListener();
                 });
+                // Persistir el reinforcement embebido en el último hilo (id_tail).
+                const chatId = this.activeChatId();
+                if (chatId) {
+                  this.firestoreService.updateHiloReinforcement(chatId, r)
+                    .catch(e => console.warn('[ChatPage] updateHiloReinforcement falló:', e));
+                }
               }
             }
           );

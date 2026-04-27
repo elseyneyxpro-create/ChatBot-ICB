@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 
 class Ask(BaseModel):
@@ -13,7 +13,8 @@ class Ask(BaseModel):
     email: Optional[str] = Field(None, description="Correo institucional del usuario")
     photo_url: Optional[str] = Field(None, description="URL de foto de perfil")
     context: Optional[str] = Field(None, description="Últimos intercambios del chat (memoria a corto plazo)")
-    resumen_conversacion: Optional[str] = Field(None, description="Resumen acumulativo de toda la sesión")
+    # Compatibilidad: alias del campo viejo, ahora separado en capas.
+    resumen_conversacion: Optional[str] = Field(None, description="(legacy) Resumen acumulativo de toda la sesión")
 
 
 class EvaluateConcepto(BaseModel):
@@ -27,5 +28,6 @@ class EvaluateConcepto(BaseModel):
 class SaveExerciseResult(BaseModel):
     uid: str = Field(..., description="UID del usuario de Firebase")
     tema: str = Field(..., description="Tema del ejercicio")
-    tipo: str = Field(..., description="'vof' o 'error'")
+    tipo: str = Field(..., description="'concepto' | 'vof' | 'error'")
     es_correcto: bool = Field(..., description="Si el alumno respondió correctamente")
+    id_chat_nr: Optional[str] = Field(None, description="ID del chat activo (para incrementar contadores en Chat_nr)")

@@ -8,8 +8,6 @@
 
     <!-- ══ SECCIÓN 1: Identidad ══════════════════════════════════════════════ -->
     <section class="identity-section">
-
-      <!-- Avatar grande -->
       <div class="identity-avatar-wrap">
         <ng-container *ngIf="photoURL(); else initialsAvatar">
           <img class="identity-avatar" [src]="photoURL()!" [alt]="displayName()" />
@@ -19,7 +17,6 @@
         </ng-template>
       </div>
 
-      <!-- Nombre + badge -->
       <div class="identity-info">
         <h1 class="identity-name">{{ displayName() }}</h1>
         <div class="identity-badge" *ngIf="email()?.endsWith('@mail.udp.cl') || email()?.endsWith('@udp.cl')">
@@ -28,7 +25,6 @@
         </div>
       </div>
 
-      <!-- Stats chips -->
       <div class="identity-stats">
         <div class="stat-card">
           <mat-icon>mail_outline</mat-icon>
@@ -47,107 +43,96 @@
         </div>
 
         <div class="stat-card stat-card--accent">
-          <mat-icon>forum</mat-icon>
+          <mat-icon>check_circle</mat-icon>
           <div class="stat-body">
-            <span class="stat-label">Preguntas totales</span>
-            <span class="stat-value stat-value--big">{{ totalPreguntas() }}</span>
+            <span class="stat-label">Aciertos</span>
+            <span class="stat-value stat-value--big">{{ totalAciertos() }}</span>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card--accent">
+          <mat-icon>cancel</mat-icon>
+          <div class="stat-body">
+            <span class="stat-label">Errores</span>
+            <span class="stat-value stat-value--big">{{ totalErrores() }}</span>
+          </div>
+        </div>
+
+        <div class="stat-card stat-card--accent">
+          <mat-icon>insights</mat-icon>
+          <div class="stat-body">
+            <span class="stat-label">% de aciertos</span>
+            <span class="stat-value stat-value--big">{{ porcentaje() }}%</span>
           </div>
         </div>
 
         <div class="stat-card stat-card--accent">
           <mat-icon>topic</mat-icon>
           <div class="stat-body">
-            <span class="stat-label">Temas trabajados</span>
+            <span class="stat-label">Temas activos</span>
             <span class="stat-value stat-value--big">{{ temas().length }}</span>
           </div>
         </div>
       </div>
-
     </section>
 
-    <!-- ══ Sin snapshots ════════════════════════════════════════════════════ -->
-    <div *ngIf="snapshots().length === 0" class="empty-state">
+    <!-- ══ Sin actividad ════════════════════════════════════════════════════ -->
+    <div *ngIf="totalEjercicios() === 0" class="empty-state">
       <mat-icon>psychology</mat-icon>
-      <p>Tu perfil académico se construirá a medida que hagas preguntas de matemáticas.</p>
-      <p class="hint">Cada 5 mensajes se genera un análisis de tu progreso por tema.</p>
+      <p>Aún no has respondido ejercicios de pensamiento crítico.</p>
+      <p class="hint">Cada vez que el chatbot te plantee un panel de pensamiento crítico y respondas, aparecerás aquí.</p>
       <button mat-flat-button color="primary" (click)="goToChat()">Ir al chat</button>
     </div>
 
-    <ng-container *ngIf="snapshots().length > 0">
+    <ng-container *ngIf="totalEjercicios() > 0">
 
-      <!-- ══ SECCIÓN 2: Resumen de aptitudes ══════════════════════════════ -->
+      <!-- ══ SECCIÓN 2: Puntos a mejorar ══════════════════════════════════════ -->
+      <section class="section" *ngIf="weakPointsLines().length > 0">
+        <div class="section-header">
+          <mat-icon class="section-icon">priority_high</mat-icon>
+          <div>
+            <h2>Puntos a mejorar</h2>
+            <p class="section-desc">Lo que el sistema ha detectado a partir de tus errores recientes.</p>
+          </div>
+        </div>
+        <ul class="weak-points">
+          <li *ngFor="let line of weakPointsLines()">{{ line }}</li>
+        </ul>
+      </section>
+
+      <!-- ══ SECCIÓN 3: Estadísticas por tema ═════════════════════════════════ -->
       <section class="section">
         <div class="section-header">
           <mat-icon class="section-icon">auto_graph</mat-icon>
           <div>
-            <h2>Resumen de aptitudes</h2>
-            <p class="section-desc">Estado más reciente por cada tema que has trabajado.</p>
+            <h2>Estadísticas por tema</h2>
+            <p class="section-desc">Aciertos y errores en cada tipo de ejercicio.</p>
           </div>
         </div>
 
         <div class="topics-grid">
-          <div *ngFor="let s of latestPerTema()" class="topic-card">
+          <div *ngFor="let t of temas()" class="topic-card">
             <div class="topic-head">
-              <span class="topic-name">{{ s.tema }}</span>
-              <span class="topic-date">{{ s.fecha | date:'d MMM yyyy' }}</span>
+              <span class="topic-name">{{ t.tema }}</span>
+              <span class="topic-pct" [class.pct-good]="t.porcentaje >= 70" [class.pct-mid]="t.porcentaje >= 40 && t.porcentaje < 70" [class.pct-bad]="t.porcentaje < 40">
+                {{ t.porcentaje }}%
+              </span>
             </div>
-
-            <div class="points-section" *ngIf="s.puntos_fuertes.length > 0">
-              <div class="points-label strong">
-                <mat-icon>thumb_up</mat-icon> Puntos fuertes
-              </div>
-              <ul>
-                <li *ngFor="let p of s.puntos_fuertes">{{ p }}</li>
-              </ul>
+            <div class="topic-row">
+              <span class="row-label">Concepto</span>
+              <span class="row-stats"><span class="ok">{{ t.concepto_aciertos }}</span> / <span class="bad">{{ t.concepto_errores }}</span></span>
             </div>
-
-            <div class="points-section" *ngIf="s.puntos_debiles.length > 0">
-              <div class="points-label weak">
-                <mat-icon>priority_high</mat-icon> Puntos a mejorar
-              </div>
-              <ul>
-                <li *ngFor="let p of s.puntos_debiles">{{ p }}</li>
-              </ul>
+            <div class="topic-row">
+              <span class="row-label">V o F</span>
+              <span class="row-stats"><span class="ok">{{ t.vof_aciertos }}</span> / <span class="bad">{{ t.vof_errores }}</span></span>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ══ SECCIÓN 3: Timelapse ══════════════════════════════════════════ -->
-      <section class="section">
-        <div class="section-header">
-          <mat-icon class="section-icon">history</mat-icon>
-          <div class="timelapse-header-text">
-            <h2>Evolución por tema</h2>
-            <p class="section-desc">Historial completo de tus análisis anteriores.</p>
-          </div>
-          <mat-form-field appearance="outline" class="tema-select">
-            <mat-label>Filtrar tema</mat-label>
-            <mat-select [ngModel]="selectedTema()" (ngModelChange)="setTema($event)">
-              <mat-option value="">Todos</mat-option>
-              <mat-option *ngFor="let t of temas()" [value]="t">{{ t }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="timeline">
-          <div *ngFor="let s of filteredSnapshots()" class="timeline-entry">
-            <div class="timeline-dot"></div>
-            <div class="timeline-content">
-              <div class="timeline-meta">
-                <span class="timeline-tema">{{ s.tema }}</span>
-                <span class="timeline-date">{{ s.fecha | date:'d MMM yyyy, HH:mm' }}</span>
-              </div>
-              <div class="timeline-body">
-                <div class="points-section" *ngIf="s.puntos_fuertes.length > 0">
-                  <div class="points-label strong"><mat-icon>thumb_up</mat-icon> Puntos fuertes</div>
-                  <ul><li *ngFor="let p of s.puntos_fuertes">{{ p }}</li></ul>
-                </div>
-                <div class="points-section" *ngIf="s.puntos_debiles.length > 0">
-                  <div class="points-label weak"><mat-icon>priority_high</mat-icon> A mejorar</div>
-                  <ul><li *ngFor="let p of s.puntos_debiles">{{ p }}</li></ul>
-                </div>
-              </div>
+            <div class="topic-row">
+              <span class="row-label">Encuentra el error</span>
+              <span class="row-stats"><span class="ok">{{ t.error_aciertos }}</span> / <span class="bad">{{ t.error_errores }}</span></span>
+            </div>
+            <div class="topic-row red-row" *ngIf="t.errores_rojo > 0">
+              <span class="row-label">Errores graves en chat</span>
+              <span class="row-stats bad">{{ t.errores_rojo }}</span>
             </div>
           </div>
         </div>

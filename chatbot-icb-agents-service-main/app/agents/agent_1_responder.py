@@ -33,14 +33,33 @@ def respond(
     weak_points: str,
     image_base64: str | None = None,
     context: str = "",
-    resumen_conversacion: str = "",
+    resumen_rolling: str = "",
+    resumenes: list[str] | None = None,
+    super_resumenes: list[str] | None = None,
     formato: str | None = None,
+    # Compatibilidad hacia atrás
+    resumen_conversacion: str = "",
 ) -> str:
     memory_parts: list[str] = []
-    if resumen_conversacion.strip():
-        memory_parts.append(f"RESUMEN DE LA SESIÓN (todo lo discutido):\n{resumen_conversacion}")
+
+    # Memoria de largo plazo (más antigua primero)
+    if super_resumenes:
+        joined = "\n\n".join(f"- {s}" for s in super_resumenes if s)
+        if joined.strip():
+            memory_parts.append(f"MEMORIA DE LARGO PLAZO (super resúmenes históricos):\n{joined}")
+
+    if resumenes:
+        joined = "\n\n".join(f"Bloque {i+1}:\n{r}" for i, r in enumerate(resumenes) if r)
+        if joined.strip():
+            memory_parts.append(f"MEMORIA DE BLOQUES RECIENTES:\n{joined}")
+
+    rolling_text = (resumen_rolling or resumen_conversacion or "").strip()
+    if rolling_text:
+        memory_parts.append(f"RESUMEN DEL BLOQUE ACTUAL:\n{rolling_text}")
+
     if context.strip():
         memory_parts.append(f"ÚLTIMOS INTERCAMBIOS:\n{context}")
+
     memory_section = "\n\n".join(memory_parts) + "\n\n" if memory_parts else ""
 
     formato_section = ""

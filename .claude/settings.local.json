@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(netstat -ano)",
-      "Bash(python -m uvicorn app.main:app --reload --port 8000 --log-level info)"
+      "Bash(python -m uvicorn app.main:app --reload --port 8000 --log-level info)",
+      "Bash(npx ng:*)",
+      "Bash(python scripts/clear_firestore.py)",
+      "Bash(python -c \":*)",
+      "Bash(python -u scripts/clear_firestore.py)",
+      "Bash(npx tsc *)",
+      "Bash(python -c \"from app.agents import agent_3_analyst; from app.agents import agent_1_responder; from app.agents import agent_2_reinforcer; from app.api.v1 import answer; from app.schemas import ask; print\\('OK'\\)\")"
     ]
   }
 }

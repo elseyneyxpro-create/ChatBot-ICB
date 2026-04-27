@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { Auth, GoogleAuthProvider, signInWithPopup, signOut, deleteUser, user } from '@angular/fire/auth';
 import { Observable, from, of } from 'rxjs';
 import { tap, catchError, map, switchMap } from 'rxjs/operators';
+import { FirestoreService } from './firestore.service';
 
 const ALLOWED_DOMAIN = 'mail.udp.cl';
 
@@ -19,6 +20,7 @@ export interface User {
 export class AuthService {
   private auth = inject(Auth);
   private router = inject(Router);
+  private fs = inject(FirestoreService);
 
   // Tres estados posibles:
   // undefined: Aún no sabemos (estado inicial).
@@ -37,6 +39,9 @@ export class AuthService {
           displayName: firebaseUser.displayName,
           photoURL: firebaseUser.photoURL,
         });
+        // Persistir nombre/foto en Perfil_usuario para el leaderboard.
+        this.fs.saveUserProfile(firebaseUser.displayName, firebaseUser.photoURL)
+          .catch(e => console.warn('[AuthService] saveUserProfile falló:', e));
       } else {
         this._currentUser.set(null);
       }

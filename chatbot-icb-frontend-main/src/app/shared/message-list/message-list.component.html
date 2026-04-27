@@ -1,10 +1,17 @@
 <div class="messages" #scrollContainer (scroll)="onContainerScroll()">
-  <div
-    *ngFor="let m of messages; trackBy: trackById"
-    class="msg"
-    [class.user]="m.role === 'user'"
-    [class.bot]="m.role === 'bot'"
-  >
+  <ng-container *ngFor="let m of messages; trackBy: trackById">
+    <div *ngIf="m.role === 'system'" class="msg system">
+      <div class="system-bubble">
+        <mat-icon>auto_awesome</mat-icon>
+        <span [innerHTML]="m.text | katexRender"></span>
+      </div>
+    </div>
+    <div
+      *ngIf="m.role !== 'system'"
+      class="msg"
+      [class.user]="m.role === 'user'"
+      [class.bot]="m.role === 'bot'"
+    >
     <div class="bubble">
       <img *ngIf="m.imagePreview" [src]="m.imagePreview" class="msg-image" alt="Imagen adjunta" />
       <div *ngIf="m.text && !m.isTyping" [innerHTML]="m.text | katexRender"></div>
@@ -27,7 +34,8 @@
       </div>
     </div>
     <div class="time">{{ m.ts | date:'shortTime' }}</div>
-  </div>
+    </div>
+  </ng-container>
 </div>
 
 <button

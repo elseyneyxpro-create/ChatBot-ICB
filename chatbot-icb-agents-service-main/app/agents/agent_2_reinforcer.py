@@ -23,22 +23,40 @@ TEXTO (campo "texto") — obligatorio, mínimo 1 oración:
 
 EJERCICIOS (campo "ejercicios") — genera SIEMPRE exactamente 3:
 
-1. tipo "concepto": pregunta abierta que exija aplicar o explicar el concepto. Solo campo "enunciado". Usa LaTeX donde corresponda ($...$).
+Cada ejercicio DEBE incluir un campo "explicacion" (string, 2-3 oraciones en español): la razón conceptual de por qué la respuesta correcta es la que es. Esta explicación se mostrará al alumno cuando responda. Debe ser clara, motivadora, y reforzar el concepto.
 
-2. tipo "verdadero_falso": afirmación sobre el concepto basada en el guión del video si está disponible (para que si el alumno falla, el video sea relevante). Campos:
-   - "enunciado": la afirmación (verdadera o falsa). Usa LaTeX donde corresponda.
+1. tipo "concepto": pregunta abierta que exija aplicar o explicar el concepto. Campos:
+   - "enunciado": la pregunta. Usa LaTeX ($...$) donde corresponda.
+   - "explicacion": qué debería incluir una buena respuesta y por qué.
+
+2. tipo "verdadero_falso": afirmación sobre el concepto basada en el guión del video si está disponible. Campos:
+   - "enunciado": la afirmación (verdadera o falsa).
    - "respuesta_correcta": true si la afirmación es verdadera, false si es falsa.
+   - "explicacion": por qué la afirmación es V o F, conectando con el concepto subyacente.
 
-3. tipo "encuentra_el_error": resolución matemática con UN paso incorrecto. Basada en el guión del video si está disponible. Campos:
+3. tipo "encuentra_el_error": resolución matemática con UN paso incorrecto. Campos:
    - "enunciado": instrucción breve ("Encuentra el paso incorrecto:").
-   - "desarrollo": array JSON de strings, cada string es un paso. Entre 3 y 4 pasos. Usa LaTeX donde corresponda.
+   - "desarrollo": array JSON de strings, cada string es un paso. Entre 3 y 4 pasos.
    - "paso_error": número entero (1-indexado) del paso que contiene el error.
+   - "explicacion": qué error específico se cometió en ese paso y cuál sería el procedimiento correcto.
+
+FORMATO LATEX — OBLIGATORIO (esto es crítico):
+- TODA expresión matemática DEBE ir entre símbolos $...$ para inline o $$...$$ para bloque.
+- Esto incluye: variables (x, y, n), números con sub/superíndices, fracciones, derivadas, integrales, límites, raíces, funciones (sen, cos, ln, e^x), igualdades, desigualdades.
+- NUNCA escribas matemáticas sin delimitadores. NUNCA uses paréntesis para "agrupar matemática" — usa $...$.
+- Ejemplos correctos:
+  ✓ "La derivada de $f(x) = x^2$ es $f'(x) = 2x$."
+  ✓ "Calcula el límite $\\lim_{{x \\to 0}} \\frac{{\\sin(x)}}{{x}}$."
+  ✓ "Si $n > 0$ entonces $\\sqrt{{n}} > 0$."
+- Ejemplos INCORRECTOS:
+  ✗ "La derivada de f(x) = x^2 es f'(x) = 2x"   ← faltan $...$
+  ✗ "Calcula lim x->0 sin(x)/x"                  ← faltan $...$ y notación cruda
+  ✗ "Si (n > 0) entonces (sqrt(n) > 0)"          ← paréntesis no son delimitadores LaTeX
 
 IMPORTANTE:
 - "desarrollo" debe ser un array JSON de strings, NO un string con separadores.
 - "paso_error" debe estar entre 1 y el número de pasos del desarrollo.
 - "respuesta_correcta" debe ser true o false (booleano JSON), NO string.
-- Usa LaTeX ($...$) en enunciados y pasos para expresiones matemáticas.
 
 Responde SOLO con un objeto JSON válido, sin texto adicional."""
 
@@ -66,8 +84,8 @@ def reinforce(
                 {"role": "user", "content": user_content},
             ],
             response_format={"type": "json_object"},
-            timeout=45,
-            max_tokens=1000,
+            timeout=60,
+            max_tokens=1600,
         )
         raw = response.choices[0].message.content
         logger.info(f"Reinforcer raw: {raw[:200]}")
@@ -81,6 +99,9 @@ def reinforce(
 
         # Normalizar ejercicios
         for ej in result["ejercicios"]:
+            # explicacion siempre debe ser string
+            if not isinstance(ej.get("explicacion"), str):
+                ej["explicacion"] = ""
             # desarrollo debe ser array de strings
             if ej.get("tipo") == "encuentra_el_error":
                 if isinstance(ej.get("desarrollo"), str):
@@ -94,7 +115,10 @@ def reinforce(
                     ej["paso_error"] = pasos  # fallback al último paso
             # respuesta_correcta debe ser bool
             if ej.get("tipo") == "verdadero_falso":
-                if not isinstance(ej.get("respuesta_correcta"), bool):
+                val = ej.get("respuesta_correcta")
+                if isinstance(val, str):
+                    ej["respuesta_correcta"] = val.strip().lower() in ("true", "verdadero", "1", "v")
+                elif not isinstance(val, bool):
                     ej["respuesta_correcta"] = True
 
         return result
@@ -113,21 +137,33 @@ def evaluate_concepto(enunciado: str, respuesta_usuario: str, tema: str) -> dict
     Evalúa la respuesta del alumno a la pregunta de concepto.
     Retorna {"es_correcto": bool, "feedback": str}
     """
-    prompt = f"""Eres un tutor de Cálculo 1. Evalúa si la respuesta del alumno demuestra comprensión del concepto.
+    prompt = f"""Eres un tutor de Cálculo 1 evaluando con criterio amplio. NO eres un examen formal — buscas comprensión, no perfección.
+
+CRITERIO DE EVALUACIÓN:
+- Marca "es_correcto: true" si el alumno demuestra entender la idea esencial del concepto, AUNQUE le falten detalles, use lenguaje informal o no sea técnicamente preciso.
+- Marca "es_correcto: false" SOLO si la respuesta tiene un error conceptual claro o no demuestra comprensión.
+- Una respuesta parcialmente correcta pero con la idea correcta → es_correcto: true.
+- Una respuesta vaga pero que apunta a lo correcto → es_correcto: true.
+
+FEEDBACK (3-4 oraciones en español, conversacional):
+- Comienza referenciando algo específico que el alumno escribió (cita o parafrasea).
+- Si está correcto: valida lo que tuvo bien, agrega un matiz o profundización útil.
+- Si está incorrecto: no lo desanimes. Señala suavemente dónde está la confusión y guíalo. Usa "considera que..." o "fíjate en que...".
+- Usa LaTeX ($...$) para expresiones matemáticas si aplica.
 
 Tema: {tema}
 Pregunta: {enunciado}
 Respuesta del alumno: {respuesta_usuario}
 
-Responde SOLO con JSON: {{"es_correcto": true/false, "feedback": "retroalimentación breve y motivadora en español (máx 2 oraciones)"}}"""
+Responde SOLO con JSON: {{"es_correcto": true/false, "feedback": "..."}}"""
 
     try:
         response = client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
-            timeout=20,
-            max_tokens=200,
+            timeout=25,
+            max_tokens=400,
         )
         result = json.loads(response.choices[0].message.content)
         if not isinstance(result.get("es_correcto"), bool):

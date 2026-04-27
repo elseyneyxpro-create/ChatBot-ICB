@@ -1,139 +1,97 @@
-<div class="lb-page">
+<div class="leaderboard-page">
 
-  <!-- ── Hero ── -->
-  <header class="lb-hero">
-    <div class="lb-hero-icon">🏆</div>
+  <header class="lb-header">
+    <mat-icon class="lb-trophy">emoji_events</mat-icon>
     <div>
-      <h1 class="lb-title">Leaderboard</h1>
-      <p class="lb-subtitle">Los estudiantes más activos en preguntas de matemáticas</p>
+      <h1>Ranking</h1>
+      <p>Posiciones por aciertos en ejercicios de pensamiento crítico.</p>
     </div>
   </header>
 
-  <!-- ── Loading ── -->
-  <div class="lb-loading" *ngIf="loading()">
-    <mat-spinner diameter="40"></mat-spinner>
-    <span>Cargando clasificación…</span>
+  <div class="lb-tabs">
+    <button class="lb-tab" [class.active]="vista() === 'totales'" (click)="setVista('totales')">
+      <mat-icon>workspace_premium</mat-icon>
+      <span>Totales</span>
+    </button>
+    <button class="lb-tab" [class.active]="vista() === 'tema'" [disabled]="topTemas().length === 0" (click)="setVista('tema')">
+      <mat-icon>category</mat-icon>
+      <span>Por tema</span>
+    </button>
   </div>
 
-  <ng-container *ngIf="!loading()">
-
-    <!-- ── Error ── -->
-    <div class="lb-error" *ngIf="error()">
-      <mat-icon>error_outline</mat-icon>
-      <p>No se pudo cargar el ranking.</p>
-      <span class="lb-error-detail">{{ error() }}</span>
+  <div class="lb-tema-bar" *ngIf="vista() === 'tema' && topTemas().length > 0">
+    <span class="lb-tema-label">Top 5 temas más populares:</span>
+    <div class="tema-chips">
+      <button
+        *ngFor="let t of topTemas()"
+        class="tema-chip"
+        [class.active]="selectedTema() === t"
+        (click)="setTema(t)">
+        {{ t }}
+      </button>
     </div>
+  </div>
 
-    <!-- ── Vacío ── -->
-    <div class="lb-empty" *ngIf="!error() && entries().length === 0">
-      <mat-icon>leaderboard</mat-icon>
-      <p>Aún no hay datos. ¡Sé el primero en hacer preguntas de matemáticas!</p>
+  <div *ngIf="!loading() && myEntry() as me" class="my-card">
+    <div class="my-rank">#{{ me.posicion }}</div>
+    <div class="my-info">
+      <span class="my-label">Tu posición</span>
+      <span class="my-name">{{ me.display_name }}</span>
     </div>
+    <div class="my-stats">
+      <div class="my-stat"><span class="num">{{ me.total_aciertos }}</span><span class="lbl">aciertos</span></div>
+      <div class="my-stat"><span class="num">{{ me.porcentaje }}%</span><span class="lbl">acierto</span></div>
+    </div>
+  </div>
 
-    <ng-container *ngIf="!error() && entries().length > 0">
+  <div *ngIf="loading()" class="loading-state">
+    <p>Cargando ranking...</p>
+  </div>
 
-      <!-- ── Podio top 3 ── -->
-      <div class="podium" *ngIf="top3.length > 0">
+  <div *ngIf="!loading() && rankedEntries().length === 0" class="empty-state">
+    <mat-icon>insights</mat-icon>
+    <p>Todavía no hay datos suficientes para mostrar el ranking.</p>
+  </div>
 
-        <!-- 2do lugar -->
-        <div class="podium-card silver" *ngIf="top3[1] as p">
-          <div class="podium-medal">🥈</div>
-          <ng-container *ngIf="p.photo_url; else initials2">
-            <img class="podium-avatar" [src]="p.photo_url" [alt]="p.display_name" />
-          </ng-container>
-          <ng-template #initials2>
-            <div class="podium-avatar initials silver-bg">{{ getInitials(p.display_name) }}</div>
-          </ng-template>
-          <div class="podium-name" [class.me]="isMe(p.uid)">
-            {{ p.display_name }}<span class="me-badge" *ngIf="isMe(p.uid)"> (tú)</span>
+  <table *ngIf="!loading() && rankedEntries().length > 0" class="lb-table">
+    <thead>
+      <tr>
+        <th class="col-rank">#</th>
+        <th class="col-user">Estudiante</th>
+        <th class="col-num">Aciertos</th>
+        <th class="col-num">Errores</th>
+        <th class="col-num">% acierto</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr
+        *ngFor="let e of rankedEntries()"
+        [class.row-me]="e.uid === myUid()"
+        [class.top-1]="e.posicion === 1"
+        [class.top-2]="e.posicion === 2"
+        [class.top-3]="e.posicion === 3">
+        <td class="col-rank">
+          <span *ngIf="e.posicion <= 3" class="medal medal-{{ e.posicion }}">
+            <mat-icon>emoji_events</mat-icon>
+          </span>
+          <span *ngIf="e.posicion > 3" class="rank-num">{{ e.posicion }}</span>
+        </td>
+        <td class="col-user">
+          <div class="user-cell">
+            <ng-container *ngIf="e.photo_url; else inits">
+              <img [src]="e.photo_url" [alt]="e.display_name" class="user-avatar" />
+            </ng-container>
+            <ng-template #inits>
+              <div class="user-avatar avatar-initials">{{ initialsOf(e.display_name) }}</div>
+            </ng-template>
+            <span class="user-name">{{ e.display_name }}</span>
+            <span class="me-badge" *ngIf="e.uid === myUid()">tú</span>
           </div>
-          <div class="podium-email">{{ p.email }}</div>
-          <div class="podium-carrera">{{ getCarrera(p.email) }}</div>
-          <div class="podium-score">{{ p.total_matematicas }} <span>preguntas</span></div>
-          <div class="podium-block silver-block">2</div>
-        </div>
-
-        <!-- 1er lugar -->
-        <div class="podium-card gold" *ngIf="top3[0] as p">
-          <div class="podium-medal">🥇</div>
-          <ng-container *ngIf="p.photo_url; else initials1">
-            <img class="podium-avatar podium-avatar--lg" [src]="p.photo_url" [alt]="p.display_name" />
-          </ng-container>
-          <ng-template #initials1>
-            <div class="podium-avatar podium-avatar--lg initials gold-bg">{{ getInitials(p.display_name) }}</div>
-          </ng-template>
-          <div class="podium-name" [class.me]="isMe(p.uid)">
-            {{ p.display_name }}<span class="me-badge" *ngIf="isMe(p.uid)"> (tú)</span>
-          </div>
-          <div class="podium-email">{{ p.email }}</div>
-          <div class="podium-carrera">{{ getCarrera(p.email) }}</div>
-          <div class="podium-score">{{ p.total_matematicas }} <span>preguntas</span></div>
-          <div class="podium-block gold-block">1</div>
-        </div>
-
-        <!-- 3er lugar -->
-        <div class="podium-card bronze" *ngIf="top3[2] as p">
-          <div class="podium-medal">🥉</div>
-          <ng-container *ngIf="p.photo_url; else initials3">
-            <img class="podium-avatar" [src]="p.photo_url" [alt]="p.display_name" />
-          </ng-container>
-          <ng-template #initials3>
-            <div class="podium-avatar initials bronze-bg">{{ getInitials(p.display_name) }}</div>
-          </ng-template>
-          <div class="podium-name" [class.me]="isMe(p.uid)">
-            {{ p.display_name }}<span class="me-badge" *ngIf="isMe(p.uid)"> (tú)</span>
-          </div>
-          <div class="podium-email">{{ p.email }}</div>
-          <div class="podium-carrera">{{ getCarrera(p.email) }}</div>
-          <div class="podium-score">{{ p.total_matematicas }} <span>preguntas</span></div>
-          <div class="podium-block bronze-block">3</div>
-        </div>
-
-      </div>
-
-      <!-- ── Tabla del puesto 4 en adelante ── -->
-      <div class="lb-table-wrap" *ngIf="rest.length > 0">
-        <table class="lb-table">
-          <thead>
-            <tr>
-              <th class="col-rank">#</th>
-              <th class="col-user">Estudiante</th>
-              <th class="col-carrera">Institución</th>
-              <th class="col-score">Preguntas</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let e of rest; let i = index"
-                class="lb-row"
-                [class.lb-row--me]="isMe(e.uid)">
-              <td class="col-rank">{{ i + 4 }}</td>
-              <td class="col-user">
-                <div class="user-cell">
-                  <ng-container *ngIf="e.photo_url; else tableInitials">
-                    <img class="table-avatar" [src]="e.photo_url" [alt]="e.display_name" />
-                  </ng-container>
-                  <ng-template #tableInitials>
-                    <div class="table-avatar initials table-initials-bg">{{ getInitials(e.display_name) }}</div>
-                  </ng-template>
-                  <div class="user-info">
-                    <span class="user-name">
-                      {{ e.display_name }}
-                      <span class="me-badge" *ngIf="isMe(e.uid)"> (tú)</span>
-                    </span>
-                    <span class="user-email">{{ e.email }}</span>
-                  </div>
-                </div>
-              </td>
-              <td class="col-carrera">{{ getCarrera(e.email) }}</td>
-              <td class="col-score">
-                <span class="score-chip">{{ e.total_matematicas }}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-    </ng-container>
-  </ng-container>
-
+        </td>
+        <td class="col-num ok">{{ e.total_aciertos }}</td>
+        <td class="col-num bad">{{ e.total_errores }}</td>
+        <td class="col-num pct">{{ e.porcentaje }}%</td>
+      </tr>
+    </tbody>
+  </table>
 </div>
