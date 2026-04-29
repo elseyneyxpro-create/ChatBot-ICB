@@ -57,6 +57,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
   private timerInterval: ReturnType<typeof setInterval> | null = null;
   private reinforcementUnsubscribe: (() => void) | null = null;
   private reinforcementTimeout: ReturnType<typeof setTimeout> | null = null;
+  private reinforcementPersistedPromise: Promise<void> | null = null;
 
   messages = computed(() => this.chat.messagesSig());
   reinforcement = computed(() => this.chat.reinforcementSig());
@@ -119,6 +120,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
       this.reinforcementTimeout = null;
     }
     this.reinforcementLoading.set(false);
+    this.reinforcementPersistedPromise = null;
   }
 
   async loadChatList() {
@@ -320,10 +322,15 @@ export class ChatPageComponent implements OnInit, OnDestroy {
   }
 
   /** Persiste la respuesta del alumno en el reinforcement embebido del último hilo. */
-  private _persistEjercicio(
+  private async _persistEjercicio(
     tipo: 'concepto' | 'verdadero_falso' | 'encuentra_el_error',
     update: { es_correcto: boolean; respuesta_alumno: any; feedback?: string },
   ) {
+    // Esperar a que updateHiloReinforcement termine antes de intentar actualizar
+    // los ejercicios (evita race condition: el hilo podría tener reinforcement: null aún).
+    if (this.reinforcementPersistedPromise) {
+      await this.reinforcementPersistedPromise.catch(() => {});
+    }
     const hiloId = this.chat.lastHiloIdSig();
     if (!hiloId) return;
     this.firestoreService.updateHiloEjercicio(hiloId, tipo, update)
@@ -408,9 +415,12 @@ export class ChatPageComponent implements OnInit, OnDestroy {
                   this._stopReinforcementListener();
                 });
                 // Persistir el reinforcement embebido en el último hilo (id_tail).
+                // Guardamos la promesa para que _persistEjercicio la espere antes de
+                // actualizar los ejercicios (evita race condition si el usuario responde rápido).
                 const chatId = this.activeChatId();
                 if (chatId) {
-                  this.firestoreService.updateHiloReinforcement(chatId, r)
+                  this.reinforcementPersistedPromise = this.firestoreService
+                    .updateHiloReinforcement(chatId, r)
                     .catch(e => console.warn('[ChatPage] updateHiloReinforcement falló:', e));
                 }
               }

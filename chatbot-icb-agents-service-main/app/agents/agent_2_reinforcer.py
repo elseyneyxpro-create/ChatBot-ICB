@@ -1,9 +1,33 @@
 import json
+import re
 import logging
 from openai import OpenAI
 from app.core.config import settings
 
 logger = logging.getLogger("icb.ai")
+
+
+def _fix_latex_escapes(obj):
+    """
+    Repara backslashes LaTeX perdidos por json.loads().
+    json.loads() convierte \f → chr(12), \t → chr(9), \b → chr(8).
+    Comandos LaTeX como \frac, \forall, \text, \textbf, \begin pierden su backslash.
+    """
+    if isinstance(obj, str):
+        s = obj
+        # chr(12) ← \f en JSON: \frac, \forall, \function
+        s = s.replace('\x0c', '\\f')
+        # chr(8) ← \b en JSON: \begin, \bar, \beta, \boldsymbol
+        s = s.replace('\x08', '\\b')
+        # chr(9) ← \t en JSON: \text, \textbf, \textit, \theta, \times, \to
+        # Solo si va seguido de letras (evitar tabs reales de formateo)
+        s = re.sub(r'\t(?=[A-Za-z])', r'\\t', s)
+        return s
+    if isinstance(obj, dict):
+        return {k: _fix_latex_escapes(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_fix_latex_escapes(item) for item in obj]
+    return obj
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
@@ -54,6 +78,7 @@ IMPORTANTE:
 - "desarrollo" debe ser un array JSON de strings, NO un string con separadores.
 - "paso_error" debe estar entre 1 y el número de pasos del desarrollo.
 - "respuesta_correcta" debe ser true o false (booleano JSON), NO string.
+- DOBLE BACKSLASH EN JSON: dentro de strings JSON, SIEMPRE usa \\\\ (doble backslash) para los comandos LaTeX. Ejemplos correctos: \\\\frac{1}{2}, \\\\forall, \\\\text{...}, \\\\textbf{...}, \\\\sqrt{x}. Un solo \\ en el JSON será interpretado como carácter de control y se perderá.
 
 Responde SOLO con un objeto JSON válido, sin texto adicional."""
 
@@ -118,6 +143,7 @@ def reinforce(
         raw = response.choices[0].message.content
         logger.info(f"Reinforcer raw: {raw[:200]}")
         result = json.loads(raw)
+        result = _fix_latex_escapes(result)
 
         if result.get("nivel") not in ("amarillo", "rojo"):
             result["nivel"] = "amarillo"
