@@ -347,7 +347,10 @@ export class ChatPageComponent implements OnInit, OnDestroy {
 
   getVideoByCategoria(categoria: string): string | null {
     const v = this.videos().find(v => v.categoria === categoria);
-    return v?.url ?? null;
+    if (v) return v.url;
+    // Fallback: cualquier video disponible que no sea 'ejemplo'
+    const fallback = this.videos().find(v => v.categoria !== 'ejemplo');
+    return fallback?.url ?? null;
   }
 
   sidebarVideos = computed(() =>

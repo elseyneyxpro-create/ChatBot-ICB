@@ -344,6 +344,22 @@
   &.incorrect { background: #ffebee; border-left: 3px solid #c62828; color: #b71c1c; }
 }
 
+.ej-explicacion {
+  margin-top: 0.6rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  background: #f3f4f8;
+  border-left: 3px solid #7986cb;
+  color: #37474f;
+
+  &.correct { background: #e8f5e9; border-left-color: #66bb6a; color: #1b5e20; }
+  &.incorrect { background: #fff3e0; border-left-color: #ffa726; color: #6d4c00; }
+
+  :global(.katex) { font-size: 1em; }
+}
+
 // VoF
 .vof-card {
   background: #e8f5e9;

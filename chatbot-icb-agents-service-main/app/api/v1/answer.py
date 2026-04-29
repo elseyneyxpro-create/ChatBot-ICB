@@ -23,7 +23,6 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 def _run_reinforcement_background(
     question: str, answer: str, rag_context: str, tema: str,
     id_chat_nr: str, uid: str | None, videos: list = None,
-    contenido_video: str = "",
 ) -> None:
     """Corre el reforzador en background y guarda el resultado en Firestore."""
     try:
@@ -32,7 +31,7 @@ def _run_reinforcement_background(
             answer=answer,
             rag_context=rag_context,
             tema=tema,
-            contenido_video=contenido_video,
+            videos=videos or [],
         )
         save_reinforcement_to_firestore(id_chat_nr, reinforcement, videos=videos)
 
@@ -173,7 +172,6 @@ async def ai_answer(payload: Ask, background_tasks: BackgroundTasks):
             id_chat_nr=payload.id_chat_nr,
             uid=payload.uid,
             videos=rag_result["videos"],
-            contenido_video=rag_result.get("contenido_video", ""),
         )
 
     if payload.id_chat_nr:

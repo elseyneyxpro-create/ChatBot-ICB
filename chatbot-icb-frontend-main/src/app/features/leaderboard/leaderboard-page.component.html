@@ -4,7 +4,7 @@
     <mat-icon class="lb-trophy">emoji_events</mat-icon>
     <div>
       <h1>Ranking</h1>
-      <p>Posiciones por aciertos en ejercicios de pensamiento crítico.</p>
+      <p>Tu posición en el ranking de pensamiento crítico.</p>
     </div>
   </header>
 
@@ -32,66 +32,49 @@
     </div>
   </div>
 
-  <div *ngIf="!loading() && myEntry() as me" class="my-card">
-    <div class="my-rank">#{{ me.posicion }}</div>
-    <div class="my-info">
-      <span class="my-label">Tu posición</span>
-      <span class="my-name">{{ me.display_name }}</span>
-    </div>
-    <div class="my-stats">
-      <div class="my-stat"><span class="num">{{ me.total_aciertos }}</span><span class="lbl">aciertos</span></div>
-      <div class="my-stat"><span class="num">{{ me.porcentaje }}%</span><span class="lbl">acierto</span></div>
-    </div>
-  </div>
-
   <div *ngIf="loading()" class="loading-state">
     <p>Cargando ranking...</p>
   </div>
 
+  <!-- Sin datos aún -->
   <div *ngIf="!loading() && rankedEntries().length === 0" class="empty-state">
     <mat-icon>insights</mat-icon>
     <p>Todavía no hay datos suficientes para mostrar el ranking.</p>
   </div>
 
-  <table *ngIf="!loading() && rankedEntries().length > 0" class="lb-table">
-    <thead>
-      <tr>
-        <th class="col-rank">#</th>
-        <th class="col-user">Estudiante</th>
-        <th class="col-num">Aciertos</th>
-        <th class="col-num">Errores</th>
-        <th class="col-num">% acierto</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr
-        *ngFor="let e of rankedEntries()"
-        [class.row-me]="e.uid === myUid()"
-        [class.top-1]="e.posicion === 1"
-        [class.top-2]="e.posicion === 2"
-        [class.top-3]="e.posicion === 3">
-        <td class="col-rank">
-          <span *ngIf="e.posicion <= 3" class="medal medal-{{ e.posicion }}">
-            <mat-icon>emoji_events</mat-icon>
-          </span>
-          <span *ngIf="e.posicion > 3" class="rank-num">{{ e.posicion }}</span>
-        </td>
-        <td class="col-user">
-          <div class="user-cell">
-            <ng-container *ngIf="e.photo_url; else inits">
-              <img [src]="e.photo_url" [alt]="e.display_name" class="user-avatar" />
-            </ng-container>
-            <ng-template #inits>
-              <div class="user-avatar avatar-initials">{{ initialsOf(e.display_name) }}</div>
-            </ng-template>
-            <span class="user-name">{{ e.display_name }}</span>
-            <span class="me-badge" *ngIf="e.uid === myUid()">tú</span>
-          </div>
-        </td>
-        <td class="col-num ok">{{ e.total_aciertos }}</td>
-        <td class="col-num bad">{{ e.total_errores }}</td>
-        <td class="col-num pct">{{ e.porcentaje }}%</td>
-      </tr>
-    </tbody>
-  </table>
+  <!-- Posición propia -->
+  <div *ngIf="!loading() && myEntry() as me" class="my-card">
+    <div class="rank-badge" [class.top1]="me.posicion === 1" [class.top2]="me.posicion === 2" [class.top3]="me.posicion === 3">
+      <mat-icon *ngIf="me.posicion <= 3">emoji_events</mat-icon>
+      <span class="rank-num">#{{ me.posicion }}</span>
+    </div>
+
+    <div class="my-body">
+      <span class="my-label">Tu posición</span>
+      <span class="my-name">{{ me.display_name }}</span>
+      <span class="my-total">de {{ totalParticipantes() }} estudiante{{ totalParticipantes() !== 1 ? 's' : '' }}</span>
+    </div>
+
+    <div class="my-stats">
+      <div class="my-stat">
+        <span class="num ok">{{ me.total_aciertos }}</span>
+        <span class="lbl">aciertos</span>
+      </div>
+      <div class="my-stat">
+        <span class="num bad">{{ me.total_errores }}</span>
+        <span class="lbl">errores</span>
+      </div>
+      <div class="my-stat">
+        <span class="num pct">{{ me.porcentaje }}%</span>
+        <span class="lbl">precisión</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sin datos propios pero sí hay tabla -->
+  <div *ngIf="!loading() && !myEntry() && rankedEntries().length > 0" class="no-entry-state">
+    <mat-icon>person_off</mat-icon>
+    <p>Aún no apareces en el ranking. Responde ejercicios para sumarte.</p>
+  </div>
+
 </div>

@@ -40,6 +40,8 @@ export class LeaderboardPageComponent implements OnInit {
     this.rankedEntries().find(e => e.uid === this.myUid()) ?? null
   );
 
+  totalParticipantes = computed(() => this.rankedEntries().length);
+
   async ngOnInit() {
     await Promise.all([
       this._loadTotales(),

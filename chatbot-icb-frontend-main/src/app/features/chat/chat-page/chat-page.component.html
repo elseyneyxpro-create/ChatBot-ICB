@@ -209,6 +209,11 @@
                 </span>
               </span>
             </div>
+            <div *ngIf="ej.explicacion" class="ej-explicacion"
+              [class.correct]="ejercState().vof.es_correcto"
+              [class.incorrect]="!ejercState().vof.es_correcto"
+              [innerHTML]="ej.explicacion | katexRender">
+            </div>
             <div *ngIf="!ejercState().vof.es_correcto">
               <div *ngIf="getVideoByCategoria('v o f') as vidUrl" class="ej-video">
                 <p class="video-hint">Revisa este video para reforzar el concepto:</p>
@@ -251,6 +256,12 @@
             <mat-icon>{{ ejercState().error.es_correcto ? 'check_circle' : 'cancel' }}</mat-icon>
             <span *ngIf="ejercState().error.es_correcto">¡Correcto! Identificaste el error en el paso {{ ej.paso_error }}.</span>
             <span *ngIf="!ejercState().error.es_correcto">Incorrecto. El error estaba en el paso {{ ej.paso_error }}.</span>
+          </div>
+
+          <div *ngIf="ejercState().error.answered && ej.explicacion" class="ej-explicacion"
+            [class.correct]="ejercState().error.es_correcto"
+            [class.incorrect]="!ejercState().error.es_correcto"
+            [innerHTML]="ej.explicacion | katexRender">
           </div>
 
           <div *ngIf="ejercState().error.answered && !ejercState().error.es_correcto">

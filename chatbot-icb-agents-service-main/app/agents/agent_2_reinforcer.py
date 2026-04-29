@@ -9,7 +9,7 @@ client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 SYSTEM_PROMPT = """Eres un agente de pensamiento crítico para estudiantes de Cálculo 1 del ICB (UDP).
 
-Recibirás la pregunta del alumno, la respuesta del tutor, y opcionalmente el guión del video relacionado con el tema.
+Recibirás la pregunta del alumno, la respuesta del tutor, y guiones de videos educativos clasificados por tipo de ejercicio.
 
 Tu tarea: generar retroalimentación y ejercicios basados en lo explicado.
 
@@ -25,20 +25,17 @@ EJERCICIOS (campo "ejercicios") — genera SIEMPRE exactamente 3:
 
 Cada ejercicio DEBE incluir un campo "explicacion" (string, 2-3 oraciones en español): la razón conceptual de por qué la respuesta correcta es la que es. Esta explicación se mostrará al alumno cuando responda. Debe ser clara, motivadora, y reforzar el concepto.
 
-1. tipo "concepto": pregunta abierta que exija aplicar o explicar el concepto. Campos:
-   - "enunciado": la pregunta. Usa LaTeX ($...$) donde corresponda.
-   - "explicacion": qué debería incluir una buena respuesta y por qué.
+1. tipo "concepto": pregunta abierta que exija aplicar o explicar el concepto.
+   - Si se entrega GUION VIDEO CONCEPTO: extrae la pregunta o idea central del guión y úsala como enunciado.
+   - Campos: "enunciado" (la pregunta, con LaTeX donde corresponda), "explicacion".
 
-2. tipo "verdadero_falso": afirmación sobre el concepto basada en el guión del video si está disponible. Campos:
-   - "enunciado": la afirmación (verdadera o falsa).
-   - "respuesta_correcta": true si la afirmación es verdadera, false si es falsa.
-   - "explicacion": por qué la afirmación es V o F, conectando con el concepto subyacente.
+2. tipo "verdadero_falso": afirmación sobre el concepto.
+   - Si se entrega GUION VIDEO VERDADERO O FALSO: extrae una afirmación concreta del guión (verdadera o falsa) y úsala como enunciado. NO inventes una afirmación nueva si tienes el guión.
+   - Campos: "enunciado", "respuesta_correcta" (true/false booleano JSON), "explicacion".
 
-3. tipo "encuentra_el_error": resolución matemática con UN paso incorrecto. Campos:
-   - "enunciado": instrucción breve ("Encuentra el paso incorrecto:").
-   - "desarrollo": array JSON de strings, cada string es un paso. Entre 3 y 4 pasos.
-   - "paso_error": número entero (1-indexado) del paso que contiene el error.
-   - "explicacion": qué error específico se cometió en ese paso y cuál sería el procedimiento correcto.
+3. tipo "encuentra_el_error": resolución matemática con UN paso incorrecto.
+   - Si se entrega GUION VIDEO ENCUENTRA EL ERROR: extrae el desarrollo de pasos del guión y úsalo. NO inventes pasos nuevos si tienes el guión.
+   - Campos: "enunciado" (instrucción breve, ej: "Encuentra el paso incorrecto:"), "desarrollo" (array JSON de strings, 3-4 pasos), "paso_error" (entero 1-indexado), "explicacion".
 
 FORMATO LATEX — OBLIGATORIO (esto es crítico):
 - TODA expresión matemática DEBE ir entre símbolos $...$ para inline o $$...$$ para bloque.
@@ -61,20 +58,51 @@ IMPORTANTE:
 Responde SOLO con un objeto JSON válido, sin texto adicional."""
 
 
+def _guiones_por_categoria(videos: list[dict]) -> dict[str, str]:
+    """Organiza los guiones de videos por categoría normalizada."""
+    result: dict[str, str] = {}
+    for v in (videos or []):
+        cat = (v.get("categoria") or "").lower().strip()
+        guion = (v.get("contenido_video") or "").strip()
+        if cat and guion and cat not in result:
+            result[cat] = guion
+    return result
+
+
 def reinforce(
     question: str,
     answer: str,
     rag_context: str,
     tema: str | None = None,
-    contenido_video: str = "",
+    videos: list[dict] | None = None,
 ) -> dict:
+    guiones = _guiones_por_categoria(videos)
+
     user_content = f"Pregunta del alumno: {question}\n\nRespuesta del tutor: {answer[:1500]}"
     if rag_context:
         user_content += f"\n\nContexto del material: {rag_context[:400]}"
-    if contenido_video:
-        user_content += f"\n\nGuión del video relacionado (basa los ejercicios VoF y Encuentra el error en este contenido):\n{contenido_video[:800]}"
     if tema:
         user_content += f"\n\nTema: {tema}"
+
+    # Inyectar guiones por tipo de ejercicio (categoría exacta de la BD)
+    concepto_guion = guiones.get("concepto", "")
+    vof_guion = guiones.get("v o f", "") or guiones.get("vof", "")
+    error_guion = guiones.get("encuentre el error", "") or guiones.get("encuentra_el_error", "")
+
+    if concepto_guion:
+        user_content += f"\n\nGUION VIDEO CONCEPTO (usa este contenido para el ejercicio concepto):\n{concepto_guion[:700]}"
+    if vof_guion:
+        user_content += f"\n\nGUION VIDEO VERDADERO O FALSO (extrae la afirmación de aquí):\n{vof_guion[:700]}"
+    if error_guion:
+        user_content += f"\n\nGUION VIDEO ENCUENTRA EL ERROR (extrae los pasos de aquí):\n{error_guion[:700]}"
+
+    # Fallback: si no hay guiones específicos, usar cualquier contenido disponible
+    if not any([concepto_guion, vof_guion, error_guion]):
+        fallback = "\n\n".join(
+            v["contenido_video"] for v in (videos or []) if v.get("contenido_video")
+        )
+        if fallback:
+            user_content += f"\n\nContenido de videos del tema:\n{fallback[:800]}"
 
     try:
         response = client.chat.completions.create(
