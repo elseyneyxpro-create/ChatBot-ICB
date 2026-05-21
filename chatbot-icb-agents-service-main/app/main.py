@@ -9,7 +9,7 @@ logging.getLogger("icb.ai").setLevel(logging.INFO)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1.answer import router as answer_router
+from app.api import api_router
 
 app = FastAPI(title="ICB AI Service", version="2.0.0")
 
@@ -24,4 +24,4 @@ app.add_middleware(
 def health():
     return {"ok": True, "version": "2.0.0"}
 
-app.include_router(answer_router)
+app.include_router(api_router)

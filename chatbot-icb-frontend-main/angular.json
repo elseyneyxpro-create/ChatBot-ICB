@@ -30,7 +30,12 @@
                 "glob": "**/*",
                 "input": "public"
               },
-              "src/_redirects"
+              "src/_redirects",
+              {
+                "glob": "**/*",
+                "input": "node_modules/katex/dist/fonts",
+                "output": "fonts"
+              }
             ],
             "styles": [
               "@angular/material/prebuilt-themes/magenta-violet.css",
@@ -65,6 +70,9 @@
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
+          "options": {
+            "proxyConfig": "proxy.conf.json"
+          },
           "configurations": {
             "production": {
               "buildTarget": "icb-chatbot:build:production"
