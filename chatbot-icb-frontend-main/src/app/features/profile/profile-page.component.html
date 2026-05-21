@@ -9,8 +9,9 @@
     <!-- ══ SECCIÓN 1: Identidad ══════════════════════════════════════════════ -->
     <section class="identity-section">
       <div class="identity-avatar-wrap">
-        <ng-container *ngIf="photoURL(); else initialsAvatar">
-          <img class="identity-avatar" [src]="photoURL()!" [alt]="displayName()" />
+        <ng-container *ngIf="photoURL() && !avatarFailed(); else initialsAvatar">
+          <img class="identity-avatar" [src]="photoURL()!" [alt]="displayName()"
+               referrerpolicy="no-referrer" (error)="onAvatarError()" />
         </ng-container>
         <ng-template #initialsAvatar>
           <div class="identity-avatar identity-avatar--initials">{{ initials() }}</div>
@@ -86,21 +87,7 @@
 
     <ng-container *ngIf="totalEjercicios() > 0">
 
-      <!-- ══ SECCIÓN 2: Puntos a mejorar ══════════════════════════════════════ -->
-      <section class="section" *ngIf="weakPointsLines().length > 0">
-        <div class="section-header">
-          <mat-icon class="section-icon">priority_high</mat-icon>
-          <div>
-            <h2>Puntos a mejorar</h2>
-            <p class="section-desc">Lo que el sistema ha detectado a partir de tus errores recientes.</p>
-          </div>
-        </div>
-        <ul class="weak-points">
-          <li *ngFor="let line of weakPointsLines()">{{ line }}</li>
-        </ul>
-      </section>
-
-      <!-- ══ SECCIÓN 3: Estadísticas por tema ═════════════════════════════════ -->
+      <!-- ══ SECCIÓN 2: Estadísticas por tema ═════════════════════════════════ -->
       <section class="section">
         <div class="section-header">
           <mat-icon class="section-icon">auto_graph</mat-icon>

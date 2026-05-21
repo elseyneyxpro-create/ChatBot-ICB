@@ -8,7 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { Auth } from '@angular/fire/auth';
 import { FirestoreService, type LeaderboardEntry } from '../../core/firestore.service';
 
-type Vista = 'totales' | 'tema';
+type Vista = 'aciertos' | 'uso' | 'tema';
 
 @Component({
   selector: 'app-leaderboard-page',
@@ -25,7 +25,7 @@ export class LeaderboardPageComponent implements OnInit {
   private auth = inject(Auth);
 
   loading = signal(true);
-  vista = signal<Vista>('totales');
+  vista = signal<Vista>('aciertos');
   entries = signal<LeaderboardEntry[]>([]);
   topTemas = signal<string[]>([]);
   selectedTema = signal<string>('');
@@ -42,19 +42,53 @@ export class LeaderboardPageComponent implements OnInit {
 
   totalParticipantes = computed(() => this.rankedEntries().length);
 
+  /** Etiqueta del criterio de ordenamiento activo */
+  criterioLabel = computed(() => {
+    if (this.vista() === 'aciertos') return 'Mayor precisión (% aciertos)';
+    if (this.vista() === 'uso') return 'Más ejercicios resueltos';
+    return 'Aciertos en el tema';
+  });
+
+  /** Valor destacado para la tarjeta propia según vista */
+  myHighlightValue = computed(() => {
+    const me = this.myEntry();
+    if (!me) return '';
+    if (this.vista() === 'aciertos') return `${me.porcentaje}%`;
+    if (this.vista() === 'uso') return `${me.total_ejercicios}`;
+    return `${me.porcentaje}%`;
+  });
+
+  myHighlightLabel = computed(() => {
+    if (this.vista() === 'aciertos') return 'precisión';
+    if (this.vista() === 'uso') return 'ejercicios';
+    return 'precisión';
+  });
+
   async ngOnInit() {
     await Promise.all([
-      this._loadTotales(),
+      this._loadAciertos(),
       this._loadTopTemas(),
     ]);
   }
 
-  private async _loadTotales() {
+  private async _loadAciertos() {
     this.loading.set(true);
     try {
-      this.entries.set(await this.fs.getLeaderboardTotals());
+      this.entries.set(await this.fs.getLeaderboardTotals(50, 'aciertos'));
     } catch (e) {
-      console.error('[Leaderboard] totales error:', e);
+      console.error('[Leaderboard] aciertos error:', e);
+      this.entries.set([]);
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  private async _loadUso() {
+    this.loading.set(true);
+    try {
+      this.entries.set(await this.fs.getLeaderboardTotals(50, 'uso'));
+    } catch (e) {
+      console.error('[Leaderboard] uso error:', e);
       this.entries.set([]);
     } finally {
       this.loading.set(false);
@@ -73,8 +107,10 @@ export class LeaderboardPageComponent implements OnInit {
 
   async setVista(v: Vista) {
     this.vista.set(v);
-    if (v === 'totales') {
-      await this._loadTotales();
+    if (v === 'aciertos') {
+      await this._loadAciertos();
+    } else if (v === 'uso') {
+      await this._loadUso();
     } else if (v === 'tema' && this.selectedTema()) {
       await this._loadPorTema(this.selectedTema());
     }

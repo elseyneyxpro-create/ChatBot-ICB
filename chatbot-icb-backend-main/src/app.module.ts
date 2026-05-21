@@ -3,8 +3,9 @@ import { ConfigModule } from '@nestjs/config';
 import * as path from 'path';
 import { AiModule } from './modules/ai/ai.module';
 import { AuthModule } from './auth/auth.module';
-// 👇 RUTA CORREGIDA: Subimos un nivel con '..' para encontrar la carpeta 'prisma'
-import { PrismaModule } from '../prisma/prisma.module';
+import { SupabaseModule } from './supabase/supabase.module';
+import { UsersModule } from './modules/users/users.module';
+import { FirebaseAdminModule } from './firebase-admin/firebase-admin.module';
 
 @Module({
   imports: [
@@ -12,7 +13,9 @@ import { PrismaModule } from '../prisma/prisma.module';
       isGlobal: true,
       envFilePath: [path.resolve(process.cwd(), '.env')],
     }),
-    PrismaModule, // Ahora sí lo encontrará
+    SupabaseModule,
+    FirebaseAdminModule,
+    UsersModule,
     AiModule,
     AuthModule,
   ],

@@ -66,6 +66,23 @@
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
+// ── Descripción del criterio activo ──────────────────────────────────────────
+.lb-criterio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #5c6bc0;
+  background: rgba(63, 81, 181, 0.06);
+  border: 1px solid rgba(63, 81, 181, 0.14);
+  border-radius: 999px;
+  padding: 5px 14px;
+  width: fit-content;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+}
+
 .lb-tema-bar {
   display: flex;
   flex-direction: column;
@@ -172,13 +189,37 @@
   font-weight: 500;
 }
 
+// Valor destacado del criterio activo
+.my-highlight {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+
+  .highlight-val {
+    font-size: 2.6rem;
+    font-weight: 900;
+    color: #3f51b5;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .highlight-lbl {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #9fa8da;
+  }
+}
+
 .my-stats {
   display: flex;
-  gap: 1.5rem;
+  gap: 1.25rem;
   padding-top: 0.5rem;
   border-top: 1px solid rgba(63, 81, 181, 0.12);
   width: 100%;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .my-stat {
@@ -188,14 +229,15 @@
   gap: 0.1rem;
 
   .num {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     font-weight: 800;
     &.ok  { color: #2e7d32; }
     &.bad { color: #c62828; }
+    &.use { color: #1565c0; }
     &.pct { color: #3f51b5; }
   }
   .lbl {
-    font-size: 0.68rem;
+    font-size: 0.65rem;
     color: #9fa8da;
     text-transform: uppercase;
     letter-spacing: 0.05em;

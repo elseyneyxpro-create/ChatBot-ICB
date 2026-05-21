@@ -1,4 +1,4 @@
-import { Component, signal, computed, inject, OnInit } from '@angular/core';
+import { Component, signal, computed, inject, OnInit, HostListener, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -28,15 +28,34 @@ interface Video {
   styleUrls: ['./video-library.component.scss']
 })
 export class VideoLibraryComponent implements OnInit {
-  private http = inject(HttpClient);
-  private base = environment.AGENTS_URL;
+  private http    = inject(HttpClient);
+  private base    = environment.AGENTS_URL;
+  private elRef   = inject(ElementRef);
 
-  query = signal('');
+  query        = signal('');
   selectedTema = signal('Todos');
-  allVideos = signal<Video[]>([]);
-  temas = signal<string[]>([]);
-  loading = signal(true);
-  error = signal(false);
+  allVideos    = signal<Video[]>([]);
+  temas        = signal<string[]>([]);
+  loading      = signal(true);
+  error        = signal(false);
+  panelOpen    = signal(false);
+
+  isFiltered = computed(() => this.selectedTema() !== 'Todos');
+
+  // Cierra el panel si el click fue fuera del componente
+  @HostListener('document:click', ['$event'])
+  onDocClick(e: MouseEvent) {
+    if (this.panelOpen() && !this.elRef.nativeElement.contains(e.target)) {
+      this.panelOpen.set(false);
+    }
+  }
+
+  togglePanel() { this.panelOpen.update(v => !v); }
+
+  selectTema(t: string) {
+    this.selectedTema.set(t);
+    this.panelOpen.set(false);
+  }
 
   filtered = computed(() => {
     const q = this.query().toLowerCase();
@@ -48,7 +67,7 @@ export class VideoLibraryComponent implements OnInit {
   });
 
   ngOnInit() {
-    this.http.get<{ videos: Video[]; temas: string[] }>(`${this.base}/ai/videos`).subscribe({
+    this.http.get<{ videos: Video[]; temas: string[] }>(`${this.base}${environment.endpoints.ai.videos}`).subscribe({
       next: (res) => {
         this.allVideos.set(res.videos ?? []);
         this.temas.set(res.temas ?? []);

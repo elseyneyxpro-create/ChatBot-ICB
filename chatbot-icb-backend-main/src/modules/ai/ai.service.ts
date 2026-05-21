@@ -14,22 +14,17 @@ import type { AxiosError } from 'axios';
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly maxRetries: number;
-  private readonly answerPath: string;
 
   constructor(
     private readonly http: HttpService,
     private readonly cfg: ConfigService,
   ) {
     this.maxRetries = Number(this.cfg.get('PYTHON_MAX_RETRIES') ?? 0);
-    this.answerPath = this.cfg.get<string>('PYTHON_ANSWER_PATH') || '/ai/answer';
     this.logger.log(`PYTHON_BASE_URL = ${this.cfg.get('PYTHON_BASE_URL')}`);
-    this.logger.log(`PYTHON_ANSWER_PATH = ${this.answerPath}`);
   }
 
-  async askPython(body: Record<string, any>) {
-    const payload = { session_id: 'demo', ...body };
-
-    const obs$ = this.http.post(this.answerPath, payload).pipe(
+  private async proxyPost(path: string, body: Record<string, any>) {
+    const obs$ = this.http.post(path, body).pipe(
       retry({
         count: this.maxRetries,
         delay: (_err, retryCount) => timer(250 * retryCount),
@@ -37,23 +32,60 @@ export class AiService {
       catchError((err: AxiosError<any>) => {
         const status = err.response?.status;
         const data = err.response?.data;
-        this.logger.error(
-          `Python error ${status ?? ''}: ${JSON.stringify(
-            data ?? err.message,
-          )}`,
-        );
+        this.logger.error(`Python error ${status ?? ''}: ${JSON.stringify(data ?? err.message)}`);
         return throwError(
-          () =>
-            new InternalServerErrorException({
-              status: 'error',
-              source: 'python-service',
-              message: data ?? err.message ?? 'Error proxying to Python',
-            }),
+          () => new InternalServerErrorException({
+            status: 'error',
+            source: 'python-service',
+            message: data ?? err.message ?? 'Error proxying to Python',
+          }),
         );
       }),
     );
-
     const { data } = await firstValueFrom(obs$);
     return data;
+  }
+
+  private async proxyGet(path: string) {
+    const obs$ = this.http.get(path).pipe(
+      catchError((err: AxiosError<any>) => {
+        const status = err.response?.status;
+        const data = err.response?.data;
+        this.logger.error(`Python error ${status ?? ''}: ${JSON.stringify(data ?? err.message)}`);
+        return throwError(
+          () => new InternalServerErrorException({
+            status: 'error',
+            source: 'python-service',
+            message: data ?? err.message ?? 'Error proxying to Python',
+          }),
+        );
+      }),
+    );
+    const { data } = await firstValueFrom(obs$);
+    return data;
+  }
+
+  async askPython(body: Record<string, any>) {
+    return this.proxyPost('/ai/answer', { session_id: 'demo', ...body });
+  }
+
+  async getVideos() {
+    return this.proxyGet('/ai/videos');
+  }
+
+  async evaluateConcepto(body: Record<string, any>) {
+    return this.proxyPost('/ai/evaluate-concepto', body);
+  }
+
+  async evaluateVof(body: Record<string, any>) {
+    return this.proxyPost('/ai/evaluate-vof', body);
+  }
+
+  async evaluateError(body: Record<string, any>) {
+    return this.proxyPost('/ai/evaluate-error', body);
+  }
+
+  async saveExerciseResult(body: Record<string, any>) {
+    return this.proxyPost('/ai/save-exercise-result', body);
   }
 }

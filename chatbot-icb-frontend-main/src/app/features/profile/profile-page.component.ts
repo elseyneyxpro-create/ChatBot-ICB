@@ -1,13 +1,16 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, SecurityContext } from '@angular/core';
+import { DomSanitizer } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
+import { SafeHtml } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { FirestoreService, type ProfileTemaStats } from '../../core/firestore.service';
+import { FirestoreService, type NivelTemaStats } from '../../core/firestore.service';
 import { AuthService } from '../../core/auth.service';
+import katex from 'katex';
 
-interface TemaCard extends ProfileTemaStats {
+interface TemaCard extends NivelTemaStats {
   total_aciertos: number;
   total_errores: number;
   total: number;
@@ -22,9 +25,10 @@ interface TemaCard extends ProfileTemaStats {
   styleUrls: ['./profile-page.component.scss'],
 })
 export class ProfilePageComponent implements OnInit {
-  private fs = inject(FirestoreService);
-  private router = inject(Router);
-  private auth = inject(AuthService);
+  private fs        = inject(FirestoreService);
+  private router    = inject(Router);
+  private auth      = inject(AuthService);
+  private sanitizer = inject(DomSanitizer);
 
   loading = signal(true);
   totalAciertos = signal(0);
@@ -37,7 +41,12 @@ export class ProfilePageComponent implements OnInit {
   user = computed(() => this.auth.currentUser());
   displayName = computed(() => this.user()?.displayName || this.emailPrefix());
   email = computed(() => this.user()?.email ?? null);
-  photoURL = computed(() => this.user()?.photoURL ?? null);
+  photoURL = computed(() => {
+    const url = this.user()?.photoURL ?? null;
+    if (!url) return null;
+    // Google photos llegan con =s96-c (96 px); pedimos 200 px para que no pixele
+    return url.replace(/=s\d+-c(\?.*)?$/, '=s200-c$1').replace(/=s\d+(\?.*)?$/, '=s200$1');
+  });
   emailPrefix = computed(() => this.user()?.email?.split('@')[0] ?? 'Estudiante');
   carrera = computed(() => {
     const e = this.email();
@@ -71,7 +80,7 @@ export class ProfilePageComponent implements OnInit {
     }
   }
 
-  private _toTemaCards(temas: ProfileTemaStats[]): TemaCard[] {
+  private _toTemaCards(temas: NivelTemaStats[]): TemaCard[] {
     return temas
       .map(t => {
         const total_aciertos = t.vof_aciertos + t.error_aciertos + t.concepto_aciertos;
@@ -83,6 +92,22 @@ export class ProfilePageComponent implements OnInit {
       .filter(t => t.total > 0)
       .sort((a, b) => (b.ultima_actividad?.getTime() ?? 0) - (a.ultima_actividad?.getTime() ?? 0));
   }
+
+  /** Convierte $...$ e inline LaTeX a HTML con KaTeX, escapa el resto */
+  renderLatex(text: string): SafeHtml {
+    // Reemplaza $...$ con KaTeX renderizado
+    const html = text.replace(/\$([^$]+)\$/g, (_match, math) => {
+      try {
+        return katex.renderToString(math, { throwOnError: false, displayMode: false });
+      } catch {
+        return `<code>${math}</code>`;
+      }
+    });
+    return this.sanitizer.bypassSecurityTrustHtml(html);
+  }
+
+  avatarFailed = signal(false);
+  onAvatarError() { this.avatarFailed.set(true); }
 
   goToChat() { this.router.navigate(['/app/chat']); }
 }

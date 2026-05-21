@@ -6,11 +6,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { GoogleStrategy } from './google.strategy';
 import { JwtStrategy } from './jwt.strategy';
-import { AuthService } from './auth.service'; // 1. Importa el nuevo servicio
+import { AuthService } from './auth.service';
+import { WhitelistGuard } from './whitelist.guard';
+import { FirebaseAdminModule } from '../firebase-admin/firebase-admin.module';
 
 @Module({
   imports: [
     ConfigModule,
+    FirebaseAdminModule,
     PassportModule.register({ session: false }),
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -24,7 +27,7 @@ import { AuthService } from './auth.service'; // 1. Importa el nuevo servicio
   controllers: [AuthController],
   // 2. Añade AuthService a la lista de providers
   //    Ahora NestJS sabe cómo crearlo e inyectarlo donde se necesite.
-  providers: [AuthService, GoogleStrategy, JwtStrategy],
+  providers: [AuthService, GoogleStrategy, JwtStrategy, WhitelistGuard],
 })
 export class AuthModule {}
 

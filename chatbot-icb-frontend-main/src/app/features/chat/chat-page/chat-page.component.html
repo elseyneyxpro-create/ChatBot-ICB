@@ -168,8 +168,9 @@
             <p [innerHTML]="(ejercState().concepto.feedback || '') | katexRender"></p>
           </div>
 
-          <div *ngIf="!ejercState().concepto.es_correcto && ejercState().concepto.answered">
+          <div *ngIf="ejercState().concepto.answered">
             <div *ngIf="getVideoByCategoria('concepto') as vidUrl" class="ej-video">
+              <p class="video-hint">{{ ejercState().concepto.es_correcto ? 'Refuerza el concepto con este video:' : 'Revisa este video para reforzar el concepto:' }}</p>
               <ng-container *ngTemplateOutlet="videoThumb; context: { url: vidUrl }"></ng-container>
             </div>
           </div>
@@ -188,11 +189,21 @@
           <p class="ej-enunciado" [innerHTML]="ej.enunciado | katexRender"></p>
 
           <div class="vof-buttons" *ngIf="!ejercState().vof.answered">
-            <button class="vof-btn verdadero" (click)="responderVoF(true)">
-              <mat-icon>check</mat-icon> Verdadero
+            <button class="vof-btn verdadero"
+              [disabled]="ejercState().vof.loading"
+              [class.vof-loading]="ejercState().vof.loading && ejercState().vof.selected === true"
+              (click)="responderVoF(true)">
+              <mat-spinner *ngIf="ejercState().vof.loading && ejercState().vof.selected === true" [diameter]="16" class="vof-spinner"></mat-spinner>
+              <mat-icon *ngIf="!(ejercState().vof.loading && ejercState().vof.selected === true)">check</mat-icon>
+              {{ ejercState().vof.loading && ejercState().vof.selected === true ? 'Analizando...' : 'Verdadero' }}
             </button>
-            <button class="vof-btn falso" (click)="responderVoF(false)">
-              <mat-icon>close</mat-icon> Falso
+            <button class="vof-btn falso"
+              [disabled]="ejercState().vof.loading"
+              [class.vof-loading]="ejercState().vof.loading && ejercState().vof.selected === false"
+              (click)="responderVoF(false)">
+              <mat-spinner *ngIf="ejercState().vof.loading && ejercState().vof.selected === false" [diameter]="16" class="vof-spinner"></mat-spinner>
+              <mat-icon *ngIf="!(ejercState().vof.loading && ejercState().vof.selected === false)">close</mat-icon>
+              {{ ejercState().vof.loading && ejercState().vof.selected === false ? 'Analizando...' : 'Falso' }}
             </button>
           </div>
 
@@ -214,9 +225,9 @@
               [class.incorrect]="!ejercState().vof.es_correcto"
               [innerHTML]="ej.explicacion | katexRender">
             </div>
-            <div *ngIf="!ejercState().vof.es_correcto">
+            <div>
               <div *ngIf="getVideoByCategoria('v o f') as vidUrl" class="ej-video">
-                <p class="video-hint">Revisa este video para reforzar el concepto:</p>
+                <p class="video-hint">{{ ejercState().vof.es_correcto ? 'Refuerza el concepto con este video:' : 'Revisa este video para reforzar el concepto:' }}</p>
                 <ng-container *ngTemplateOutlet="videoThumb; context: { url: vidUrl }"></ng-container>
               </div>
             </div>
@@ -243,10 +254,17 @@
               [class.correct-step]="ejercState().error.answered && ejercState().error.es_correcto && ejercState().error.selected_paso === i + 1"
               [class.wrong-step]="ejercState().error.answered && !ejercState().error.es_correcto && ejercState().error.selected_paso === i + 1"
               [class.reveal-step]="ejercState().error.answered && !ejercState().error.es_correcto && ej.paso_error === i + 1"
-              [disabled]="ejercState().error.answered"
+              [class.step-analyzing]="ejercState().error.loading && ejercState().error.selected_paso === i + 1"
+              [disabled]="ejercState().error.answered || ejercState().error.loading"
               (click)="responderError(i + 1)">
-              <span class="step-num">Paso {{ i + 1 }}</span>
-              <span class="step-text" [innerHTML]="paso | katexRender"></span>
+              <ng-container *ngIf="ejercState().error.loading && ejercState().error.selected_paso === i + 1; else stepNormal">
+                <mat-spinner [diameter]="14" class="step-spinner"></mat-spinner>
+                <span class="step-num step-num--analyzing">Analizando...</span>
+              </ng-container>
+              <ng-template #stepNormal>
+                <span class="step-num">Paso {{ i + 1 }}</span>
+                <span class="step-text" [innerHTML]="paso | katexRender"></span>
+              </ng-template>
             </button>
           </div>
 
@@ -264,9 +282,9 @@
             [innerHTML]="ej.explicacion | katexRender">
           </div>
 
-          <div *ngIf="ejercState().error.answered && !ejercState().error.es_correcto">
+          <div *ngIf="ejercState().error.answered">
             <div *ngIf="getVideoByCategoria('encuentre el error') as vidUrl" class="ej-video">
-              <p class="video-hint">Revisa este video para reforzar el concepto:</p>
+              <p class="video-hint">{{ ejercState().error.es_correcto ? 'Refuerza el concepto con este video:' : 'Revisa este video para reforzar el concepto:' }}</p>
               <ng-container *ngTemplateOutlet="videoThumb; context: { url: vidUrl }"></ng-container>
             </div>
           </div>

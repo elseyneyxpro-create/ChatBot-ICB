@@ -4,14 +4,19 @@
     <mat-icon class="lb-trophy">emoji_events</mat-icon>
     <div>
       <h1>Ranking</h1>
-      <p>Tu posición en el ranking de pensamiento crítico.</p>
+      <p>Compara tu desempeño con el resto de la clase.</p>
     </div>
   </header>
 
+  <!-- Tabs -->
   <div class="lb-tabs">
-    <button class="lb-tab" [class.active]="vista() === 'totales'" (click)="setVista('totales')">
-      <mat-icon>workspace_premium</mat-icon>
-      <span>Totales</span>
+    <button class="lb-tab" [class.active]="vista() === 'aciertos'" (click)="setVista('aciertos')">
+      <mat-icon>verified</mat-icon>
+      <span>Aciertos</span>
+    </button>
+    <button class="lb-tab" [class.active]="vista() === 'uso'" (click)="setVista('uso')">
+      <mat-icon>trending_up</mat-icon>
+      <span>Uso</span>
     </button>
     <button class="lb-tab" [class.active]="vista() === 'tema'" [disabled]="topTemas().length === 0" (click)="setVista('tema')">
       <mat-icon>category</mat-icon>
@@ -19,6 +24,15 @@
     </button>
   </div>
 
+  <!-- Descripción del criterio -->
+  <div class="lb-criterio">
+    <mat-icon *ngIf="vista() === 'aciertos'">emoji_events</mat-icon>
+    <mat-icon *ngIf="vista() === 'uso'">bar_chart</mat-icon>
+    <mat-icon *ngIf="vista() === 'tema'">topic</mat-icon>
+    <span>{{ criterioLabel() }}</span>
+  </div>
+
+  <!-- Selector de tema -->
   <div class="lb-tema-bar" *ngIf="vista() === 'tema' && topTemas().length > 0">
     <span class="lb-tema-label">Top 5 temas más populares:</span>
     <div class="tema-chips">
@@ -36,14 +50,15 @@
     <p>Cargando ranking...</p>
   </div>
 
-  <!-- Sin datos aún -->
+  <!-- Sin datos -->
   <div *ngIf="!loading() && rankedEntries().length === 0" class="empty-state">
     <mat-icon>insights</mat-icon>
     <p>Todavía no hay datos suficientes para mostrar el ranking.</p>
   </div>
 
-  <!-- Posición propia -->
+  <!-- Tarjeta posición propia -->
   <div *ngIf="!loading() && myEntry() as me" class="my-card">
+
     <div class="rank-badge" [class.top1]="me.posicion === 1" [class.top2]="me.posicion === 2" [class.top3]="me.posicion === 3">
       <mat-icon *ngIf="me.posicion <= 3">emoji_events</mat-icon>
       <span class="rank-num">#{{ me.posicion }}</span>
@@ -55,6 +70,13 @@
       <span class="my-total">de {{ totalParticipantes() }} estudiante{{ totalParticipantes() !== 1 ? 's' : '' }}</span>
     </div>
 
+    <!-- Highlight del criterio activo -->
+    <div class="my-highlight">
+      <span class="highlight-val">{{ myHighlightValue() }}</span>
+      <span class="highlight-lbl">{{ myHighlightLabel() }}</span>
+    </div>
+
+    <!-- Stats completas -->
     <div class="my-stats">
       <div class="my-stat">
         <span class="num ok">{{ me.total_aciertos }}</span>
@@ -65,13 +87,17 @@
         <span class="lbl">errores</span>
       </div>
       <div class="my-stat">
+        <span class="num use">{{ me.total_ejercicios }}</span>
+        <span class="lbl">ejercicios</span>
+      </div>
+      <div class="my-stat">
         <span class="num pct">{{ me.porcentaje }}%</span>
         <span class="lbl">precisión</span>
       </div>
     </div>
   </div>
 
-  <!-- Sin datos propios pero sí hay tabla -->
+  <!-- Sin entrada propia pero sí hay tabla -->
   <div *ngIf="!loading() && !myEntry() && rankedEntries().length > 0" class="no-entry-state">
     <mat-icon>person_off</mat-icon>
     <p>Aún no apareces en el ranking. Responde ejercicios para sumarte.</p>

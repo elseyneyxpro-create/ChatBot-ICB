@@ -1,22 +1,58 @@
 <section class="library">
-  <header class="filters">
+
+  <!-- ── Barra de herramientas ── -->
+  <header class="toolbar">
+
     <mat-form-field appearance="outline" class="search">
       <mat-label>Buscar</mat-label>
-      <input matInput placeholder="Derivadas, límites, matrices..." [value]="query()" (input)="updateQuery($event)" />
+      <input matInput placeholder="Derivadas, límites, matrices..."
+             [value]="query()" (input)="updateQuery($event)" />
       <mat-icon matSuffix>search</mat-icon>
     </mat-form-field>
 
-    <mat-chip-set class="chips" *ngIf="!loading()">
-      <mat-chip-option (click)="selectedTema.set('Todos')" [selected]="selectedTema() === 'Todos'">
-        Todos
-      </mat-chip-option>
-      <mat-chip-option
-        *ngFor="let t of temas()"
-        (click)="selectedTema.set(t)"
-        [selected]="selectedTema() === t">
-        {{ t }}
-      </mat-chip-option>
-    </mat-chip-set>
+    <!-- Botón filtros + panel -->
+    <div class="filter-wrap">
+      <button class="filter-btn" [class.active]="isFiltered()" (click)="togglePanel()">
+        <mat-icon>tune</mat-icon>
+        <span>Filtros</span>
+        <span class="filter-dot" *ngIf="isFiltered()"></span>
+        <mat-icon class="chevron" [class.open]="panelOpen()">expand_more</mat-icon>
+      </button>
+
+      <!-- Badge tema activo -->
+      <div class="active-tag" *ngIf="isFiltered()">
+        <span>{{ selectedTema() }}</span>
+        <button class="clear-btn" (click)="selectTema('Todos')">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <!-- Panel desplegable -->
+      <div class="filter-panel" *ngIf="panelOpen()">
+        <p class="panel-title">Tema</p>
+        <div class="panel-grid">
+          <button
+            class="panel-item"
+            [class.selected]="selectedTema() === 'Todos'"
+            (click)="selectTema('Todos')">
+            Todos
+          </button>
+          <button
+            class="panel-item"
+            *ngFor="let t of temas()"
+            [class.selected]="selectedTema() === t"
+            (click)="selectTema(t)">
+            {{ t }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contador de resultados -->
+    <span class="result-count" *ngIf="!loading()">
+      {{ filtered().length }} video{{ filtered().length !== 1 ? 's' : '' }}
+    </span>
+
   </header>
 
   <!-- Loading -->
@@ -56,4 +92,5 @@
       </div>
     </div>
   </div>
+
 </section>

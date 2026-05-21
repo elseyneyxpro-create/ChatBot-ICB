@@ -1,51 +1,39 @@
 <div class="auth-page-bg">
   <div class="bg-overlay"></div>
 
-  <!-- Hero flotante superior -->
-  <section class="hero-floating">
-    <div class="hero-content">
-      <h2>Instituto de Ciencias Básicas</h2>
-      <p>Conoce noticias, eventos y recursos destacados.</p>
-
-      <div class="hero-actions">
-        <a
-          mat-flat-button
-          color="primary"
-          class="hero-btn hero-btn-primary"
-          href="https://www.udp.cl/noticias/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <mat-icon>open_in_new</mat-icon>
-          Ver noticias
-        </a>
-
-        <a
-          mat-stroked-button
-          class="hero-btn hero-btn-secondary"
-          href="https://www.udp.cl/calendario-academico/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <mat-icon>calendar_month</mat-icon>
-          Calendario académico
-        </a>
-      </div>
+  <!-- Topbar: ICB izquierda · UDP derecha -->
+  <header class="login-topbar">
+    <div class="topbar-brand">
+      <img
+        src="https://cienciasbasicas.udp.cl/cms/wp-content/uploads/2019/06/logo-ciencias-basicas.png"
+        alt="ICB"
+        class="topbar-logo-icb"
+      />
+      <span class="topbar-name">Instituto de Ciencias Básicas</span>
     </div>
-  </section>
+    <div class="topbar-udp">
+      <span class="topbar-udp-badge">UDP</span>
+      <span class="topbar-udp-text">Facultad de Ingeniería<br>y Ciencias</span>
+    </div>
+  </header>
 
   <!-- Login centrado -->
   <section class="login-center">
+    <div class="login-tagline">
+      <h1>Bienvenido al Chatbot ICB</h1>
+      <p>Tu asistente inteligente para Ciencias Básicas en la UDP</p>
+    </div>
+
     <mat-card class="login-card glass-card" appearance="outlined">
       <mat-card-header>
         <div mat-card-avatar class="logo-avatar">
           <img
             src="https://cienciasbasicas.udp.cl/cms/wp-content/uploads/2019/06/logo-ciencias-basicas.png"
-            alt="UDP"
+            alt="ICB"
           />
         </div>
-        <mat-card-title>ICB • Iniciar sesión</mat-card-title>
-        <mat-card-subtitle>Chatbot Ciencias Básicas</mat-card-subtitle>
+        <mat-card-title>ICB · Iniciar sesión</mat-card-title>
+        <mat-card-subtitle>Ingresa con tu cuenta y habla con <strong>Axiomante</strong>, tu asistente</mat-card-subtitle>
       </mat-card-header>
 
       <mat-card-content>
@@ -55,7 +43,7 @@
         </div>
 
         <button
-          mat-stroked-button
+          mat-flat-button
           color="primary"
           class="btn full"
           type="button"
@@ -65,27 +53,9 @@
           <mat-icon>account_circle</mat-icon>
           Entrar con Google (&#64;mail.udp.cl)
         </button>
+
+        <p class="login-hint">Solo cuentas &#64;mail.udp.cl autorizadas</p>
       </mat-card-content>
     </mat-card>
-  </section>
-
-  <section class="cards-floating">
-    <div class="cards">
-      <mat-card class="news">
-        <img mat-card-image src="https://eit.udp.cl/cms/wp-content/uploads/2025/07/feria-proyectos-eit-udp-2025-18-scaled.jpg" alt="Noticia 1" />
-        <mat-card-content>
-          <h3 class="mat-h3">Premiación</h3>
-          <p>Premiación feria de proyectos EIT</p>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="news">
-        <img mat-card-image src="https://cienciasbasicas.udp.cl/cms/wp-content/uploads/2019/04/04_potula-a-una-ayudantia.png" alt="Noticia 2" />
-        <mat-card-content>
-          <h3 class="mat-h3">Convocatoria ayudantías</h3>
-          <p>Postula a ayudantías para el próximo semestre.</p>
-        </mat-card-content>
-      </mat-card>
-    </div>
   </section>
 </div>

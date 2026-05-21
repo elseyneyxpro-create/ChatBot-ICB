@@ -28,6 +28,8 @@ export class SignUpComponent {
   private router = inject(Router);
 
   loginWithGoogle(): void {
-    this.auth.signInWithGoogle().subscribe();
+    this.auth.signInWithGoogle().catch(err =>
+      console.error('[SignUp] signInWithGoogle error:', err)
+    );
   }
 }

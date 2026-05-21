@@ -1,88 +1,84 @@
-// 1. Importa las dependencias necesarias
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, ForbiddenException, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma, User } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import { SupabaseService } from '../supabase/supabase.service';
+import { FirebaseAdminService } from '../firebase-admin/firebase-admin.service';
 
 @Injectable()
 export class AuthService {
-  // 2. Inyecta JwtService para poder crear tokens
+  private readonly logger = new Logger(AuthService.name);
   private readonly allowedDomain: string;
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly cfg: ConfigService,
+    private readonly supabase: SupabaseService,
+    private readonly firebaseAdmin: FirebaseAdminService,
   ) {
     this.allowedDomain = this.cfg.get<string>('ALLOWED_DOMAIN') ?? 'mail.udp.cl';
   }
 
-  private checkDomain(email: string) {
-    const domain = email.split('@')[1];
-    if (domain !== this.allowedDomain) {
-      throw new UnauthorizedException(`Solo se permiten correos @${this.allowedDomain}`);
-    }
-  }
-
   /**
-   * Valida las credenciales de un usuario y, si son correctas,
-   * genera un token de acceso JWT.
-   * @param email El email del usuario.
-   * @param pass La contraseña en texto plano.
-   * @returns Un objeto con el token de acceso.
+   * Intercambia un Supabase access_token por:
+   *  - Una cookie JWT propia de NestJS (se setea en el controller)
+   *  - Un Firebase custom token para acceder a Firestore
+   *
+   * Capas de seguridad:
+   *  1. Supabase verifica la firma del token (Google OAuth via Supabase)
+   *  2. Dominio @mail.udp.cl obligatorio
+   *  3. Whitelist de alumnos activos en Supabase
    */
-  async signIn(email: string, pass: string): Promise<{ access_token: string }> {
-    this.checkDomain(email);
+  async exchangeSupabaseToken(supabaseToken: string): Promise<{
+    nestJwt: string;
+    firebaseCustomToken: string;
+    user: { uid: string; email: string; nombre?: string; photoURL?: string };
+  }> {
+    // 1. Verificar token con Supabase
+    const { data: { user: sbUser }, error } = await this.supabase.db.auth.getUser(supabaseToken);
+    if (error || !sbUser) {
+      throw new UnauthorizedException('Token de Supabase inválido o expirado.');
+    }
 
-    // a. Busca al usuario por su email
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    const email = sbUser.email ?? '';
+
+    // 2. Verificar dominio
+    if (!email.endsWith(`@${this.allowedDomain}`)) {
+      throw new ForbiddenException(`Solo se permiten correos @${this.allowedDomain}`);
+    }
+
+    // 3. Verificar whitelist
+    const { data: wl } = await this.supabase.db
+      .from('whitelist_alumnos')
+      .select('id')
+      .eq('email', email.toLowerCase())
+      .eq('activo', true)
+      .limit(1)
+      .single();
+
+    if (!wl) {
+      throw new ForbiddenException('Tu correo no está autorizado para acceder a esta plataforma.');
+    }
+
+    // 4. Upsert en tabla usuario (nombre en singular, así está en Supabase)
+    const nombre    = sbUser.user_metadata?.['full_name'] ?? sbUser.user_metadata?.['name'] ?? null;
+    const photoURL  = sbUser.user_metadata?.['avatar_url'] ?? sbUser.user_metadata?.['picture'] ?? null;
+    await this.supabase.db
+      .from('usuario')
+      .upsert(
+        { id_user: sbUser.id, correo: email.toLowerCase(), nombre },
+        { onConflict: 'id_user' },
+      );
+
+    // 5. Emitir JWT propio de NestJS
+    const nestJwt = await this.jwt.signAsync({
+      sub: sbUser.id,
+      email,
+      name: nombre,
     });
 
-    // b. Si no existe el usuario o la contraseña no coincide, lanza un error
-    if (!user || !(await bcrypt.compare(pass, user.password_hash))) {
-      throw new UnauthorizedException('Credenciales inválidas.');
-    }
+    // 6. Emitir Firebase custom token (mismo uid → mismos docs en Firestore)
+    const firebaseCustomToken = await this.firebaseAdmin.auth.createCustomToken(sbUser.id);
 
-    // c. Si las credenciales son válidas, crea el payload del token
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      // aquí puedes añadir más datos si quieres, como roles
-    };
-
-    // d. Firma el token y lo devuelve
-    return {
-      access_token: await this.jwt.signAsync(payload),
-    };
-  }
-
-
-  // --- El método signUp se mantiene igual ---
-  async signUp(data: Prisma.UserCreateInput): Promise<Omit<User, 'password_hash'>> {
-    this.checkDomain(data.email);
-
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(data.password_hash, saltRounds);
-
-    try {
-      const user = await this.prisma.user.create({
-        data: {
-          ...data,
-          password_hash: hashedPassword,
-        },
-      });
-
-      const { password_hash, ...result } = user;
-      return result;
-
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException('El correo electrónico ya está registrado.');
-      }
-      throw error;
-    }
+    return { nestJwt, firebaseCustomToken, user: { uid: sbUser.id, email, nombre, photoURL } };
   }
 }

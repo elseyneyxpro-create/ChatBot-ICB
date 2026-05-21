@@ -18,15 +18,15 @@ const MAX_CHATS = 6;
 
 export interface EjercicioEstado {
   concepto: { answered: boolean; loading: boolean; es_correcto?: boolean; feedback?: string; texto: string };
-  vof:     { answered: boolean; es_correcto?: boolean; selected?: boolean };
-  error:   { answered: boolean; es_correcto?: boolean; selected_paso?: number };
+  vof:     { answered: boolean; loading: boolean; es_correcto?: boolean; selected?: boolean; feedback?: string };
+  error:   { answered: boolean; loading: boolean; es_correcto?: boolean; selected_paso?: number; feedback?: string };
 }
 
 function emptyEjercicioEstado(): EjercicioEstado {
   return {
     concepto: { answered: false, loading: false, texto: '' },
-    vof:      { answered: false },
-    error:    { answered: false },
+    vof:      { answered: false, loading: false },
+    error:    { answered: false, loading: false },
   };
 }
 
@@ -143,7 +143,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     this._stopReinforcementListener();
     this.activeChatId.set(chat.id);
     this.showMobileChats.set(false);
-    this.chat.setActiveChat(chat.id, chat.total_hilos, chat.resumen_rolling ?? '');
+    this.chat.setActiveChat(chat.id, chat.total_hilos);
     this.chat.clear();
     this.ejercState.set(emptyEjercicioEstado());
     this.currentTema.set(null);
@@ -179,14 +179,18 @@ export class ChatPageComponent implements OnInit, OnDestroy {
       } else if (ej.tipo === 'verdadero_falso') {
         estado.vof = {
           answered: true,
+          loading: false,
           es_correcto: ej.es_correcto,
           selected: typeof ej.respuesta_alumno === 'boolean' ? ej.respuesta_alumno : undefined,
+          feedback: ej.feedback ?? '',
         };
       } else if (ej.tipo === 'encuentra_el_error') {
         estado.error = {
           answered: true,
+          loading: false,
           es_correcto: ej.es_correcto,
           selected_paso: typeof ej.respuesta_alumno === 'number' ? ej.respuesta_alumno : undefined,
+          feedback: ej.feedback ?? '',
         };
       }
     }
@@ -272,12 +276,12 @@ export class ChatPageComponent implements OnInit, OnDestroy {
           },
         }));
       });
-      this._persistEjercicio('concepto', {
+      await this._persistEjercicio('concepto', {
         es_correcto: res.es_correcto,
         respuesta_alumno: texto,
         feedback: res.feedback,
       });
-      this.chat.saveExerciseResult(tema, 'concepto', res.es_correcto);
+      this.chat.saveExerciseResult(tema, 'concepto', res.es_correcto, ej.enunciado);
     } catch (e) {
       console.error('[ChatPage] evaluateConcepto error:', e);
       this.ejercState.update(s => ({
@@ -287,41 +291,81 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  responderVoF(seleccion: boolean) {
+  async responderVoF(seleccion: boolean) {
     const ej = this.ejercicioVoF();
     const tema = this.currentTema();
-    if (!ej || this.ejercState().vof.answered) return;
+    if (!ej || this.ejercState().vof.answered || this.ejercState().vof.loading || !tema) return;
 
-    const es_correcto = seleccion === ej.respuesta_correcta;
+    // Mostrar loading inmediatamente en el botón presionado
     this.ejercState.update(s => ({
       ...s,
-      vof: { answered: true, es_correcto, selected: seleccion },
+      vof: { ...s.vof, loading: true, selected: seleccion },
     }));
 
-    this._persistEjercicio('verdadero_falso', { es_correcto, respuesta_alumno: seleccion });
-    if (tema) {
-      this.chat.saveExerciseResult(tema, 'vof', es_correcto);
+    try {
+      const res = await firstValueFrom(
+        this.chat.evaluateVof(ej.enunciado, seleccion, ej.respuesta_correcta ?? false, tema)
+      );
+      this.zone.run(() => {
+        this.ejercState.update(s => ({
+          ...s,
+          vof: { answered: true, loading: false, es_correcto: res.es_correcto, selected: seleccion, feedback: res.feedback },
+        }));
+      });
+      await this._persistEjercicio('verdadero_falso', { es_correcto: res.es_correcto, respuesta_alumno: seleccion, feedback: res.feedback });
+      this.chat.saveExerciseResult(tema, 'vof', res.es_correcto, ej.enunciado);
+    } catch (e) {
+      // Fallback local si el backend falla
+      const es_correcto = seleccion === ej.respuesta_correcta;
+      this.zone.run(() => {
+        this.ejercState.update(s => ({
+          ...s,
+          vof: { answered: true, loading: false, es_correcto, selected: seleccion },
+        }));
+      });
+      await this._persistEjercicio('verdadero_falso', { es_correcto, respuesta_alumno: seleccion });
+      this.chat.saveExerciseResult(tema, 'vof', es_correcto, ej.enunciado);
     }
   }
 
-  responderError(paso: number) {
+  async responderError(paso: number) {
     const ej = this.ejercicioError();
     const tema = this.currentTema();
-    if (!ej || this.ejercState().error.answered) return;
+    if (!ej || this.ejercState().error.answered || this.ejercState().error.loading || !tema) return;
 
-    const es_correcto = paso === ej.paso_error;
+    // Mostrar loading inmediatamente en el paso presionado
     this.ejercState.update(s => ({
       ...s,
-      error: { answered: true, es_correcto, selected_paso: paso },
+      error: { ...s.error, loading: true, selected_paso: paso },
     }));
 
-    this._persistEjercicio('encuentra_el_error', { es_correcto, respuesta_alumno: paso });
-    if (tema) {
-      this.chat.saveExerciseResult(tema, 'error', es_correcto);
+    try {
+      const res = await firstValueFrom(
+        this.chat.evaluateError(ej.enunciado, ej.desarrollo ?? [], ej.paso_error ?? 0, paso, tema)
+      );
+      this.zone.run(() => {
+        this.ejercState.update(s => ({
+          ...s,
+          error: { answered: true, loading: false, es_correcto: res.es_correcto, selected_paso: paso, feedback: res.feedback },
+        }));
+      });
+      await this._persistEjercicio('encuentra_el_error', { es_correcto: res.es_correcto, respuesta_alumno: paso, feedback: res.feedback });
+      this.chat.saveExerciseResult(tema, 'error', res.es_correcto, ej.enunciado);
+    } catch (e) {
+      // Fallback local si el backend falla
+      const es_correcto = paso === ej.paso_error;
+      this.zone.run(() => {
+        this.ejercState.update(s => ({
+          ...s,
+          error: { answered: true, loading: false, es_correcto, selected_paso: paso },
+        }));
+      });
+      await this._persistEjercicio('encuentra_el_error', { es_correcto, respuesta_alumno: paso });
+      this.chat.saveExerciseResult(tema, 'error', es_correcto, ej.enunciado);
     }
   }
 
-  /** Persiste la respuesta del alumno en el reinforcement embebido del último hilo. */
+  /** Persiste la respuesta del alumno en Hilo_chat Y en Chat_nr.last_reinforcement. */
   private async _persistEjercicio(
     tipo: 'concepto' | 'verdadero_falso' | 'encuentra_el_error',
     update: { es_correcto: boolean; respuesta_alumno: any; feedback?: string },
@@ -331,9 +375,13 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     if (this.reinforcementPersistedPromise) {
       await this.reinforcementPersistedPromise.catch(() => {});
     }
-    const hiloId = this.chat.lastHiloIdSig();
-    if (!hiloId) return;
-    this.firestoreService.updateHiloEjercicio(hiloId, tipo, update)
+    const hiloId  = this.chat.lastHiloIdSig();
+    const chatId  = this.activeChatId();
+    if (!hiloId || !chatId) return;
+    // Awaitar la escritura para garantizar que el estado quede guardado
+    // en Hilo_chat (histórico) y en Chat_nr.last_reinforcement (carga rápida)
+    // antes de que el usuario pueda navegar a otra página.
+    await this.firestoreService.updateHiloEjercicio(hiloId, chatId, tipo, update)
       .catch(e => console.warn('[ChatPage] persistEjercicio falló:', e));
   }
 
@@ -390,12 +438,18 @@ export class ChatPageComponent implements OnInit, OnDestroy {
         const reply = res.reply ?? '';
         const allVideos = res.videos ?? [];
         const ejemploUrls = allVideos.filter(v => v.categoria === 'ejemplo').map(v => v.url);
-        await this.chat.pushWithTypewriter('bot', reply, ejemploUrls);
+
+        // CRÍTICO: guardar el hilo en Firestore ANTES de la animación typewriter.
+        // pushWithTypewriter tarda ~45ms/palabra (puede ser 20+ segundos para respuestas largas).
+        // El reinforcer Python termina en ~15s, antes que el typewriter.
+        // Si saveExchange va después, id_tail está vacío cuando Python intenta guardar el reinforcement.
+        await this.chat.saveExchange(payload.text, reply, res.tema ?? null, ejemploUrls);
+
         this.chat.setVideos(allVideos);
         if (allVideos.length && this.activeChatId()) {
           this.firestoreService.saveLastVideos(this.activeChatId()!, allVideos);
         }
-        this.chat.saveExchange(payload.text, reply, res.tema ?? null, ejemploUrls);
+        await this.chat.pushWithTypewriter('bot', reply, ejemploUrls);
 
         // Guardar tema para los ejercicios
         if (res.tema) {

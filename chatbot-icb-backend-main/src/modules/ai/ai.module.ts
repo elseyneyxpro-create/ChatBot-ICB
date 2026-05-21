@@ -12,7 +12,10 @@ import { AiService } from './ai.service';
         // base del servicio python
         baseURL: cfg.get<string>('PYTHON_BASE_URL') ?? process.env.PYTHON_BASE_URL,
         timeout: Number(cfg.get('PYTHON_TIMEOUT_MS') ?? 15000),
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Secret': cfg.get<string>('PYTHON_INTERNAL_SECRET') ?? '',
+        },
       }),
     }),
   ],
