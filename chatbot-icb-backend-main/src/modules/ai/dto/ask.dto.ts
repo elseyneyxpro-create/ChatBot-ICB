@@ -1,16 +1,28 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsNumber } from 'class-validator';
 
 export class AskDto {
   @IsString()
-  @IsNotEmpty()
-  question!: string;
-
-  @IsString()
-  @IsNotEmpty()
-  subject!: string;
+  @IsOptional()
+  question?: string;
 
   @IsString()
   @IsOptional()
-  session_id?: string;
+  uid?: string;
+
+  @IsString()
+  @IsOptional()
+  id_chat_nr?: string;
+
+  @IsNumber()
+  @IsOptional()
+  total_hilos?: number;
+
+  @IsString()
+  @IsOptional()
+  image_base64?: string;
+
+  @IsString()
+  @IsOptional()
+  last_tema?: string;
 }

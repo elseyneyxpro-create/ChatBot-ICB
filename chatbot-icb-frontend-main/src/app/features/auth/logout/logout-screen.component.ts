@@ -3,15 +3,16 @@ import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/auth.service';
 
-const GREETINGS = [
-  'Bien y tú, ¿cómo estás rey? 👑',
-  'Bien y tú, ¿cómo estás? 😊',
-  '¡Súper bien, y tú? ✨',
-  '¡Buen día! ☀️',
+// Lo que el usuario responde a la despedida de Axiomante
+const RESPONSES = [
+  '¡Chao Axiomante! 👋',
+  '¡Nos vemos! 😊',
+  '¡Gracias por todo! ✨',
+  '¡Hasta la próxima! 🤖',
 ];
 
 @Component({
-  selector: 'app-auth-callback',
+  selector: 'app-logout-screen',
   standalone: true,
   imports: [CommonModule],
   styles: [`
@@ -194,8 +195,51 @@ const GREETINGS = [
       font-weight: 600;
     }
 
-    /* ── Spinner ── */
-    .loader {
+    /* ── Tarjetas de despedida ── */
+    .cards-hint {
+      font-size: 0.8rem;
+      color: #5c6bc0;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .farewell-cards {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      max-width: 420px;
+    }
+
+    .farewell-card {
+      background: #fff;
+      border: 2px solid rgba(63, 81, 181, 0.2);
+      border-radius: 14px;
+      padding: 10px 18px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #1a237e;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      box-shadow: 0 2px 10px rgba(40, 53, 147, 0.1);
+    }
+
+    .farewell-card:hover {
+      background: #e8eaf6;
+      border-color: #3f51b5;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(40, 53, 147, 0.2);
+    }
+
+    .farewell-card.selected {
+      background: #3f51b5;
+      border-color: #3f51b5;
+      color: #fff;
+      transform: scale(0.97);
+    }
+
+    /* ── Spinner salida ── */
+    .leaving {
       display: flex;
       align-items: center;
       gap: 10px;
@@ -220,57 +264,6 @@ const GREETINGS = [
       0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
       40%            { transform: scale(1);   opacity: 1; }
     }
-
-    /* ── Tarjetas de saludo ── */
-    .cards-hint {
-      font-size: 0.8rem;
-      color: #5c6bc0;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      opacity: 0;
-      animation: fade-in 0.5s ease forwards;
-    }
-
-    .greeting-cards {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      max-width: 420px;
-      opacity: 0;
-      animation: fade-in 0.5s ease forwards;
-    }
-
-    @keyframes fade-in {
-      to { opacity: 1; }
-    }
-
-    .greeting-card {
-      background: #fff;
-      border: 2px solid rgba(63, 81, 181, 0.2);
-      border-radius: 14px;
-      padding: 10px 18px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #1a237e;
-      cursor: pointer;
-      transition: all 0.18s ease;
-      box-shadow: 0 2px 10px rgba(40, 53, 147, 0.1);
-    }
-
-    .greeting-card:hover {
-      background: #e8eaf6;
-      border-color: #3f51b5;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px rgba(40, 53, 147, 0.2);
-    }
-
-    .greeting-card.selected {
-      background: #3f51b5;
-      border-color: #3f51b5;
-      color: #fff;
-      transform: scale(0.97);
-    }
   `],
   template: `
     <div class="scene">
@@ -294,92 +287,57 @@ const GREETINGS = [
         </div>
       </div>
 
-      <!-- Burbuja de diálogo -->
+      <!-- Burbuja de diálogo: Axiomante se despide primero -->
       <div class="bubble">
         <div class="bubble-name">Axiomante</div>
         <div class="bubble-text">
           @if (selectedCard()) {
-            ¡Perfecto! Preparando tu espacio... 🚀
+            ¡Que te vaya súper bien! Fue un placer 🚀
           } @else {
-            ¡Hola! ¿Cómo estás el día de hoy?<br>
-            Espero que tengas energías para seguir<br>
-            construyendo tu futuro 🚀
+            ¡Hasta luego! Fue un placer acompañarte hoy. ¡Vuelve cuando quieras! 👋
           }
         </div>
       </div>
 
-      <!-- Loading -->
-      <div class="loader">
-        <span>Iniciando sesión</span>
-        <div class="dots">
-          <span></span><span></span><span></span>
-        </div>
-      </div>
-
-      <!-- Tarjetas de saludo -->
-      @if (showCards()) {
-        <p class="cards-hint">¿Cómo te encuentras hoy?</p>
-        <div class="greeting-cards">
-          @for (g of greetings; track g) {
+      <!-- Respuestas del usuario o spinner -->
+      @if (!selectedCard()) {
+        <p class="cards-hint">¿Y tú, cómo te despides?</p>
+        <div class="farewell-cards">
+          @for (r of responses; track r) {
             <button
-              class="greeting-card"
-              [class.selected]="selectedCard() === g"
-              (click)="pickCard(g)"
-            >{{ g }}</button>
+              class="farewell-card"
+              (click)="pickFarewell(r)"
+            >{{ r }}</button>
           }
+        </div>
+      } @else {
+        <div class="leaving">
+          <span>Cerrando sesión</span>
+          <div class="dots">
+            <span></span><span></span><span></span>
+          </div>
         </div>
       }
 
     </div>
   `,
 })
-export class AuthCallbackComponent implements OnInit {
+export class LogoutScreenComponent implements OnInit {
   private authService = inject(AuthService);
   private router      = inject(Router);
 
-  readonly greetings = GREETINGS;
-  showCards    = signal(false);
+  readonly responses = RESPONSES;
   selectedCard = signal<string | null>(null);
 
-  private cardResolve!: () => void;
-  private cardPromise = new Promise<void>(res => { this.cardResolve = res; });
-
-  private delay(ms: number) {
-    return new Promise<void>(resolve => setTimeout(resolve, ms));
+  ngOnInit() {
+    // Si se llega directamente a /logout sin estar en proceso de logout, redirigir
+    // (el componente se activa desde signOut del shell, no necesita init extra)
   }
 
-  pickCard(g: string) {
+  pickFarewell(f: string) {
     if (this.selectedCard()) return;
-    this.selectedCard.set(g);
-    this.cardResolve();
-  }
-
-  async ngOnInit() {
-    // Mostrar tarjetas después de 2.5 s
-    setTimeout(() => this.showCards.set(true), 2500);
-
-    // Auth y delay mínimo en paralelo
-    const [authResult] = await Promise.allSettled([
-      this.authService.handleOAuthCallback(),
-      this.delay(8000),
-    ]);
-
-    // Esperar a que el usuario elija una tarjeta
-    await this.cardPromise;
-
-    // Pequeña pausa para que vea el mensaje de "Preparando tu espacio"
-    await this.delay(1200);
-
-    if (authResult.status === 'fulfilled') {
-      this.router.navigateByUrl('/app');
-    } else {
-      console.error('[AuthCallback] error:', authResult.reason);
-      const status = (authResult.reason as any)?.status;
-      if (status === 403) {
-        this.router.navigateByUrl('/login?error=not_authorized');
-      } else {
-        this.router.navigateByUrl('/login?error=auth_failed');
-      }
-    }
+    this.selectedCard.set(f);
+    // Pequeña pausa para que vea la reacción del robot
+    setTimeout(() => this.authService.doSignOut(), 1400);
   }
 }

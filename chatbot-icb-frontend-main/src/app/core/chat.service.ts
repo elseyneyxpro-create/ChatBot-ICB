@@ -57,12 +57,10 @@ export class ChatService {
 
   private currentChatId: string | null = null;
   private currentTotalHilos = 0;
-  private currentResumen = '';
 
-  setActiveChat(id: string, totalHilos = 0, resumen = '') {
+  setActiveChat(id: string, totalHilos = 0) {
     this.currentChatId = id;
     this.currentTotalHilos = totalHilos;
-    this.currentResumen = resumen;
   }
 
   getActiveChatId(): string | null {
@@ -107,9 +105,16 @@ export class ChatService {
     this.currentTotalHilos = history.length;
     this.messagesSig.set(messages);
 
-    // Prefiere reinforcement embebido en el último hilo (con respuestas del alumno).
-    // Cae en el last_reinforcement del Chat_nr si el hilo no lo tiene.
-    const reinforcementToUse = lastHiloReinforcement ?? lastReinforcement ?? null;
+    // Estrategia de carga (doble fuente de verdad):
+    // 1. lastHiloReinforcement: leído del Hilo_chat — tiene respuestas del alumno si _persistEjercicio corrió.
+    // 2. lastReinforcement (Chat_nr.last_reinforcement): también se actualiza al responder.
+    // Preferimos el que tenga más ejercicios respondidos; si empatan, el del hilo.
+    const countRespondidos = (r: Reinforcement | null | undefined) =>
+      r?.ejercicios?.filter(e => e.respondido).length ?? -1;
+    const reinforcementToUse =
+      countRespondidos(lastHiloReinforcement) >= countRespondidos(lastReinforcement)
+        ? (lastHiloReinforcement ?? lastReinforcement ?? null)
+        : (lastReinforcement ?? lastHiloReinforcement ?? null);
     this.reinforcementSig.set(reinforcementToUse);
     this.restoredEjerciciosSig.set(reinforcementToUse?.ejercicios ?? null);
     this.lastHiloIdSig.set(lastRespuestaHiloId);
@@ -118,30 +123,21 @@ export class ChatService {
     this.lastTemaSig.set(lastTema);
   }
 
-  setResumen(resumen: string) {
-    this.currentResumen = resumen;
-  }
-
   ask(question: string, imageBase64?: string) {
     const u = this.auth.currentUser;
-    return this.http.post<AgentsAnswer>(`${this.base}/ai/answer`, {
+    return this.http.post<AgentsAnswer>(`${this.base}${environment.endpoints.ai.answer}`, {
       question,
-      session_id: this.currentChatId ?? 'demo',
       uid: u?.uid ?? null,
       id_chat_nr: this.currentChatId,
       total_hilos: this.currentTotalHilos,
       image_base64: imageBase64 ?? null,
-      display_name: u?.displayName ?? null,
-      email: u?.email ?? null,
-      photo_url: u?.photoURL ?? null,
-      context: this._buildContext(),
-      resumen_conversacion: this.currentResumen || null,
+      ...(this.lastTemaSig() ? { last_tema: this.lastTemaSig() } : {}),
     });
   }
 
   evaluateConcepto(enunciado: string, respuesta_usuario: string, tema: string) {
     const u = this.auth.currentUser;
-    return this.http.post<EvaluateConceptoResult>(`${this.base}/ai/evaluate-concepto`, {
+    return this.http.post<EvaluateConceptoResult>(`${this.base}${environment.endpoints.ai.evaluateConcepto}`, {
       uid: u?.uid ?? null,
       tema,
       enunciado,
@@ -150,25 +146,42 @@ export class ChatService {
     });
   }
 
-  saveExerciseResult(tema: string, tipo: 'vof' | 'error' | 'concepto', es_correcto: boolean) {
+  evaluateVof(enunciado: string, respuesta_usuario: boolean, respuesta_correcta: boolean, tema: string) {
+    const u = this.auth.currentUser;
+    return this.http.post<EvaluateConceptoResult>(`${this.base}${environment.endpoints.ai.evaluateVof}`, {
+      uid: u?.uid ?? null,
+      tema,
+      enunciado,
+      respuesta_usuario,
+      respuesta_correcta,
+      id_chat_nr: this.currentChatId,
+    });
+  }
+
+  evaluateError(enunciado: string, desarrollo: string[], paso_error: number, respuesta_usuario: number, tema: string) {
+    const u = this.auth.currentUser;
+    return this.http.post<EvaluateConceptoResult>(`${this.base}${environment.endpoints.ai.evaluateError}`, {
+      uid: u?.uid ?? null,
+      tema,
+      enunciado,
+      desarrollo,
+      paso_error,
+      respuesta_usuario,
+      id_chat_nr: this.currentChatId,
+    });
+  }
+
+  saveExerciseResult(tema: string, tipo: 'vof' | 'error' | 'concepto', es_correcto: boolean, enunciado?: string) {
     const u = this.auth.currentUser;
     if (!u?.uid) return;
-    this.http.post(`${this.base}/ai/save-exercise-result`, {
+    this.http.post(`${this.base}${environment.endpoints.ai.saveExerciseResult}`, {
       uid: u.uid,
       tema,
       tipo,
       es_correcto,
+      enunciado: enunciado ?? null,
       id_chat_nr: this.currentChatId,
     }).subscribe({ error: (e) => console.warn('[ChatService] saveExerciseResult error:', e) });
-  }
-
-  private _buildContext(): string {
-    const msgs = this.messagesSig();
-    if (msgs.length === 0) return '';
-    return msgs
-      .slice(-6)
-      .map(m => `${m.role === 'user' ? 'Alumno' : 'Tutor'}: ${m.text.slice(0, 400)}`)
-      .join('\n');
   }
 
   push(role: Role, text: string, imagePreview?: string) {
@@ -211,6 +224,7 @@ export class ChatService {
     );
     this.currentTotalHilos = count;
     this.lastHiloIdSig.set(hiloId);
+    if (tema) this.lastTemaSig.set(tema);
     return hiloId;
   }
 
@@ -230,6 +244,5 @@ export class ChatService {
     this.lastHiloIdSig.set(null);
     this.restoredEjerciciosSig.set(null);
     this.currentTotalHilos = 0;
-    this.currentResumen = '';
   }
 }

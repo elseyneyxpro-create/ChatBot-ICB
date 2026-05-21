@@ -1,7 +1,7 @@
 // ── 3-column layout ──────────────────────────────────────────────────────────
 .layout {
   display: grid;
-  grid-template-columns: 220px 1fr 300px;
+  grid-template-columns: 220px 1fr 380px;
   height: calc(100dvh - 64px);
   gap: 1rem;
   padding: 0;
@@ -82,18 +82,38 @@
   .chat-actions {
     display: none;
     align-items: center;
-    gap: 0;
+    gap: 1px;
     margin-left: auto;
     flex-shrink: 0;
   }
 
   .action-btn {
-    width: 26px; height: 26px; line-height: 26px;
-    mat-icon { font-size: 15px; width: 15px; height: 15px; color: #9e9e9e; }
-    &:hover mat-icon { color: #3f51b5; }
+    // Variables MDC que controlan el tamaño real del botón y su state-layer
+    --mdc-icon-button-state-layer-size: 26px;
+    --mdc-icon-button-icon-size: 15px;
+    --mat-icon-button-state-layer-color: transparent;
+
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 6px !important;
+
+    // El state-layer interno también debe ser cuadrado redondeado
+    .mat-mdc-button-persistent-ripple,
+    .mat-mdc-button-touch-target { border-radius: 6px; }
+
+    mat-icon { font-size: 15px; width: 15px; height: 15px; color: #bbb; }
+
+    &:hover {
+      --mat-icon-button-state-layer-color: rgba(63, 81, 181, 0.12);
+      mat-icon { color: #3f51b5; }
+    }
   }
 
-  .delete-btn:hover mat-icon { color: #e53935; }
+  .delete-btn:hover {
+    --mat-icon-button-state-layer-color: rgba(229, 57, 53, 0.1);
+    mat-icon { color: #e53935; }
+  }
 
   .chat-rename-input {
     flex: 1;
@@ -385,21 +405,39 @@
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
 
   &.verdadero {
     background: #2e7d32;
     color: #fff;
-    &:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(46,125,50,0.35); }
-    &:active { transform: scale(0.97); }
+    &:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(46,125,50,0.35); }
+    &:active:not(:disabled) { transform: scale(0.97); }
   }
   &.falso {
     background: #c62828;
     color: #fff;
-    &:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(198,40,40,0.35); }
-    &:active { transform: scale(0.97); }
+    &:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(198,40,40,0.35); }
+    &:active:not(:disabled) { transform: scale(0.97); }
   }
+
+  &:disabled:not(.vof-loading) { opacity: 0.45; cursor: not-allowed; }
+
+  &.vof-loading {
+    opacity: 1;
+    cursor: wait;
+    animation: pulse-loading 1s ease-in-out infinite;
+  }
+}
+
+.vof-spinner {
+  --mdc-circular-progress-active-indicator-color: #fff;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-loading {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.75; }
 }
 
 .vof-result {
@@ -498,6 +536,29 @@
     border-color: #f9a825 !important;
     .step-num { color: #f57f17; }
   }
+
+  &.step-analyzing {
+    background: #fce4ec !important;
+    border-color: #ad1457 !important;
+    cursor: wait;
+    animation: pulse-loading 1s ease-in-out infinite;
+    justify-content: flex-start;
+    gap: 0.6rem;
+  }
+
+  &:disabled:not(.step-analyzing) { opacity: 0.5; cursor: not-allowed; }
+}
+
+.step-spinner {
+  --mdc-circular-progress-active-indicator-color: #ad1457;
+  flex-shrink: 0;
+}
+
+.step-num--analyzing {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #ad1457;
+  font-style: italic;
 }
 
 .error-result {
@@ -539,6 +600,29 @@
   // KaTeX rendering
   :global(.katex-display) { margin: 0.4em 0; }
   :global(.katex) { font-size: 1em; }
+
+  // Tablas markdown
+  :global(.md-table) {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.6em 0;
+    font-size: 0.9em;
+
+    th, td {
+      border: 1px solid #d0d7de;
+      padding: 6px 12px;
+      text-align: left;
+    }
+
+    thead tr {
+      background: #f0f4ff;
+      font-weight: 600;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f8f9fa;
+    }
+  }
 }
 
 .ej-video {
@@ -681,7 +765,7 @@
   }
 
   .reinforcement-sidebar {
-    position: fixed; top: 64px; right: 0; bottom: 0; width: 300px;
+    position: fixed; top: 64px; right: 0; bottom: 0; width: 360px;
     z-index: 200; border-radius: 16px 0 0 16px;
     box-shadow: -4px 0 24px rgba(0,0,0,0.18);
     overflow-y: auto;

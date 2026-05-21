@@ -1,9 +1,11 @@
 import { ValidationPipe, VersioningType, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import compression from 'compression';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
+import * as express from 'express';
 
 function parseCorsOrigins(): string[] | true {
   const raw = process.env.CORS_ORIGINS || '';
@@ -12,7 +14,12 @@ function parseCorsOrigins(): string[] | true {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Deshabilitar body parser por defecto para poder configurar el límite
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+
+  // Body parser con límite ampliado (imágenes base64 pueden pesar varios MB)
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
   console.log('ENV:', {
     GOOGLE_CLIENT_ID: !!process.env.GOOGLE_CLIENT_ID,

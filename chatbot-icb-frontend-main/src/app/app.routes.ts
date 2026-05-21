@@ -6,6 +6,10 @@ export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
   { path: 'auth/callback', component: AuthCallbackComponent },
   {
+    path: 'logout',
+    loadComponent: () => import('./features/auth/logout/logout-screen.component').then(m => m.LogoutScreenComponent)
+  },
+  {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login.component').then(m => m.LoginComponent)
   },
