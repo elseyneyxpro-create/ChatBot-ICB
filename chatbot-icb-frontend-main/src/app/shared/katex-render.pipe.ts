@@ -26,8 +26,13 @@ export class KatexRenderPipe implements PipeTransform {
     //   chr(12) \f → \\f   para \frac, \forall (¡más común!)
     //   chr(8)  \x08 → \\b para \begin, \beta, \boldsymbol
     //   chr(9)  \t → \\t   para \text, \theta, \times
+    //
+    // OJO con \n: un salto de línea real seguido de una letra es normal (ej. "\boxed{⏎f'(x)…").
+    // Solo se trata como \neq, \nabla… si lo que sigue es exactamente uno de esos comandos;
+    // si no, se deja como salto de línea (antes salía "\nf" en rojo).
+    const NEWLINE_CMD = /\n(?=(?:eq|abla|u|ot|otin|eg|exists|leq|geq|mid|ewline|subseteq|supseteq|parallel|atural|earrow|warrow)(?![A-Za-z]))/g;
     const fixLatexControlChars = (m: string) => m
-      .replace(/\n(?=[A-Za-z])/g, '\\n')
+      .replace(NEWLINE_CMD, '\\n')
       .replace(/\f(?=[A-Za-z])/g, '\\f')
       .replace(/\x08(?=[A-Za-z])/g, '\\b')
       .replace(/\t(?=[A-Za-z])/g, '\\t');
