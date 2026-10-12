@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { firstValueFrom } from 'rxjs';
 import { ChatService, type VideoItem } from '../../../core/chat.service';
 import { DataService, type ChatNr } from '../../../core/data.service';
@@ -15,6 +16,12 @@ import { NewChatDialogComponent } from './new-chat-dialog.component';
 import { KatexRenderPipe } from '../../../shared/katex-render.pipe';
 
 const MAX_CHATS = 6;
+
+/** Guarda en el navegador si cada panel lateral está plegado. */
+const NivPanel = {
+  leer(k: string): boolean { try { return localStorage.getItem(k) === '1'; } catch { return false; } },
+  guardar(k: string, v: boolean) { try { localStorage.setItem(k, v ? '1' : '0'); } catch { /* sin almacenamiento */ } },
+};
 
 export interface EjercicioEstado {
   concepto: { answered: boolean; loading: boolean; es_correcto?: boolean; feedback?: string; texto: string };
@@ -35,7 +42,7 @@ function emptyEjercicioEstado(): EjercicioEstado {
   standalone: true,
   imports: [
     CommonModule, FormsModule,
-    MatIconModule, MatButtonModule, MatDialogModule, MatProgressSpinnerModule,
+    MatIconModule, MatButtonModule, MatDialogModule, MatProgressSpinnerModule, MatTooltipModule,
     MessageListComponent, MessageInputComponent, KatexRenderPipe,
   ],
   templateUrl: './chat-page.component.html',
@@ -93,6 +100,43 @@ export class ChatPageComponent implements OnInit, OnDestroy {
   ejercicioError = computed(() =>
     this.reinforcement()?.ejercicios?.find(e => e.tipo === 'encuentra_el_error') ?? null
   );
+
+  /** Ejercicios del panel que faltan por responder (para el indicador del panel plegado) */
+  ejerciciosPendientes = computed(() => {
+    const r = this.reinforcement();
+    if (!r?.ejercicios?.length) return 0;
+    const s = this.ejercState();
+    return [
+      !!this.ejercicioConcepto() && !s.concepto.answered,
+      !!this.ejercicioVoF() && !s.vof.answered,
+      !!this.ejercicioError() && !s.error.answered,
+    ].filter(Boolean).length;
+  });
+
+  // ── Paneles plegables (solo en pantallas anchas; se recuerda en el navegador) ──
+  chatsCollapsed = signal(NivPanel.leer('axi-chats-plegado'));
+  reinfCollapsed = signal(NivPanel.leer('axi-reinf-plegado'));
+
+  toggleChats() {
+    if (window.innerWidth <= 1100) { this.showMobileChats.set(false); return; }
+    this.chatsCollapsed.update(v => !v);
+    NivPanel.guardar('axi-chats-plegado', this.chatsCollapsed());
+  }
+
+  /** En celular cierra el panel deslizable; en pantallas anchas lo pliega/despliega. */
+  toggleReinf() {
+    if (window.innerWidth <= 1100) { this.showMobileReinforcement.set(false); return; }
+    this.reinfCollapsed.update(v => !v);
+    NivPanel.guardar('axi-reinf-plegado', this.reinfCollapsed());
+  }
+
+  abrirReinf() {
+    if (window.innerWidth <= 1100) { this.showMobileReinforcement.set(true); return; }
+    this.reinfCollapsed.set(false);
+    NivPanel.guardar('axi-reinf-plegado', false);
+  }
+
+  inicial = (nombre: string) => (nombre || '?').trim().charAt(0).toUpperCase();
 
   // ── Chats ──────────────────────────────────────────────────────────────────
   chatList = signal<ChatNr[]>([]);

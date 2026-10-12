@@ -1,4 +1,4 @@
-<div class="layout">
+<div class="layout" [class.chats-collapsed]="chatsCollapsed()" [class.reinf-collapsed]="reinfCollapsed()">
 
   <!-- ── Backdrop overlay (mobile) ── -->
   <div class="chat-overlay-backdrop" *ngIf="showMobileChats()" (click)="showMobileChats.set(false)"></div>
@@ -6,7 +6,27 @@
 
   <!-- ── Sidebar izquierda: lista de chats ── -->
   <aside class="chat-sidebar" [class.mobile-open]="showMobileChats()">
+
+    <!-- Vista plegada (solo pantallas anchas): iniciales de cada chat -->
+    <div class="rail rail-chats">
+      <button class="rail-toggle" type="button" (click)="toggleChats()" matTooltip="Mostrar mis chats" matTooltipPosition="right">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+      <button class="rail-new" type="button" [disabled]="maxChatsReached()" (click)="openNewChatDialog()"
+              [matTooltip]="maxChatsReached() ? 'Máximo 6 chats activos' : 'Nuevo chat'" matTooltipPosition="right">
+        <mat-icon>add</mat-icon>
+      </button>
+      <div class="rail-sep"></div>
+      <button *ngFor="let c of chatList()" type="button" class="rail-chat" [class.active]="c.id === activeChatId()"
+              (click)="selectChat(c)" [matTooltip]="c.nombre" matTooltipPosition="right">
+        {{ inicial(c.nombre) }}
+      </button>
+    </div>
+
     <div class="sidebar-header">
+      <button class="collapse-btn" type="button" (click)="toggleChats()" matTooltip="Plegar" aria-label="Plegar mis chats">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
       <span class="sidebar-title">Mis chats</span>
       <button mat-icon-button
         [disabled]="maxChatsReached()"
@@ -80,10 +100,10 @@
         <span>{{ botStatus() === 'ready' ? 'Listo' : botStatus() === 'thinking' ? 'Pensando' : 'Error' }}</span>
       </div>
       <span class="status-helper" *ngIf="botStatus() === 'ready' && !chatBloqueado()">El chat está listo para responder.</span>
-      <span class="status-helper status-helper-blocked" *ngIf="botStatus() === 'ready' && chatBloqueado()">
+      <button type="button" class="status-helper status-helper-blocked" *ngIf="botStatus() === 'ready' && chatBloqueado()" (click)="abrirReinf()">
         <mat-icon class="lock-icon">lock</mat-icon>
         Completa los ejercicios del panel para continuar.
-      </span>
+      </button>
       <span class="status-helper" *ngIf="botStatus() === 'thinking'">Generando respuesta... {{ elapsedSeconds() }}s</span>
       <span class="status-helper status-helper-error" *ngIf="botStatus() === 'error'">No se pudo conectar. Intenta nuevamente.</span>
     </div>
@@ -113,6 +133,31 @@
 
   <!-- ── Panel derecho: pensamiento crítico ── -->
   <aside class="reinforcement-sidebar" [class.mobile-open]="showMobileReinforcement()">
+
+    <!-- Vista plegada (solo pantallas anchas) -->
+    <div class="rail rail-reinf">
+      <button class="rail-toggle" type="button" (click)="toggleReinf()" matTooltip="Mostrar pensamiento crítico" matTooltipPosition="left">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <button class="rail-icon" type="button" (click)="abrirReinf()" [class.alerta]="chatBloqueado()"
+              [matTooltip]="chatBloqueado() ? 'Tienes ejercicios pendientes' : 'Pensamiento crítico'" matTooltipPosition="left">
+        <mat-icon>psychology</mat-icon>
+        <span class="rail-badge" *ngIf="ejerciciosPendientes() > 0">{{ ejerciciosPendientes() }}</span>
+      </button>
+      <mat-spinner *ngIf="reinforcementLoading()" [diameter]="20" class="rail-spinner"></mat-spinner>
+      <button class="rail-icon small" type="button" *ngIf="videos().length > 0" (click)="abrirReinf()"
+              [matTooltip]="videos().length + ' videos'" matTooltipPosition="left">
+        <mat-icon>smart_display</mat-icon>
+      </button>
+      <span class="rail-label" (click)="abrirReinf()">Pensamiento crítico</span>
+    </div>
+
+    <div class="reinf-header">
+      <span class="sidebar-title"><mat-icon>psychology</mat-icon> Pensamiento crítico</span>
+      <button class="collapse-btn" type="button" (click)="toggleReinf()" matTooltip="Plegar" aria-label="Plegar panel">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+    </div>
 
     <div *ngIf="!reinforcement() && !reinforcementLoading()" class="reinforcement-placeholder">
       <mat-icon>psychology</mat-icon>

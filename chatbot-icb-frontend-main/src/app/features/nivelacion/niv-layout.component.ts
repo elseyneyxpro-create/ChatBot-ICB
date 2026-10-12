@@ -4,7 +4,6 @@ import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../core/auth.service';
 import { NivelacionService } from './nivelacion.service';
-import { environment } from '../../../environments/environment';
 import { ThemeService } from '../../core/theme.service';
 
 /** Contenedor de la nivelación: header (XP, nivel asignado) + pantallas hijas. */
@@ -32,12 +31,14 @@ import { ThemeService } from '../../core/theme.service';
           <mat-icon>insights</mat-icon>{{ e.estudiante.nivel }}
         </span>
 
-        <a class="btn-secondary chatbot-btn" *ngIf="devSelector" routerLink="/inicio" title="Elegir módulo">
-          <mat-icon>apps</mat-icon><span>Inicio</span>
-        </a>
-        <a class="btn-secondary chatbot-btn" *ngIf="!devSelector && e.estudiante.chatbot_habilitado" routerLink="/app/chat">
+        <!-- Cambio directo al chatbot (sin pasar por /inicio) -->
+        <a class="btn-secondary chatbot-btn" *ngIf="e.estudiante.chatbot_habilitado" routerLink="/app/chat" title="Ir al chatbot">
           <mat-icon>chat</mat-icon><span>Chatbot</span>
         </a>
+        <span class="btn-secondary chatbot-btn bloqueado" *ngIf="!e.estudiante.chatbot_habilitado"
+              title="Se desbloquea al completar la nivelación">
+          <mat-icon>lock</mat-icon><span>Chatbot</span>
+        </span>
 
         <button class="btn-secondary chatbot-btn tema-btn" type="button" (click)="theme.toggle()"
                 [title]="theme.tema() === 'dark' ? 'Modo claro' : 'Modo oscuro'">
@@ -70,8 +71,6 @@ export class NivLayoutComponent implements OnInit {
   estado = this.niv.estado;
   cargando = signal(true);
   error = signal<string | null>(null);
-  /** develop: botón para volver al selector de módulos */
-  devSelector = !!environment.dev?.selectorModulos;
 
   progresoXp = computed(() => {
     const e = this.estado()?.estudiante;

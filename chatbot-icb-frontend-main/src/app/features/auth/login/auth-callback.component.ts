@@ -346,6 +346,16 @@ export class AuthCallbackComponent implements OnInit {
   private cardResolve!: () => void;
   private cardPromise = new Promise<void>(res => { this.cardResolve = res; });
 
+  /** true si hoy aún no se ha mostrado /inicio (se guarda la fecha en localStorage). */
+  private primeraVezHoy(): boolean {
+    const hoy = new Date().toLocaleDateString('sv');   // AAAA-MM-DD en hora local
+    try {
+      if (localStorage.getItem('axi-inicio-dia') === hoy) return false;
+      localStorage.setItem('axi-inicio-dia', hoy);
+    } catch { /* sin storage: mostrar igual */ }
+    return true;
+  }
+
   private delay(ms: number) {
     return new Promise<void>(resolve => setTimeout(resolve, ms));
   }
@@ -373,8 +383,9 @@ export class AuthCallbackComponent implements OnInit {
     await this.delay(1200);
 
     if (authResult.status === 'fulfilled') {
-      // develop: pantalla para elegir módulo; producción: /app (el guard decide chatbot o nivelación)
-      this.router.navigateByUrl(environment.dev?.selectorModulos ? '/inicio' : '/app');
+      // /inicio (elegir módulo) solo la primera vez del día; después va directo a /app
+      // (el guard decide chatbot o nivelación).
+      this.router.navigateByUrl(environment.dev?.selectorModulos && this.primeraVezHoy() ? '/inicio' : '/app');
     } else {
       console.error('[AuthCallback] error:', authResult.reason);
       const status = (authResult.reason as any)?.status;

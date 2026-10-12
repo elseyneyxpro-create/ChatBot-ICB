@@ -23,6 +23,8 @@
     mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--accent-primary); }
   }
   .chatbot-btn { padding: 8px 14px; text-decoration: none; font-size: 0.9rem; }
+  .chatbot-btn.bloqueado { opacity: 0.55; cursor: not-allowed; pointer-events: auto; }
+  .chatbot-btn.bloqueado:hover { transform: none; }
   .tema-btn { padding: 8px; mat-icon { color: var(--accent-primary); } }
   .avatar {
     width: 40px; height: 40px; border-radius: 50%; background: var(--bg-panel); border: 2px solid var(--accent-primary);
