@@ -77,16 +77,22 @@ export class ChatPageComponent implements OnInit, OnDestroy {
   ejercState = signal<EjercicioEstado>(emptyEjercicioEstado());
   currentTema = signal<string | null>(null);
 
-  /** Ejercicios suficientes completados: concepto + (vof O error) */
+  /**
+   * Ejercicios suficientes completados: concepto + (vof O error).
+   * Solo se exige lo que realmente vino en el panel (si falta un tipo, no bloquea por él).
+   */
   ejercCompletados = computed(() => {
     const s = this.ejercState();
-    return s.concepto.answered && (s.vof.answered || s.error.answered);
+    const conceptoOk = !this.ejercicioConcepto() || s.concepto.answered;
+    const hayVofOError = !!this.ejercicioVoF() || !!this.ejercicioError();
+    const vofOErrorOk = !hayVofOError || s.vof.answered || s.error.answered;
+    return conceptoOk && vofOErrorOk;
   });
 
-  /** El chat queda bloqueado mientras haya ejercicios pendientes */
+  /** El chat queda bloqueado mientras haya ejercicios visibles pendientes */
   chatBloqueado = computed(() => {
-    const r = this.reinforcement();
-    if (!r?.ejercicios?.length) return false;
+    const hayEjercicios = !!this.ejercicioConcepto() || !!this.ejercicioVoF() || !!this.ejercicioError();
+    if (!hayEjercicios) return false;
     return !this.ejercCompletados();
   });
 

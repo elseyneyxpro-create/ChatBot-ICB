@@ -281,15 +281,34 @@ export class DataService {
     return {
       nivel:     raw['nivel'],
       texto:     raw['texto'] ?? '',
-      ejercicios: (raw['ejercicios'] ?? []).map((ej: any) => this._mapEjercicio(ej)),
+      // Solo ejercicios que el panel sabe mostrar (si no, el chat quedaría bloqueado con el panel vacío)
+      ejercicios: (Array.isArray(raw['ejercicios']) ? raw['ejercicios'] : [])
+        .map((ej: any) => this._mapEjercicio(ej))
+        .filter((ej: Ejercicio) => !!ej.tipo && !!ej.enunciado.trim()
+          && (ej.tipo !== 'encuentra_el_error' || !!ej.desarrollo?.length)),
       videos:    raw['videos'] ?? [],
       saved_at:  raw['saved_at'] ?? undefined,
     } as Reinforcement;
   }
 
+  /** Lleva el tipo que escribió el LLM ("vof", "V o F", "encuentre el error"...) a uno de los 3 del panel. */
+  static normalizarTipo(tipo: unknown): Ejercicio['tipo'] | null {
+    if (typeof tipo !== 'string') return null;
+    const k = tipo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]+/g, '_').replace(/^_|_$/g, '');
+    const alias: Record<string, Ejercicio['tipo']> = {
+      concepto: 'concepto', concept: 'concepto', conceptual: 'concepto', pregunta_abierta: 'concepto',
+      verdadero_falso: 'verdadero_falso', verdadero_o_falso: 'verdadero_falso', v_o_f: 'verdadero_falso',
+      vof: 'verdadero_falso', v_f: 'verdadero_falso', true_false: 'verdadero_falso',
+      encuentra_el_error: 'encuentra_el_error', encuentre_el_error: 'encuentra_el_error',
+      encontrar_el_error: 'encuentra_el_error', encuentra_error: 'encuentra_el_error',
+      error: 'encuentra_el_error', find_the_error: 'encuentra_el_error',
+    };
+    return alias[k] ?? null;
+  }
+
   private _mapEjercicio(ej: any): Ejercicio {
     return {
-      tipo:              ej['tipo'],
+      tipo:              DataService.normalizarTipo(ej?.['tipo']) as Ejercicio['tipo'],
       enunciado:         ej['enunciado'] ?? '',
       desarrollo:        Array.isArray(ej['desarrollo']) ? ej['desarrollo'] : undefined,
       respuesta_correcta: this._parseBool(ej['respuesta_correcta']),

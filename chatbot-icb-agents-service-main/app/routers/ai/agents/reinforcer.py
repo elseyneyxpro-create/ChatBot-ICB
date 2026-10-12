@@ -1,3 +1,4 @@
+import unicodedata
 import json
 import re
 import logging
@@ -14,6 +15,24 @@ from app.utils.openai.json_parser import pre_escape_latex_backslashes
 logger = logging.getLogger("icb.ai")
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+
+_ALIAS_TIPO = {
+    "concepto": "concepto", "concept": "concepto", "conceptual": "concepto", "pregunta_abierta": "concepto",
+    "verdadero_falso": "verdadero_falso", "verdadero_o_falso": "verdadero_falso", "v_o_f": "verdadero_falso",
+    "vof": "verdadero_falso", "v_f": "verdadero_falso", "true_false": "verdadero_falso",
+    "encuentra_el_error": "encuentra_el_error", "encuentre_el_error": "encuentra_el_error",
+    "encontrar_el_error": "encuentra_el_error", "encuentra_error": "encuentra_el_error",
+    "error": "encuentra_el_error", "find_the_error": "encuentra_el_error",
+}
+
+
+def normalizar_tipo(tipo) -> str | None:
+    """Lleva el tipo que escribió el LLM a uno de los 3 que entiende el frontend (o None)."""
+    if not isinstance(tipo, str):
+        return None
+    clave = re.sub(r"[^a-z]+", "_", unicodedata.normalize("NFKD", tipo.lower()).encode("ascii", "ignore").decode()).strip("_")
+    return _ALIAS_TIPO.get(clave)
 
 
 def _fix_latex_escapes(obj):
@@ -145,6 +164,20 @@ def reinforce(
         if not isinstance(result.get("ejercicios"), list):
             result["ejercicios"] = []
 
+        # Normalizar tipos (el LLM a veces escribe "vof", "V o F", "encuentre el error"...)
+        # y descartar lo que el frontend no sabe mostrar: si no, el chat queda bloqueado
+        # con un panel vacío.
+        validos = []
+        for ej in result["ejercicios"]:
+            if not isinstance(ej, dict):
+                continue
+            ej["tipo"] = normalizar_tipo(ej.get("tipo"))
+            if not ej["tipo"] or not str(ej.get("enunciado") or "").strip():
+                logger.warning(f"Reinforcer: ejercicio descartado (tipo/enunciado inválido): {str(ej)[:120]}")
+                continue
+            validos.append(ej)
+        result["ejercicios"] = validos
+
         # Normalizar ejercicios
         for ej in result["ejercicios"]:
             if not isinstance(ej.get("explicacion"), str):
@@ -182,6 +215,12 @@ def reinforce(
                     ej["respuesta_correcta"] = val.strip().lower() in ("true", "verdadero", "1", "v")
                 elif not isinstance(val, bool):
                     ej["respuesta_correcta"] = True
+
+        # Encuentra el error sin pasos no se puede responder
+        result["ejercicios"] = [
+            ej for ej in result["ejercicios"]
+            if ej["tipo"] != "encuentra_el_error" or ej.get("desarrollo")
+        ]
 
         # ── Log resultado final ───────────────────────────────────────────────
         tipos_generados = [ej.get("tipo") for ej in result.get("ejercicios", [])]
