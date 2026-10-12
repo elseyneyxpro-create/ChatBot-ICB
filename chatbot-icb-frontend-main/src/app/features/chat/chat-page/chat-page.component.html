@@ -93,21 +93,6 @@
       <span class="reinf-badge" *ngIf="!chatBloqueado() && videos().length > 0">{{ videos().length }}</span>
     </button>
 
-    <!-- Status bar -->
-    <div class="chat-status-bar">
-      <div class="status-pill" [ngClass]="'status-' + botStatus()">
-        <span class="status-dot"></span>
-        <span>{{ botStatus() === 'ready' ? 'Listo' : botStatus() === 'thinking' ? 'Pensando' : 'Error' }}</span>
-      </div>
-      <span class="status-helper" *ngIf="botStatus() === 'ready' && !chatBloqueado()">El chat está listo para responder.</span>
-      <button type="button" class="status-helper status-helper-blocked" *ngIf="botStatus() === 'ready' && chatBloqueado()" (click)="abrirReinf()">
-        <mat-icon class="lock-icon">lock</mat-icon>
-        Completa los ejercicios del panel para continuar.
-      </button>
-      <span class="status-helper" *ngIf="botStatus() === 'thinking'">Generando respuesta... {{ elapsedSeconds() }}s</span>
-      <span class="status-helper status-helper-error" *ngIf="botStatus() === 'error'">No se pudo conectar. Intenta nuevamente.</span>
-    </div>
-
     <div *ngIf="!activeChatId()" class="no-chat-selected">
       <mat-icon>chat</mat-icon>
       <p>Selecciona o crea un chat para comenzar</p>
@@ -121,6 +106,16 @@
           <span>Axiomante está pensando</span>
           <span class="dots"><span></span><span></span><span></span></span>
           <span class="seg">{{ elapsedSeconds() }}s</span>
+        </div>
+        <!-- Avisos: solo aparecen cuando hay algo que decir -->
+        <button type="button" class="chat-aviso aviso-bloqueado" *ngIf="!loading() && chatBloqueado()" (click)="abrirReinf()">
+          <mat-icon>lock</mat-icon>
+          <span>Completa los ejercicios de <b>Pensamiento crítico</b> para seguir preguntando.</span>
+          <mat-icon class="aviso-flecha">arrow_forward</mat-icon>
+        </button>
+        <div class="chat-aviso aviso-error" *ngIf="botStatus() === 'error'" role="alert">
+          <mat-icon>wifi_off</mat-icon>
+          <span>No se pudo conectar. Intenta nuevamente.</span>
         </div>
         <app-message-input
           (send)="send($event)"

@@ -179,7 +179,7 @@
 // ── Chat central ──────────────────────────────────────────────────────────────
 .chat-area {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: minmax(0, 1fr);
   gap: 0.75rem;
   min-width: 0;
   overflow: hidden;
@@ -188,7 +188,8 @@
 .chat-box {
   @extend %panel;
   display: grid;
-  grid-template-rows: 1fr auto auto;
+  grid-template-rows: minmax(0, 1fr);
+  grid-auto-rows: auto;
   overflow: hidden;
   min-height: 0;
 
@@ -261,63 +262,25 @@
   p { font-size: 0.95rem; text-align: center; color: var(--text-3); }
 }
 
-// ── Barra de estado ───────────────────────────────────────────────────────────
-.chat-status-bar {
-  @extend %panel;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  min-height: 52px;
-  flex-shrink: 0;
+// ── Avisos dentro del chat (bloqueado / error) ───────────────────────────────
+.chat-aviso {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 1rem 0.6rem; padding: 0.6rem 0.9rem;
+  border-radius: 12px; border: 1px solid; text-align: left;
+  font: 500 0.88rem var(--font); line-height: 1.35;
+  animation: slideDown 0.25s ease;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; }
+  span { flex: 1; }
 }
 
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-width: 112px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.88rem;
-  border: 1px solid transparent;
-  white-space: nowrap;
+.aviso-bloqueado {
+  background: var(--warning-soft); color: var(--warning); border-color: var(--warning);
+  cursor: pointer; transition: transform 0.15s;
+  .aviso-flecha { transition: transform 0.15s; }
+  &:hover .aviso-flecha { transform: translateX(3px); }
 }
 
-.status-dot {
-  width: 9px; height: 9px;
-  border-radius: 50%;
-  display: inline-block;
-  flex-shrink: 0;
-}
-
-.status-ready {
-  background: var(--success-soft); color: var(--success);
-  .status-dot { background: var(--success); box-shadow: 0 0 0 4px var(--success-soft); }
-}
-
-.status-thinking {
-  background: var(--accent-soft); color: var(--accent);
-  .status-dot { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); animation: pulse-thinking 1.2s ease-in-out infinite; }
-}
-
-.status-error {
-  background: var(--error-soft); color: var(--error);
-  .status-dot { background: var(--error); box-shadow: 0 0 0 4px var(--error-soft); }
-}
-
-.status-helper { color: var(--text-3); font-size: 0.9rem; line-height: 1.2; }
-.status-helper-error { color: var(--error); font-weight: 500; }
-
-.status-helper-blocked {
-  display: flex; align-items: center; gap: 4px;
-  background: none; border: none; padding: 0; cursor: pointer; font: inherit;
-  text-decoration: underline dotted; text-underline-offset: 3px;
-  color: var(--warning); font-weight: 500;
-  .lock-icon { font-size: 16px; width: 16px; height: 16px; }
-}
+.aviso-error { background: var(--error-soft); color: var(--error); border-color: var(--error); }
 
 @keyframes pulse-thinking {
   0%   { transform: scale(1); opacity: 1; }
@@ -933,7 +896,6 @@
   }
 
   .chat-area { height: 100%; overflow: hidden; gap: 0; }
-  .chat-status-bar { border-radius: 0; border-left: none; border-right: none; border-top: none; box-shadow: none; }
   .chat-box {
     overflow: hidden; border-radius: 0; border: none; box-shadow: none; min-height: 0;
     background: transparent; backdrop-filter: none;
@@ -949,8 +911,7 @@
 }
 
 @media (max-width: 640px) {
-  .chat-status-bar { padding: 8px 10px; flex-wrap: wrap; }
-  .status-pill { min-width: 96px; font-size: 0.82rem; }
+  .chat-aviso { margin: 0 0.6rem 0.5rem; font-size: 0.82rem; }
   .mobile-chats-fab { bottom: 90px; left: 16px; }
   .mobile-reinf-fab { bottom: 90px; right: 16px; }
 }
