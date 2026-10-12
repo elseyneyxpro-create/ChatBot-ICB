@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/auth.service';
+import { environment } from '../../../../environments/environment';
 
 const GREETINGS = [
   'Bien y tú, ¿cómo estás rey? 👑',
@@ -371,7 +372,8 @@ export class AuthCallbackComponent implements OnInit {
     await this.delay(1200);
 
     if (authResult.status === 'fulfilled') {
-      this.router.navigateByUrl('/app');
+      // develop: pantalla para elegir módulo; producción: /app (el guard decide chatbot o nivelación)
+      this.router.navigateByUrl(environment.dev?.selectorModulos ? '/inicio' : '/app');
     } else {
       console.error('[AuthCallback] error:', authResult.reason);
       const status = (authResult.reason as any)?.status;

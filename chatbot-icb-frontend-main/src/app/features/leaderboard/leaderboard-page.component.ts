@@ -5,8 +5,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { Auth } from '@angular/fire/auth';
-import { FirestoreService, type LeaderboardEntry } from '../../core/firestore.service';
+import { AuthService } from '../../core/auth.service';
+import { DataService, type LeaderboardEntry } from '../../core/data.service';
 
 type Vista = 'aciertos' | 'uso' | 'tema';
 
@@ -21,8 +21,8 @@ type Vista = 'aciertos' | 'uso' | 'tema';
   styleUrls: ['./leaderboard-page.component.scss'],
 })
 export class LeaderboardPageComponent implements OnInit {
-  private fs = inject(FirestoreService);
-  private auth = inject(Auth);
+  private fs = inject(DataService);
+  private auth = inject(AuthService);
 
   loading = signal(true);
   vista = signal<Vista>('aciertos');
@@ -30,7 +30,7 @@ export class LeaderboardPageComponent implements OnInit {
   topTemas = signal<string[]>([]);
   selectedTema = signal<string>('');
 
-  myUid = computed(() => this.auth.currentUser?.uid ?? '');
+  myUid = computed(() => this.auth.currentUser()?.uid ?? '');
 
   rankedEntries = computed(() =>
     this.entries().map((e, i) => ({ ...e, posicion: i + 1 }))

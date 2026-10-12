@@ -1,12 +1,12 @@
 import logging
 import time
 from datetime import datetime
-from google.cloud import firestore as fs_module
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from app.core.config import settings
-from app.core.firestore_client import db
+from pymongo.errors import DuplicateKeyError
+from app.core.mongo import db, new_id
 from app.routers.ai.prompts import (
     BLOCK_SUMMARY_SYSTEM, BLOCK_SUMMARY_HUMAN,
     SUPER_SUMMARY_SYSTEM, SUPER_SUMMARY_HUMAN,
@@ -20,6 +20,18 @@ llm = ChatOpenAI(model=settings.OPENAI_MODEL, api_key=settings.OPENAI_API_KEY, t
 BLOCK_SIZE = 20
 # Cada cuántos resumenes[] se genera un super resumen y se vacía resumenes[].
 SUPER_BLOCK_SIZE = 5
+
+def _upsert_nivel(nivel_filter: dict, update: dict) -> None:
+    """
+    Upsert en nivel_usuario. Si llegan dos resultados del mismo tema casi al mismo tiempo,
+    ambos pueden intentar crear el documento y uno choca con el índice único (uid, tema):
+    en ese caso se reintenta, y la segunda vez ya es un update normal.
+    """
+    try:
+        db["nivel_usuario"].update_one(nivel_filter, update, upsert=True)
+    except DuplicateKeyError:
+        db["nivel_usuario"].update_one(nivel_filter, update, upsert=True)
+
 
 # ── Cadenas de resumen ────────────────────────────────────────────────────────
 _block_summary_prompt = ChatPromptTemplate.from_messages([("system", BLOCK_SUMMARY_SYSTEM), ("human", BLOCK_SUMMARY_HUMAN)])
@@ -45,13 +57,13 @@ def _format_exercise_results(exercise_results: dict | None) -> str:
 def _append_system_hilo(id_chat_nr: str, texto: str) -> None:
     """Crea un hilo tipo 'system' permanente en el historial."""
     try:
-        chat_ref = db.collection("Chat_nr").document(id_chat_nr)
-        chat_snap = chat_ref.get()
-        chat_data = chat_snap.to_dict() or {}
+        chat_data = db["Chat_nr"].find_one({"_id": id_chat_nr}) or {}
         new_count = (chat_data.get("total_hilos") or 0) + 1
         id_tail = chat_data.get("id_tail") or ""
 
-        new_doc = db.collection("Hilo_chat").add({
+        new_id_hilo = new_id()
+        db["Hilo_chat"].insert_one({
+            "_id": new_id_hilo,
             "id_chat_nr": id_chat_nr,
             "tipo": "system",
             "texto": texto,
@@ -60,15 +72,17 @@ def _append_system_hilo(id_chat_nr: str, texto: str) -> None:
             "id_next": "",
             "created_at": datetime.utcnow(),
         })
-        new_id = new_doc[1].id
 
         if id_tail:
-            db.collection("Hilo_chat").document(id_tail).update({"id_next": new_id})
+            db["Hilo_chat"].update_one({"_id": id_tail}, {"$set": {"id_next": new_id_hilo}})
 
-        update = {"id_tail": new_id, "total_hilos": fs_module.Increment(1)}
+        set_fields = {"id_tail": new_id_hilo}
         if not chat_data.get("id_head"):
-            update["id_head"] = new_id
-        chat_ref.update(update)
+            set_fields["id_head"] = new_id_hilo
+        db["Chat_nr"].update_one(
+            {"_id": id_chat_nr},
+            {"$set": set_fields, "$inc": {"total_hilos": 1}},
+        )
         logger.info(f"system hilo creado en chat={id_chat_nr} → {texto[:60]}")
     except Exception as e:
         logger.warning(f"_append_system_hilo falló: {e}")
@@ -89,7 +103,8 @@ def update_conversation_summary(
     Corre en background.
     """
     try:
-        chat_ref = db.collection("Chat_nr").document(id_chat_nr)
+        chat_filter = {"_id": id_chat_nr}
+        chats = db["Chat_nr"]
         nueva_entrada = {
             "pregunta": question,
             "respuesta": answer,
@@ -100,17 +115,17 @@ def update_conversation_summary(
 
         if not cierra_bloque:
             # Solo acumular — sin LLM.
-            chat_ref.update({
-                "resumen_rolling": fs_module.ArrayUnion([nueva_entrada]),
-                "fecha_resumen": datetime.utcnow(),
+            chats.update_one(chat_filter, {
+                "$addToSet": {"resumen_rolling": nueva_entrada},
+                "$set": {"fecha_resumen": datetime.utcnow()},
             })
             logger.info(f"resumen_rolling acumulado chat={id_chat_nr} (hilos={total_hilos})")
             return
 
         # Cerrar bloque: leer rolling acumulado + nueva entrada, generar resumen extenso.
-        chat_snap = chat_ref.get()
-        rolling_actual: list = list((chat_snap.to_dict() or {}).get("resumen_rolling") or [])
-        # Asegurar que la entrada actual esté incluida (puede no estar aún en Firestore)
+        chat_doc = chats.find_one(chat_filter) or {}
+        rolling_actual: list = list(chat_doc.get("resumen_rolling") or [])
+        # Asegurar que la entrada actual esté incluida (puede no estar aún en la BD)
         rolling_actual.append(nueva_entrada)
 
         intercambios_texto = "\n\n".join(
@@ -120,10 +135,9 @@ def update_conversation_summary(
         )
 
         bloque_resumido = _block_summary_chain.invoke({"intercambios": intercambios_texto})
-        chat_ref.update({
-            "resumen_rolling": [],
-            "resumenes": fs_module.ArrayUnion([bloque_resumido]),
-            "fecha_resumen": datetime.utcnow(),
+        chats.update_one(chat_filter, {
+            "$set": {"resumen_rolling": [], "fecha_resumen": datetime.utcnow()},
+            "$addToSet": {"resumenes": bloque_resumido},
         })
         _append_system_hilo(
             id_chat_nr,
@@ -132,14 +146,14 @@ def update_conversation_summary(
         logger.info(f"bloque cerrado en chat={id_chat_nr} (hilos={total_hilos}, intercambios={len(rolling_actual)})")
 
         # ¿Toca super resumen?
-        chat_snap2 = chat_ref.get()
-        resumenes = (chat_snap2.to_dict() or {}).get("resumenes") or []
+        chat_doc2 = chats.find_one(chat_filter) or {}
+        resumenes = chat_doc2.get("resumenes") or []
         if len(resumenes) > 0 and len(resumenes) % SUPER_BLOCK_SIZE == 0:
             bloques_text = "\n\n".join([f"Bloque {i+1}:\n{r}" for i, r in enumerate(resumenes)])
             super_resumen = _super_summary_chain.invoke({"bloques": bloques_text})
-            chat_ref.update({
-                "resumenes": [],
-                "super_resumenes": fs_module.ArrayUnion([super_resumen]),
+            chats.update_one(chat_filter, {
+                "$set": {"resumenes": []},
+                "$addToSet": {"super_resumenes": super_resumen},
             })
             _append_system_hilo(
                 id_chat_nr,
@@ -150,7 +164,7 @@ def update_conversation_summary(
         logger.warning(f"update_conversation_summary falló: {e}")
 
 
-def save_reinforcement_to_firestore(id_chat_nr: str, reinforcement: dict, videos: list = None) -> None:
+def save_reinforcement(id_chat_nr: str, reinforcement: dict, videos: list = None) -> None:
     """
     Guarda el reinforcement en dos lugares:
     1. Chat_nr/{id_chat_nr}.last_reinforcement  → dispara onSnapshot en el frontend
@@ -169,32 +183,29 @@ def save_reinforcement_to_firestore(id_chat_nr: str, reinforcement: dict, videos
             "saved_at": time.time(),
         }
 
-        chat_ref = db.collection("Chat_nr").document(id_chat_nr)
-
         # Leer id_tail primero, antes de cualquier escritura
-        chat_snap = chat_ref.get()
-        id_tail = (chat_snap.to_dict() or {}).get("id_tail") if chat_snap.exists else None
+        chat_doc = db["Chat_nr"].find_one({"_id": id_chat_nr}, {"id_tail": 1})
+        id_tail = (chat_doc or {}).get("id_tail")
 
-        # 1. Guardar en Chat_nr.last_reinforcement (dispara onSnapshot en frontend)
-        chat_ref.update({"last_reinforcement": reinforcement_data})
+        # 1. Guardar en Chat_nr.last_reinforcement (el frontend lo consulta por polling)
+        db["Chat_nr"].update_one({"_id": id_chat_nr}, {"$set": {"last_reinforcement": reinforcement_data}})
         logger.info(f"Reinforcement guardado en Chat_nr/{id_chat_nr}")
 
         # 2. Guardar directamente en Hilo_chat/{id_tail} (más confiable que el flujo frontend)
         if id_tail:
-            db.collection("Hilo_chat").document(id_tail).update({"reinforcement": reinforcement_data})
+            db["Hilo_chat"].update_one({"_id": id_tail}, {"$set": {"reinforcement": reinforcement_data}})
             logger.info(f"Reinforcement guardado en Hilo_chat/{id_tail}")
         else:
-            logger.warning(f"save_reinforcement_to_firestore: id_tail vacío en Chat_nr/{id_chat_nr}")
+            logger.warning(f"save_reinforcement: id_tail vacío en Chat_nr/{id_chat_nr}")
 
         # 3. Anotar ejercicios en el último intercambio de Contexto_chat
         #    para que el responder los vea en conversaciones futuras
         ejercicios = reinforcement.get("ejercicios") or []
         if ejercicios:
             try:
-                ctx_ref = db.collection("Contexto_chat").document(id_chat_nr)
-                ctx_snap = ctx_ref.get()
-                if ctx_snap.exists:
-                    intercambios = list((ctx_snap.to_dict() or {}).get("intercambios") or [])
+                ctx_doc = db["Contexto_chat"].find_one({"_id": id_chat_nr})
+                if ctx_doc:
+                    intercambios = list(ctx_doc.get("intercambios") or [])
                     if intercambios:
                         # Anotar en el último intercambio
                         intercambios[-1]["ejercicios"] = [
@@ -207,13 +218,15 @@ def save_reinforcement_to_firestore(id_chat_nr: str, reinforcement: dict, videos
                             }
                             for e in ejercicios
                         ]
-                        ctx_ref.set({"intercambios": intercambios}, merge=True)
+                        db["Contexto_chat"].update_one(
+                            {"_id": id_chat_nr}, {"$set": {"intercambios": intercambios}}, upsert=True,
+                        )
                         logger.info(f"Ejercicios anotados en Contexto_chat/{id_chat_nr} (último intercambio)")
             except Exception as ce:
                 logger.warning(f"save_reinforcement: anotar en Contexto_chat falló: {ce}")
 
     except Exception as e:
-        logger.warning(f"save_reinforcement_to_firestore falló: {e}")
+        logger.warning(f"save_reinforcement falló: {e}")
 
 
 def _compute_nivel(errores_vof: int, errores_error: int, errores_concepto: int, errores_rojo: int) -> str:
@@ -228,15 +241,14 @@ def _compute_nivel(errores_vof: int, errores_error: int, errores_concepto: int, 
 
 def _recompute_weak_points_text(uid: str) -> None:
     """
-    Recomputa weak_points_text en Perfil_usuario/{uid} leyendo la subcolección 'nivel_usuario'.
+    Recomputa weak_points_text en Perfil_usuario/{uid} leyendo la colección 'nivel_usuario' (filtrada por uid).
     Cada doc tiene contadores + listas de preguntas que generaron errores.
     """
     try:
-        docs = db.collection("Perfil_usuario").document(uid).collection("nivel_usuario").stream()
+        docs = db["nivel_usuario"].find({"uid": uid})
         weak_lines = []
-        for doc in docs:
-            data = doc.to_dict()
-            tema = data.get("tema", doc.id)
+        for data in docs:
+            tema = data.get("tema", "")
             errores_vof = data.get("vof_errores", 0)
             errores_error = data.get("error_errores", 0)
             errores_concepto = data.get("concepto_errores", 0)
@@ -272,10 +284,11 @@ def _recompute_weak_points_text(uid: str) -> None:
             weak_lines.append(f"[{tema}] ({nivel}) " + "; ".join(partes))
 
         weak_points_text = "\n".join(weak_lines) if weak_lines else ""
-        db.collection("Perfil_usuario").document(uid).set({
-            "weak_points_text": weak_points_text,
-            "fecha_actualizacion": datetime.utcnow(),
-        }, merge=True)
+        db["Perfil_usuario"].update_one(
+            {"_id": uid},
+            {"$set": {"weak_points_text": weak_points_text, "fecha_actualizacion": datetime.utcnow()}},
+            upsert=True,
+        )
         logger.info(f"Analyst: weak_points_text recomputado uid={uid} ({len(weak_lines)} temas con errores)")
     except Exception as e:
         logger.warning(f"_recompute_weak_points_text falló uid={uid}: {e}")
@@ -298,57 +311,46 @@ def update_profile_from_exercises(
     Si enunciado se provee y el resultado es incorrecto, se guarda en la lista de preguntas de error.
     """
     try:
-        ref = db.collection("Perfil_usuario").document(uid).collection("nivel_usuario").document(tema)
-        updates = {"tema": tema, "ultima_actividad": datetime.utcnow()}
-        chat_updates = {}
+        nivel_filter = {"uid": uid, "tema": tema}
+        set_fields = {"uid": uid, "tema": tema, "ultima_actividad": datetime.utcnow()}
+        inc_fields: dict = {}
+        add_fields: dict = {}
+        chat_inc: dict = {}
 
-        if results.get("concepto", {}).get("answered"):
-            if results["concepto"].get("es_correcto"):
-                updates["concepto_aciertos"] = fs_module.Increment(1)
-                chat_updates["aciertos_concepto"] = fs_module.Increment(1)
+        for tipo in ("concepto", "vof", "error"):
+            r = results.get(tipo, {})
+            if not r.get("answered"):
+                continue
+            if r.get("es_correcto"):
+                inc_fields[f"{tipo}_aciertos"] = 1
+                chat_inc[f"aciertos_{tipo}"] = 1
             else:
-                updates["concepto_errores"] = fs_module.Increment(1)
-                chat_updates["errores_concepto"] = fs_module.Increment(1)
+                inc_fields[f"{tipo}_errores"] = 1
+                chat_inc[f"errores_{tipo}"] = 1
                 if enunciado:
-                    updates["concepto_preguntas_error"] = fs_module.ArrayUnion([enunciado])
+                    add_fields[f"{tipo}_preguntas_error"] = enunciado
 
-        if results.get("vof", {}).get("answered"):
-            if results["vof"].get("es_correcto"):
-                updates["vof_aciertos"] = fs_module.Increment(1)
-                chat_updates["aciertos_vof"] = fs_module.Increment(1)
-            else:
-                updates["vof_errores"] = fs_module.Increment(1)
-                chat_updates["errores_vof"] = fs_module.Increment(1)
-                if enunciado:
-                    updates["vof_preguntas_error"] = fs_module.ArrayUnion([enunciado])
-
-        if results.get("error", {}).get("answered"):
-            if results["error"].get("es_correcto"):
-                updates["error_aciertos"] = fs_module.Increment(1)
-                chat_updates["aciertos_error"] = fs_module.Increment(1)
-            else:
-                updates["error_errores"] = fs_module.Increment(1)
-                chat_updates["errores_error"] = fs_module.Increment(1)
-                if enunciado:
-                    updates["error_preguntas_error"] = fs_module.ArrayUnion([enunciado])
-
-        ref.set(updates, merge=True)
+        update: dict = {"$set": set_fields}
+        if inc_fields:
+            update["$inc"] = inc_fields
+        if add_fields:
+            update["$addToSet"] = add_fields
+        _upsert_nivel(nivel_filter, update)
 
         # Recomputar nivel después de actualizar contadores
-        snap = ref.get()
-        d = snap.to_dict() or {}
+        d = db["nivel_usuario"].find_one(nivel_filter) or {}
         nivel = _compute_nivel(
             d.get("vof_errores", 0),
             d.get("error_errores", 0),
             d.get("concepto_errores", 0),
             d.get("errores_rojo", 0),
         )
-        ref.update({"nivel": nivel})
+        db["nivel_usuario"].update_one(nivel_filter, {"$set": {"nivel": nivel}})
         logger.info(f"Analyst: nivel_usuario actualizado → uid={uid}, tema={tema}, nivel={nivel}")
 
-        if id_chat_nr and chat_updates:
+        if id_chat_nr and chat_inc:
             try:
-                db.collection("Chat_nr").document(id_chat_nr).update(chat_updates)
+                db["Chat_nr"].update_one({"_id": id_chat_nr}, {"$inc": chat_inc})
                 logger.info(f"Analyst: contadores Chat_nr actualizados → chat={id_chat_nr}")
             except Exception as ce:
                 logger.warning(f"Analyst: actualizar contadores Chat_nr falló: {ce}")
@@ -361,27 +363,25 @@ def update_profile_from_exercises(
 def update_profile_from_rojo(uid: str, tema: str, question: str) -> None:
     """Registra un error conceptual grave (nivel='rojo') detectado en el chat principal."""
     try:
-        ref = db.collection("Perfil_usuario").document(uid).collection("nivel_usuario").document(tema)
-        updates = {
-            "tema": tema,
-            "errores_rojo": fs_module.Increment(1),
-            "ultima_actividad": datetime.utcnow(),
+        nivel_filter = {"uid": uid, "tema": tema}
+        update: dict = {
+            "$set": {"uid": uid, "tema": tema, "ultima_actividad": datetime.utcnow()},
+            "$inc": {"errores_rojo": 1},
         }
         if question:
-            updates["rojo_preguntas"] = fs_module.ArrayUnion([question])
+            update["$addToSet"] = {"rojo_preguntas": question}
 
-        ref.set(updates, merge=True)
+        _upsert_nivel(nivel_filter, update)
 
         # Recomputar nivel
-        snap = ref.get()
-        d = snap.to_dict() or {}
+        d = db["nivel_usuario"].find_one(nivel_filter) or {}
         nivel = _compute_nivel(
             d.get("vof_errores", 0),
             d.get("error_errores", 0),
             d.get("concepto_errores", 0),
             d.get("errores_rojo", 0),
         )
-        ref.update({"nivel": nivel})
+        db["nivel_usuario"].update_one(nivel_filter, {"$set": {"nivel": nivel}})
         logger.info(f"Analyst: error rojo registrado → uid={uid}, tema={tema}, nivel={nivel}")
         _recompute_weak_points_text(uid)
     except Exception as e:
@@ -392,10 +392,8 @@ def get_latest_weak_points(uid: str) -> str:
     """Lee el campo weak_points_text pre-computado en Perfil_usuario/{uid}."""
     try:
 
-        doc = db.collection("Perfil_usuario").document(uid).get()
-        if doc.exists:
-            return doc.to_dict().get("weak_points_text", "")
-        return ""
+        doc = db["Perfil_usuario"].find_one({"_id": uid}, {"weak_points_text": 1})
+        return (doc or {}).get("weak_points_text", "") or ""
     except Exception as e:
         logger.warning(f"get_latest_weak_points falló: {e}")
         return ""
@@ -413,10 +411,10 @@ def get_context_queue(id_chat_nr: str) -> str:
     para que el tutor pueda responder preguntas sobre ejercicios específicos.
     """
     try:
-        doc = db.collection("Contexto_chat").document(id_chat_nr).get()
-        if not doc.exists:
+        doc = db["Contexto_chat"].find_one({"_id": id_chat_nr})
+        if not doc:
             return ""
-        intercambios = (doc.to_dict() or {}).get("intercambios") or []
+        intercambios = doc.get("intercambios") or []
         if not intercambios:
             return ""
         lines = []
@@ -453,11 +451,10 @@ def update_context_queue(id_chat_nr: str, question: str, answer: str) -> None:
     Corre en background — no bloquea la respuesta al alumno.
     """
     try:
-        ref = db.collection("Contexto_chat").document(id_chat_nr)
-        doc = ref.get()
+        doc = db["Contexto_chat"].find_one({"_id": id_chat_nr})
         intercambios: list = []
-        if doc.exists:
-            intercambios = list((doc.to_dict() or {}).get("intercambios") or [])
+        if doc:
+            intercambios = list(doc.get("intercambios") or [])
 
         intercambios.append({"pregunta": question, "respuesta": answer})
 
@@ -465,7 +462,9 @@ def update_context_queue(id_chat_nr: str, question: str, answer: str) -> None:
         if len(intercambios) > CONTEXT_QUEUE_MAX:
             intercambios = intercambios[-CONTEXT_QUEUE_MAX:]
 
-        ref.set({"intercambios": intercambios}, merge=True)
+        db["Contexto_chat"].update_one(
+            {"_id": id_chat_nr}, {"$set": {"intercambios": intercambios}}, upsert=True,
+        )
         logger.info(f"update_context_queue: chat={id_chat_nr} intercambios={len(intercambios)}")
     except Exception as e:
         logger.warning(f"update_context_queue falló id_chat_nr={id_chat_nr}: {e}")

@@ -12,15 +12,15 @@ from app.routers.ai.agents.reinforcer import reinforce, evaluate_concepto, evalu
 from app.routers.ai.agents.analyst import (
     get_latest_weak_points,
     update_conversation_summary,
-    save_reinforcement_to_firestore,
+    save_reinforcement,
     update_profile_from_rojo,
     update_profile_from_exercises,
     get_context_queue,
     update_context_queue,
 )
 from app.routers.ai.models import Ask, EvaluateConcepto, EvaluateVof, EvaluateError, SaveExerciseResult
-from app.core.supabase_client import supabase
-from app.core.firestore_client import db
+from app.core.postgres import fetch_all
+from app.core.mongo import db
 
 logger = logging.getLogger("icb.ai")
 
@@ -36,7 +36,7 @@ def run_reinforcement_background(
     uid: str | None,
     videos: list = None,
 ) -> None:
-    """Corre el reforzador en background y guarda el resultado en Firestore."""
+    """Corre el reforzador en background y guarda el resultado en MongoDB."""
     import time as _time
     t0 = _time.time()
     logger.info(f"[BG] Reinforcement START → chat={id_chat_nr} tema='{tema}' videos={len(videos or [])}")
@@ -48,7 +48,7 @@ def run_reinforcement_background(
             tema=tema,
             videos=videos or [],
         )
-        save_reinforcement_to_firestore(id_chat_nr, reinforcement, videos=videos)
+        save_reinforcement(id_chat_nr, reinforcement, videos=videos)
         logger.info(f"[BG] Reinforcement DONE → chat={id_chat_nr} ({_time.time()-t0:.2f}s)")
 
         if reinforcement.get("nivel") == "rojo" and uid:
@@ -115,15 +115,14 @@ async def _get_weak_points_safe(uid: str) -> str:
 
 def get_memory_layers(id_chat_nr: str) -> dict:
     """
-    Lee las capas de memoria del Chat_nr en Firestore.
+    Lee las capas de memoria del Chat_nr en MongoDB.
     resumen_rolling es ahora una lista de dicts {"pregunta", "respuesta", "exercise_results"}.
     Tolera chats legacy donde resumen_rolling era un string (se ignora, empieza fresco).
     """
     try:
-        snap = db.collection("Chat_nr").document(id_chat_nr).get()
-        if not snap.exists:
+        d = db["Chat_nr"].find_one({"_id": id_chat_nr})
+        if not d:
             return {"resumen_rolling": [], "resumenes": [], "super_resumenes": []}
-        d = snap.to_dict() or {}
         raw_rolling = d.get("resumen_rolling")
         if isinstance(raw_rolling, list):
             resumen_rolling = raw_rolling
@@ -244,10 +243,8 @@ async def process_answer(payload: Ask) -> dict:
 # ── Lógica de /ai/videos ──────────────────────────────────────────────────────
 
 def get_all_videos() -> dict:
-    temas_result = supabase.table("tema").select("id_tema, tema").execute()
-    temas_data = temas_result.data or []
-    vr_result = supabase.table("videos").select("url, id_tema, categoria").execute()
-    videos_data = vr_result.data or []
+    temas_data = fetch_all("SELECT id_tema, tema FROM tema")
+    videos_data = fetch_all("SELECT url, id_tema, categoria FROM videos")
 
     tema_map = {t["id_tema"]: t["tema"] for t in temas_data}
     all_temas = sorted(set(t["tema"] for t in temas_data))

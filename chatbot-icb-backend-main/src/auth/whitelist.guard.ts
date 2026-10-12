@@ -4,11 +4,11 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { PostgresService } from '../database/postgres.service';
 
 @Injectable()
 export class WhitelistGuard implements CanActivate {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(private readonly pg: PostgresService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -18,15 +18,12 @@ export class WhitelistGuard implements CanActivate {
       throw new ForbiddenException('No se proporcionó un correo electrónico.');
     }
 
-    const { data, error } = await this.supabase.db
-      .from('whitelist_alumnos')
-      .select('id')
-      .eq('email', email.toLowerCase())
-      .eq('activo', true)
-      .limit(1)
-      .single();
+    const row = await this.pg.queryOne(
+      'SELECT id FROM whitelist_alumnos WHERE lower(email) = $1 AND activo = true LIMIT 1',
+      [email.toLowerCase()],
+    );
 
-    if (error || !data) {
+    if (!row) {
       throw new ForbiddenException(
         'Tu correo no está autorizado para acceder a esta plataforma.',
       );

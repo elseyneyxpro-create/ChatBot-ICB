@@ -1,0 +1,25 @@
+# Solo las bases de datos, para probar en tu PC antes de tener la VM.
+#   docker compose -f docker-compose.dev.yml up -d
+# Luego corre backend (npm run start:dev), agents (uvicorn) y front (npm start) en local.
+#   DATABASE_URL=postgresql://icb_user:icb_dev@localhost:55432/icb_chatbot
+#   MONGO_URL=mongodb://localhost:27017
+name: icb-chatbot-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: icb_user
+      POSTGRES_PASSWORD: icb_dev
+      POSTGRES_DB: icb_chatbot
+    ports: ["55432:5432"]   # 55432 para no chocar con un Postgres instalado en Windows
+    volumes: [pg_dev:/var/lib/postgresql/data]
+
+  mongo:
+    image: mongo:7
+    ports: ["27017:27017"]
+    volumes: [mongo_dev:/data/db]
+
+volumes:
+  pg_dev:
+  mongo_dev:

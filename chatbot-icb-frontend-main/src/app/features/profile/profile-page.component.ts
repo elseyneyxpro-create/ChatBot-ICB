@@ -6,7 +6,7 @@ import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { FirestoreService, type NivelTemaStats } from '../../core/firestore.service';
+import { DataService, type NivelTemaStats } from '../../core/data.service';
 import { AuthService } from '../../core/auth.service';
 import katex from 'katex';
 
@@ -25,7 +25,7 @@ interface TemaCard extends NivelTemaStats {
   styleUrls: ['./profile-page.component.scss'],
 })
 export class ProfilePageComponent implements OnInit {
-  private fs        = inject(FirestoreService);
+  private fs        = inject(DataService);
   private router    = inject(Router);
   private auth      = inject(AuthService);
   private sanitizer = inject(DomSanitizer);
@@ -37,7 +37,7 @@ export class ProfilePageComponent implements OnInit {
   weakPointsText = signal('');
   temas = signal<TemaCard[]>([]);
 
-  // Datos del usuario desde Firebase Auth
+  // Datos del usuario (sesión del backend)
   user = computed(() => this.auth.currentUser());
   displayName = computed(() => this.user()?.displayName || this.emailPrefix());
   email = computed(() => this.user()?.email ?? null);

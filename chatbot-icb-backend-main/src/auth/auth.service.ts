@@ -1,8 +1,17 @@
-import { Injectable, ForbiddenException, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, ForbiddenException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { SupabaseService } from '../supabase/supabase.service';
-import { FirebaseAdminService } from '../firebase-admin/firebase-admin.service';
+import { randomUUID } from 'crypto';
+import { PostgresService } from '../database/postgres.service';
+import { MongoService } from '../database/mongo.service';
+import { getAllowedDomain } from './allowed-domain';
+import type { JwtPayload } from './jwt.strategy';
+
+export interface GoogleUser {
+  email: string;
+  name?: string | null;
+  picture?: string | null;
+}
 
 @Injectable()
 export class AuthService {
@@ -12,73 +21,70 @@ export class AuthService {
   constructor(
     private readonly jwt: JwtService,
     private readonly cfg: ConfigService,
-    private readonly supabase: SupabaseService,
-    private readonly firebaseAdmin: FirebaseAdminService,
+    private readonly pg: PostgresService,
+    private readonly mongo: MongoService,
   ) {
-    this.allowedDomain = this.cfg.get<string>('ALLOWED_DOMAIN') ?? 'mail.udp.cl';
+    this.allowedDomain = getAllowedDomain(this.cfg);
   }
 
   /**
-   * Intercambia un Supabase access_token por:
-   *  - Una cookie JWT propia de NestJS (se setea en el controller)
-   *  - Un Firebase custom token para acceder a Firestore
+   * Completa el login con Google (reemplaza el exchange Supabase → Firebase).
    *
    * Capas de seguridad:
-   *  1. Supabase verifica la firma del token (Google OAuth via Supabase)
+   *  1. Google valida la cuenta (passport-google-oauth20)
    *  2. Dominio @mail.udp.cl obligatorio
-   *  3. Whitelist de alumnos activos en Supabase
+   *  3. Whitelist de alumnos activos en Postgres
+   *
+   * El uid del usuario se conserva: si el correo ya existe en la tabla `usuario`
+   * (migrada desde Supabase) se reutiliza su id_user, así sus chats y perfil en Mongo
+   * siguen asociados a él.
    */
-  async exchangeSupabaseToken(supabaseToken: string): Promise<{
-    nestJwt: string;
-    firebaseCustomToken: string;
-    user: { uid: string; email: string; nombre?: string; photoURL?: string };
-  }> {
-    // 1. Verificar token con Supabase
-    const { data: { user: sbUser }, error } = await this.supabase.db.auth.getUser(supabaseToken);
-    if (error || !sbUser) {
-      throw new UnauthorizedException('Token de Supabase inválido o expirado.');
-    }
+  async loginWithGoogle(google: GoogleUser): Promise<{ jwt: string; payload: JwtPayload }> {
+    const email = (google.email ?? '').toLowerCase();
 
-    const email = sbUser.email ?? '';
-
-    // 2. Verificar dominio
     if (!email.endsWith(`@${this.allowedDomain}`)) {
       throw new ForbiddenException(`Solo se permiten correos @${this.allowedDomain}`);
     }
 
-    // 3. Verificar whitelist
-    const { data: wl } = await this.supabase.db
-      .from('whitelist_alumnos')
-      .select('id')
-      .eq('email', email.toLowerCase())
-      .eq('activo', true)
-      .limit(1)
-      .single();
-
+    const wl = await this.pg.queryOne(
+      'SELECT id FROM whitelist_alumnos WHERE lower(email) = $1 AND activo = true LIMIT 1',
+      [email],
+    );
     if (!wl) {
       throw new ForbiddenException('Tu correo no está autorizado para acceder a esta plataforma.');
     }
 
-    // 4. Upsert en tabla usuario (nombre en singular, así está en Supabase)
-    const nombre    = sbUser.user_metadata?.['full_name'] ?? sbUser.user_metadata?.['name'] ?? null;
-    const photoURL  = sbUser.user_metadata?.['avatar_url'] ?? sbUser.user_metadata?.['picture'] ?? null;
-    await this.supabase.db
-      .from('usuario')
-      .upsert(
-        { id_user: sbUser.id, correo: email.toLowerCase(), nombre },
-        { onConflict: 'id_user' },
-      );
+    const nombre = google.name ?? null;
+    const picture = google.picture ?? null;
 
-    // 5. Emitir JWT propio de NestJS
-    const nestJwt = await this.jwt.signAsync({
-      sub: sbUser.id,
-      email,
-      name: nombre,
-    });
+    const existing = await this.pg.queryOne<{ id_user: string }>(
+      'SELECT id_user FROM usuario WHERE lower(correo) = $1 LIMIT 1',
+      [email],
+    );
+    const uid = existing?.id_user ?? randomUUID();
 
-    // 6. Emitir Firebase custom token (mismo uid → mismos docs en Firestore)
-    const firebaseCustomToken = await this.firebaseAdmin.auth.createCustomToken(sbUser.id);
+    await this.pg.query(
+      `INSERT INTO usuario (id_user, correo, nombre)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (id_user) DO UPDATE SET correo = EXCLUDED.correo,
+                                           nombre = COALESCE(EXCLUDED.nombre, usuario.nombre)`,
+      [uid, email, nombre],
+    );
 
-    return { nestJwt, firebaseCustomToken, user: { uid: sbUser.id, email, nombre, photoURL } };
+    // Nombre y foto para el leaderboard (antes lo escribía el frontend en Firestore)
+    await this.mongo.col('Perfil_usuario').updateOne(
+      { _id: uid },
+      {
+        $set: {
+          profile: { display_name: nombre ?? '', photo_url: picture ?? '' },
+          fecha_actualizacion: new Date(),
+        },
+      },
+      { upsert: true },
+    ).catch((e) => this.logger.warn(`No se pudo guardar Perfil_usuario: ${e.message}`));
+
+    const payload: JwtPayload = { sub: uid, email, name: nombre ?? undefined, picture: picture ?? undefined, roles: ['user'] };
+    const jwt = await this.jwt.signAsync(payload);
+    return { jwt, payload };
   }
 }

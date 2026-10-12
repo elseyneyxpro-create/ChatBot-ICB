@@ -1,4 +1,5 @@
-import { Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { getAllowedDomain } from './allowed-domain';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
@@ -29,14 +30,13 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     try {
       const email   = profile?.emails?.[0]?.value;
       const picture = profile?.photos?.[0]?.value;
-      const allowed = this.cfg.get<string>('ALLOWED_DOMAIN') ?? 'mail.udp.cl';
+      const allowed = getAllowedDomain(this.cfg);
 
-      if (email && !email.endsWith(`@${allowed}`)) {
+      if (!email || !email.toLowerCase().endsWith(`@${allowed}`)) {
         return done(new UnauthorizedException(`Solo se permiten correos @${allowed}`), false);
       }
 
       return done(null, {
-        sub: profile.id,
         email,
         name: profile.displayName,
         picture,

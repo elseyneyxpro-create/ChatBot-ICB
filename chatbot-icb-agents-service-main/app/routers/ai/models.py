@@ -4,15 +4,15 @@ from typing import Optional, List
 
 class Ask(BaseModel):
     question: str = Field(..., description="Pregunta del usuario")
-    uid: Optional[str] = Field(None, description="UID del usuario de Firebase")
-    id_chat_nr: Optional[str] = Field(None, description="ID del chat activo en Firestore")
+    uid: Optional[str] = Field(None, description="UID del usuario (lo inyecta el backend desde el JWT)")
+    id_chat_nr: Optional[str] = Field(None, description="ID del chat activo (Chat_nr en MongoDB)")
     total_hilos: Optional[int] = Field(0, description="Total de hilos del chat antes de este mensaje")
     image_base64: Optional[str] = Field(None, description="Imagen adjunta en base64 (JPEG/PNG)")
     last_tema: Optional[str] = Field(None, description="Último tema clasificado en este chat (para hint del clasificador)")
 
 
 class EvaluateConcepto(BaseModel):
-    uid: Optional[str] = Field(None, description="UID del usuario de Firebase")
+    uid: Optional[str] = Field(None, description="UID del usuario (lo inyecta el backend desde el JWT)")
     tema: str = Field(..., description="Tema del ejercicio")
     enunciado: str = Field(..., description="Pregunta de concepto")
     respuesta_usuario: str = Field(..., description="Respuesta del alumno")
@@ -20,7 +20,7 @@ class EvaluateConcepto(BaseModel):
 
 
 class EvaluateVof(BaseModel):
-    uid: Optional[str] = Field(None, description="UID del usuario de Firebase")
+    uid: Optional[str] = Field(None, description="UID del usuario (lo inyecta el backend desde el JWT)")
     tema: str = Field(..., description="Tema del ejercicio")
     enunciado: str = Field(..., description="Afirmación verdadero/falso")
     respuesta_usuario: bool = Field(..., description="Lo que seleccionó el alumno")
@@ -29,7 +29,7 @@ class EvaluateVof(BaseModel):
 
 
 class EvaluateError(BaseModel):
-    uid: Optional[str] = Field(None, description="UID del usuario de Firebase")
+    uid: Optional[str] = Field(None, description="UID del usuario (lo inyecta el backend desde el JWT)")
     tema: str = Field(..., description="Tema del ejercicio")
     enunciado: str = Field(..., description="Instrucción del ejercicio")
     desarrollo: List[str] = Field(..., description="Pasos del desarrollo matemático")
@@ -39,7 +39,7 @@ class EvaluateError(BaseModel):
 
 
 class SaveExerciseResult(BaseModel):
-    uid: str = Field(..., description="UID del usuario de Firebase")
+    uid: str = Field(..., description="UID del usuario (lo inyecta el backend desde el JWT)")
     tema: str = Field(..., description="Tema del ejercicio")
     tipo: str = Field(..., description="'concepto' | 'vof' | 'error'")
     es_correcto: bool = Field(..., description="Si el alumno respondió correctamente")

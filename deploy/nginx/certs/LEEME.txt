@@ -1,0 +1,5 @@
+Pon aquí el certificado TLS del dominio de la VM:
+  fullchain.pem  (certificado + cadena)
+  privkey.pem    (llave privada)
+Como la VM solo tiene abierto el 443, Let's Encrypt con desafío HTTP (puerto 80) no funciona.
+Opciones: pedir el certificado a TI de la universidad, o usar Let's Encrypt con desafío DNS.

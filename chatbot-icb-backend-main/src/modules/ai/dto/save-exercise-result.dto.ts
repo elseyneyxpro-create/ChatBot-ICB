@@ -1,9 +1,10 @@
 import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class SaveExerciseResultDto {
+  /** Lo sobrescribe el backend con el uid del JWT. */
   @IsString()
-  @IsNotEmpty()
-  uid!: string;
+  @IsOptional()
+  uid?: string;
 
   @IsString()
   @IsNotEmpty()

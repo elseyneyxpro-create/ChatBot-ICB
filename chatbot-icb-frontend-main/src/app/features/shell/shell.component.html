@@ -59,6 +59,26 @@
           </div>
         </a>
 
+        <!-- Nivelación (develop: environment.dev.selectorModulos) -->
+        <a
+          *ngIf="devSelector"
+          mat-list-item
+          class="nav-item"
+          routerLink="/nivelacion"
+          [matTooltip]="sidebarCollapsed ? 'Nivelación' : ''"
+          matTooltipPosition="right"
+          (click)="closeSidenavOnMobile()"
+        >
+          <div class="nav-row">
+            <div class="nav-icon"><mat-icon>route</mat-icon></div>
+            <div class="nav-copy" *ngIf="!sidebarCollapsed">
+              <div class="item-title">Nivelación</div>
+              <div class="item-line">Mundos, ejercicios</div>
+              <div class="item-line">y entrenamiento</div>
+            </div>
+          </div>
+        </a>
+
         <!-- Leaderboard -->
         <a
           mat-list-item

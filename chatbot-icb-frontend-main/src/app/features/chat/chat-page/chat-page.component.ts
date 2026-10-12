@@ -7,7 +7,7 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { firstValueFrom } from 'rxjs';
 import { ChatService, type VideoItem } from '../../../core/chat.service';
-import { FirestoreService, type ChatNr } from '../../../core/firestore.service';
+import { DataService, type ChatNr } from '../../../core/data.service';
 import { UiService } from '../../../core/ui.service';
 import { MessageListComponent } from '../../../shared/message-list/message-list.component';
 import { MessageInputComponent, type SendPayload } from '../../../shared/message-input/message-input.component';
@@ -43,7 +43,7 @@ function emptyEjercicioEstado(): EjercicioEstado {
 })
 export class ChatPageComponent implements OnInit, OnDestroy {
   private chat = inject(ChatService);
-  private firestoreService = inject(FirestoreService);
+  private data = inject(DataService);
   private ui = inject(UiService);
   private dialog = inject(MatDialog);
   private zone = inject(NgZone);
@@ -126,7 +126,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
   async loadChatList() {
     let list: ChatNr[] = [];
     try {
-      list = await this.firestoreService.getChatList();
+      list = await this.data.getChatList();
     } catch (e) {
       console.error('[ChatPage] getChatList error:', e);
     }
@@ -208,7 +208,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     this.renamingChatId.set(null);
     if (!nombre || nombre === chat.nombre) return;
     try {
-      await this.firestoreService.renameChat(chat.id, nombre);
+      await this.data.renameChat(chat.id, nombre);
       this.chatList.update(list => list.map(c => c.id === chat.id ? { ...c, nombre } : c));
     } catch (e) {
       console.error('[ChatPage] renameChat error:', e);
@@ -219,7 +219,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     event.stopPropagation();
     if (!confirm(`¿Eliminar el chat "${chat.nombre}"? Esta acción no se puede deshacer.`)) return;
     try {
-      await this.firestoreService.deleteChat(chat.id);
+      await this.data.deleteChat(chat.id);
       const updated = this.chatList().filter(c => c.id !== chat.id);
       this.chatList.set(updated);
       this.maxChatsReached.set(updated.length >= MAX_CHATS);
@@ -239,7 +239,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     const ref = this.dialog.open(NewChatDialogComponent, { width: '320px' });
     const nombre = await ref.afterClosed().toPromise();
     if (!nombre?.trim()) return;
-    const newChat = await this.firestoreService.createChat(nombre.trim());
+    const newChat = await this.data.createChat(nombre.trim());
     const updated = [newChat, ...this.chatList()];
     this.chatList.set(updated);
     this.maxChatsReached.set(updated.length >= MAX_CHATS);
@@ -381,7 +381,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     // Awaitar la escritura para garantizar que el estado quede guardado
     // en Hilo_chat (histórico) y en Chat_nr.last_reinforcement (carga rápida)
     // antes de que el usuario pueda navegar a otra página.
-    await this.firestoreService.updateHiloEjercicio(hiloId, chatId, tipo, update)
+    await this.data.updateHiloEjercicio(hiloId, chatId, tipo, update)
       .catch(e => console.warn('[ChatPage] persistEjercicio falló:', e));
   }
 
@@ -439,7 +439,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
         const allVideos = res.videos ?? [];
         const ejemploUrls = allVideos.filter(v => v.categoria === 'ejemplo').map(v => v.url);
 
-        // CRÍTICO: guardar el hilo en Firestore ANTES de la animación typewriter.
+        // CRÍTICO: guardar el hilo en la BD ANTES de la animación typewriter.
         // pushWithTypewriter tarda ~45ms/palabra (puede ser 20+ segundos para respuestas largas).
         // El reinforcer Python termina en ~15s, antes que el typewriter.
         // Si saveExchange va después, id_tail está vacío cuando Python intenta guardar el reinforcement.
@@ -447,7 +447,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
 
         this.chat.setVideos(allVideos);
         if (allVideos.length && this.activeChatId()) {
-          this.firestoreService.saveLastVideos(this.activeChatId()!, allVideos);
+          this.data.saveLastVideos(this.activeChatId()!, allVideos);
         }
         await this.chat.pushWithTypewriter('bot', reply, ejemploUrls);
 
@@ -456,10 +456,10 @@ export class ChatPageComponent implements OnInit, OnDestroy {
           this.currentTema.set(res.tema);
         }
 
-        // Escuchar reinforcement por Firestore
+        // Esperar el reinforcement (polling al backend)
         if (res.tema && this.activeChatId()) {
           this.zone.run(() => this.reinforcementLoading.set(true));
-          this.reinforcementUnsubscribe = this.firestoreService.watchReinforcement(
+          this.reinforcementUnsubscribe = this.data.watchReinforcement(
             this.activeChatId()!,
             (r) => {
               if (r && r.saved_at && r.saved_at > requestTime) {
@@ -473,7 +473,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
                 // actualizar los ejercicios (evita race condition si el usuario responde rápido).
                 const chatId = this.activeChatId();
                 if (chatId) {
-                  this.reinforcementPersistedPromise = this.firestoreService
+                  this.reinforcementPersistedPromise = this.data
                     .updateHiloReinforcement(chatId, r)
                     .catch(e => console.warn('[ChatPage] updateHiloReinforcement falló:', e));
                 }

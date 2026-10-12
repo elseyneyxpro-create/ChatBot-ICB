@@ -6,8 +6,13 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4.1-mini"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
 
-    SUPABASE_URL: str
-    SUPABASE_KEY: str
+    # PostgreSQL + pgvector (reemplaza a Supabase)
+    # Ej: postgresql://icb_user:clave@postgres:5432/icb_chatbot
+    DATABASE_URL: str
+
+    # MongoDB (reemplaza a Firestore)
+    MONGO_URL: str = "mongodb://localhost:27017"
+    MONGO_DB: str = "icb_chatbot"
 
     INTERNAL_SECRET: str = ""
 

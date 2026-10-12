@@ -9,6 +9,7 @@ import { CommonModule } from '@angular/common';
 const ERROR_MESSAGES: Record<string, string> = {
   not_authorized: 'Tu cuenta no está en nuestros registros. Contacta al administrador.',
   auth_failed:    'Ocurrió un error al iniciar sesión. Inténtalo de nuevo.',
+  callback_error: 'Ocurrió un error al iniciar sesión. Inténtalo de nuevo.',
   domain_not_allowed: 'Solo se permiten cuentas @mail.udp.cl.',
 };
 

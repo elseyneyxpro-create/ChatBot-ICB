@@ -29,6 +29,9 @@ async function bootstrap() {
     JWT_EXPIRES: process.env.JWT_EXPIRES,
   });
 
+  // Detrás de Nginx (HTTPS en 443): confiar en X-Forwarded-* para cookies seguras e IPs reales
+  app.set('trust proxy', 1);
+
   app.use(helmet());
   app.use(compression());
   app.use(cookieParser());

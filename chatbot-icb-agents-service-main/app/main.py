@@ -9,12 +9,15 @@ logging.getLogger("icb.ai").setLevel(logging.INFO)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import api_router
+# El router real vive en app/routers/ai/router.py (app/api se eliminó en el refactor)
+from app.routers.ai.router import router as ai_router
+from app.routers.nivelacion.router import router as niv_router
 
 app = FastAPI(title="ICB AI Service", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
+    # Solo el backend NestJS llama a este servicio (red interna de Docker); CORS no aplica en producción.
     allow_origins=["http://localhost:4200"],
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,4 +27,5 @@ app.add_middleware(
 def health():
     return {"ok": True, "version": "2.0.0"}
 
-app.include_router(api_router)
+app.include_router(ai_router)
+app.include_router(niv_router)

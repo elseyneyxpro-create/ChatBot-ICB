@@ -65,8 +65,13 @@ export class AiService {
     return data;
   }
 
+  /** POST genérico al servicio Python (lo usa la nivelación). */
+  post(path: string, body: Record<string, any>) {
+    return this.proxyPost(path, body);
+  }
+
   async askPython(body: Record<string, any>) {
-    return this.proxyPost('/ai/answer', { session_id: 'demo', ...body });
+    return this.proxyPost('/ai/answer', body);
   }
 
   async getVideos() {

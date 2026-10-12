@@ -1,7 +1,6 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Auth } from '@angular/fire/auth';
-import { FirestoreService, type Reinforcement, type Ejercicio } from './firestore.service';
+import { DataService, type Reinforcement, type Ejercicio } from './data.service';
 import { environment } from '../../environments/environment';
 
 export type Role = 'user' | 'bot' | 'system';
@@ -16,7 +15,7 @@ export interface ChatMessage {
   ejemploVideos?: string[];
 }
 
-export type { Ejercicio, Reinforcement } from './firestore.service';
+export type { Ejercicio, Reinforcement } from './data.service';
 
 export interface VideoItem {
   url: string;
@@ -43,8 +42,7 @@ export interface EvaluateConceptoResult {
 @Injectable({ providedIn: 'root' })
 export class ChatService {
   private http = inject(HttpClient);
-  private auth = inject(Auth);
-  private firestoreService = inject(FirestoreService);
+  private data = inject(DataService);
   private base = environment.AGENTS_URL;
 
   messagesSig = signal<ChatMessage[]>([]);
@@ -68,7 +66,7 @@ export class ChatService {
   }
 
   async loadUserMessages(id_chat_nr: string, lastReinforcement?: Reinforcement | null): Promise<void> {
-    const history = await this.firestoreService.loadHistory(id_chat_nr);
+    const history = await this.data.loadHistory(id_chat_nr);
     const messages: ChatMessage[] = [];
 
     let lastRespuestaHiloId: string | null = null;
@@ -124,10 +122,9 @@ export class ChatService {
   }
 
   ask(question: string, imageBase64?: string) {
-    const u = this.auth.currentUser;
+    // El uid lo agrega el backend desde el JWT
     return this.http.post<AgentsAnswer>(`${this.base}${environment.endpoints.ai.answer}`, {
       question,
-      uid: u?.uid ?? null,
       id_chat_nr: this.currentChatId,
       total_hilos: this.currentTotalHilos,
       image_base64: imageBase64 ?? null,
@@ -136,9 +133,7 @@ export class ChatService {
   }
 
   evaluateConcepto(enunciado: string, respuesta_usuario: string, tema: string) {
-    const u = this.auth.currentUser;
     return this.http.post<EvaluateConceptoResult>(`${this.base}${environment.endpoints.ai.evaluateConcepto}`, {
-      uid: u?.uid ?? null,
       tema,
       enunciado,
       respuesta_usuario,
@@ -147,9 +142,7 @@ export class ChatService {
   }
 
   evaluateVof(enunciado: string, respuesta_usuario: boolean, respuesta_correcta: boolean, tema: string) {
-    const u = this.auth.currentUser;
     return this.http.post<EvaluateConceptoResult>(`${this.base}${environment.endpoints.ai.evaluateVof}`, {
-      uid: u?.uid ?? null,
       tema,
       enunciado,
       respuesta_usuario,
@@ -159,9 +152,7 @@ export class ChatService {
   }
 
   evaluateError(enunciado: string, desarrollo: string[], paso_error: number, respuesta_usuario: number, tema: string) {
-    const u = this.auth.currentUser;
     return this.http.post<EvaluateConceptoResult>(`${this.base}${environment.endpoints.ai.evaluateError}`, {
-      uid: u?.uid ?? null,
       tema,
       enunciado,
       desarrollo,
@@ -172,10 +163,7 @@ export class ChatService {
   }
 
   saveExerciseResult(tema: string, tipo: 'vof' | 'error' | 'concepto', es_correcto: boolean, enunciado?: string) {
-    const u = this.auth.currentUser;
-    if (!u?.uid) return;
     this.http.post(`${this.base}${environment.endpoints.ai.saveExerciseResult}`, {
-      uid: u.uid,
       tema,
       tipo,
       es_correcto,
@@ -219,7 +207,7 @@ export class ChatService {
 
   async saveExchange(input: string, output: string, tema: string | null, ejemploVideos: string[] = []): Promise<string | null> {
     if (!this.currentChatId) return null;
-    const { count, hiloId } = await this.firestoreService.appendHilo(
+    const { count, hiloId } = await this.data.appendHilo(
       this.currentChatId, input, output, tema, ejemploVideos
     );
     this.currentTotalHilos = count;

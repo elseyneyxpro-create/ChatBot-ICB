@@ -3,7 +3,7 @@ import time
 import numpy as np
 from langchain_openai import OpenAIEmbeddings
 from app.core.config import settings
-from app.core.supabase_client import supabase
+from app.core.postgres import fetch_all, to_pgvector
 
 logger = logging.getLogger("icb.ai")
 
@@ -21,22 +21,20 @@ def _get_temas_cached() -> dict[str, str]:
     if time.time() - _temas_cache_ts < _TEMAS_TTL and _temas_cache:
         return _temas_cache
 
-    result = supabase.table("tema").select("id_tema, tema, descripcion").execute()
-    _temas_cache = {row["tema"]: row["id_tema"] for row in result.data} if result.data else {}
-    descripcion_por_id = {row["id_tema"]: row.get("descripcion") or "" for row in (result.data or [])}
+    temas_rows = fetch_all("SELECT id_tema, tema, descripcion FROM tema")
+    _temas_cache = {row["tema"]: row["id_tema"] for row in temas_rows}
+    descripcion_por_id = {row["id_tema"]: row.get("descripcion") or "" for row in temas_rows}
 
     temas_sin_desc = [tid for tid, desc in descripcion_por_id.items() if not desc]
     first_chunk: dict[str, str] = {}
     if temas_sin_desc:
-        # Filtrar en Supabase — solo traer chunks de los temas que no tienen descripción
-        contenido_result = (
-            supabase.table("contenido_tema")
-            .select("id_tema, texto")
-            .in_("id_tema", temas_sin_desc)
-            .execute()
+        # Filtrar en Postgres — solo traer chunks de los temas que no tienen descripción
+        contenido_rows = fetch_all(
+            "SELECT id_tema, texto FROM contenido_tema WHERE id_tema = ANY(%s)",
+            (temas_sin_desc,),
         )
-        if contenido_result.data:
-            for row in contenido_result.data:
+        if contenido_rows:
+            for row in contenido_rows:
                 tid = row["id_tema"]
                 if tid not in first_chunk:
                     first_chunk[tid] = row["texto"]  # texto completo para mejor embedding
@@ -123,10 +121,13 @@ def classify_and_retrieve(question: str, uid: str | None = None, last_tema: str 
     if tema:
         try:
             id_tema = temas_map[tema]
-            content = supabase.table("contenido_tema").select("texto, formato").eq("id_tema", id_tema).limit(8).execute()
-            if content.data:
-                exact_chunks = [row["texto"] for row in content.data]
-                formato = next((row.get("formato") for row in content.data if row.get("formato")), None)
+            content_rows = fetch_all(
+                "SELECT texto, formato FROM contenido_tema WHERE id_tema = %s LIMIT 8",
+                (id_tema,),
+            )
+            if content_rows:
+                exact_chunks = [row["texto"] for row in content_rows]
+                formato = next((row.get("formato") for row in content_rows if row.get("formato")), None)
         except Exception as e:
             logger.warning(f"Error contenido exacto: {e}")
 
@@ -135,14 +136,15 @@ def classify_and_retrieve(question: str, uid: str | None = None, last_tema: str 
     if tema:
         search_vector = embeddings.embed_query(question)
         try:
-            result = supabase.rpc("match_contenido", {
-                "query_embedding": search_vector,
-                "match_threshold": 0.7,
-                "match_count": 3,
-            }).execute()
-            if result.data:
-                semantic_chunks = [item["texto"] for item in result.data]
-                for item in result.data:
+            # Misma función SQL que se llamaba con supabase.rpc() (viene en el dump de Supabase)
+            match_rows = fetch_all(
+                "SELECT * FROM match_contenido("
+                "query_embedding => %s::vector, match_threshold => %s, match_count => %s)",
+                (to_pgvector(search_vector), 0.7, 3),
+            )
+            if match_rows:
+                semantic_chunks = [item["texto"] for item in match_rows]
+                for item in match_rows:
                     logger.debug(
                         f"Semántico: tema='{item.get('tema')}' "
                         f"similarity={item.get('similarity', 0):.3f} "
@@ -158,8 +160,11 @@ def classify_and_retrieve(question: str, uid: str | None = None, last_tema: str 
         try:
             id_tema = temas_map.get(tema)
             if id_tema:
-                vr = supabase.table("videos").select("url, categoria, contenido_video").eq("id_tema", id_tema).execute()
-                if vr.data:
+                vr_rows = fetch_all(
+                    "SELECT url, categoria, contenido_video FROM videos WHERE id_tema = %s",
+                    (id_tema,),
+                )
+                if vr_rows:
                     videos = [
                         {
                             "url": item["url"],
@@ -167,7 +172,7 @@ def classify_and_retrieve(question: str, uid: str | None = None, last_tema: str 
                             "contenido_video": item.get("contenido_video") or "",
                             "tema": tema,
                         }
-                        for item in vr.data
+                        for item in vr_rows
                     ]
                     contenido_video = "\n\n".join(
                         v["contenido_video"] for v in videos if v["contenido_video"]

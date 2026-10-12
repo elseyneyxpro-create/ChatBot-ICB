@@ -1,0 +1,97 @@
+# Todo el chatbot en la VM de la universidad.
+# Solo se expone el puerto 443 (Nginx). Las bases y servicios internos quedan en la red de Docker.
+#
+# Uso (desde la carpeta deploy/):
+#   cp .env.example .env    # y completar los valores
+#   docker compose up -d --build
+
+name: icb-chatbot
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"   # solo accesible desde la misma VM (para migrar/administrar)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "127.0.0.1:27017:27017" # solo accesible desde la misma VM
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      retries: 5
+
+  agents:
+    build: ../chatbot-icb-agents-service-main
+    restart: unless-stopped
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      MONGO_URL: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/?authSource=admin
+      MONGO_DB: ${MONGO_DB}
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    depends_on:
+      postgres: { condition: service_healthy }
+      mongo: { condition: service_healthy }
+
+  backend:
+    build: ../chatbot-icb-backend-main
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      MONGO_URL: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/?authSource=admin
+      MONGO_DB: ${MONGO_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES: ${JWT_EXPIRES:-7d}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: https://${DOMINIO}/api/auth/google/callback
+      FRONTEND_URL: https://${DOMINIO}
+      CORS_ORIGINS: https://${DOMINIO}
+      ALLOWED_DOMAIN: ${ALLOWED_DOMAIN:-mail.udp.cl}
+      PYTHON_BASE_URL: http://agents:8000
+      PYTHON_INTERNAL_SECRET: ${INTERNAL_SECRET}
+      PYTHON_TIMEOUT_MS: ${PYTHON_TIMEOUT_MS:-90000}
+      PYTHON_MAX_RETRIES: 0
+    depends_on:
+      postgres: { condition: service_healthy }
+      mongo: { condition: service_healthy }
+      agents: { condition: service_started }
+
+  nginx:
+    build: ../chatbot-icb-frontend-main
+    restart: unless-stopped
+    ports:
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO}
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - backend
+
+volumes:
+  pg_data:
+  mongo_data:

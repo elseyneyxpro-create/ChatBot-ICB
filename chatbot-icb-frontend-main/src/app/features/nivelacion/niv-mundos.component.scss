@@ -1,0 +1,76 @@
+:host { display: block; }
+.titulo { text-align: center; h1 { font-size: 2.4rem; margin-bottom: 10px; } }
+.aviso {
+  display: flex; align-items: center; gap: 12px; padding: 14px 20px; max-width: 640px; width: 100%;
+  border-color: rgba(139, 92, 246, 0.4); color: var(--text-secondary);
+  mat-icon { color: var(--accent-primary); }
+  strong { color: var(--text-primary); }
+}
+.analisis {
+  max-width: 640px; width: 100%; padding: 22px 24px; display: flex; flex-direction: column; gap: 12px;
+  .an-head { display: flex; align-items: center; gap: 10px; color: var(--accent-primary); flex-wrap: wrap;
+    h3 { color: var(--text-primary); font-size: 1.1rem; flex: 1; } }
+  .an-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    ul { margin: 6px 0 0; padding-left: 18px; color: var(--text-secondary); line-height: 1.5; } }
+  .ok { color: var(--success); } .bad { color: var(--error); }
+  .reco { display: flex; gap: 8px; align-items: flex-start; background: rgba(255, 255, 255, 0.05); padding: 10px 12px; border-radius: 10px;
+    mat-icon { color: var(--accent-secondary); flex: 0 0 auto; } }
+  @media (max-width: 600px) { .an-cols { grid-template-columns: 1fr; } }
+}
+.mapa-scroll {
+  width: 100%; max-width: 1100px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity;
+  border-radius: 20px; border: 1px solid var(--border-color);
+  background:
+    radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.12), transparent 40%),
+    radial-gradient(circle at 80% 30%, rgba(236, 72, 153, 0.1), transparent 40%),
+    rgba(25, 27, 35, 0.4);
+}
+.mapa-h { position: relative; }
+.camino {
+  position: absolute; inset: 0; pointer-events: none;
+  path { fill: none; stroke: var(--border-color); stroke-width: 8; stroke-linecap: round; stroke-dasharray: 2 18; }
+  path.hecho { stroke: var(--success); stroke-dasharray: none; opacity: 0.8; }
+}
+.suelo {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 22px;
+  background: repeating-linear-gradient(90deg, rgba(139, 92, 246, 0.25) 0 24px, rgba(236, 72, 153, 0.2) 24px 48px);
+  opacity: 0.5;
+}
+.hito {
+  position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px;
+  color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase;
+  mat-icon { font-size: 36px; width: 36px; height: 36px; }
+  &.inicio mat-icon { color: var(--accent-secondary); }
+  &.meta.logrado { color: #f59e0b; mat-icon { animation: brillar 1.6s ease-in-out infinite; } }
+}
+.mundo {
+  position: absolute; z-index: 1; width: 180px; margin-left: -90px; margin-top: -45px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px; scroll-snap-align: center;
+}
+.jugador {
+  position: absolute; top: -46px; color: var(--accent-secondary);
+  animation: saltar 0.9s ease-in-out infinite;
+  mat-icon { font-size: 34px; width: 34px; height: 34px; filter: drop-shadow(0 4px 8px rgba(236, 72, 153, 0.6)); }
+}
+@keyframes saltar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes brillar { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+.circulo {
+  width: 90px; height: 90px; border-radius: 50%; display: flex; justify-content: center; align-items: center;
+  background: var(--bg-panel); border: 3px solid rgba(255, 255, 255, 0.2); cursor: pointer; transition: transform 0.3s ease;
+  color: var(--text-secondary);
+  mat-icon { font-size: 40px; width: 40px; height: 40px; }
+  &:hover:not(:disabled) { transform: scale(1.1); }
+  &.completado { background: var(--success); color: white; }
+  &.actual { background: var(--accent-primary); color: white; box-shadow: var(--glow); transform: scale(1.1);
+    &:hover { transform: scale(1.2); } }
+  &.bloqueado { cursor: not-allowed; border-color: var(--border-color); background: #1a1c24; }
+}
+.etiqueta {
+  background: var(--bg-panel); padding: 8px 14px; border-radius: 12px; border: 1px solid var(--border-color); text-align: center;
+  &.actual { border-color: var(--accent-primary); box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2); }
+  .num { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: bold; }
+  .nombre { font-size: 1rem; font-weight: 500; }
+  .avance { font-size: 0.72rem; margin-top: 2px; }
+}
+.pista { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; margin-top: -14px;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; } }

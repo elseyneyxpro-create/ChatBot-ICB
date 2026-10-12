@@ -1,15 +1,7 @@
 import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import {
-  Auth,
-  signInWithCustomToken,
-  signOut,
-  updateProfile,
-} from '@angular/fire/auth';
 import { firstValueFrom } from 'rxjs';
-import { FirestoreService } from './firestore.service';
-import { SupabaseAuthService } from './supabase-auth.service';
 import { environment } from '../../environments/environment';
 
 export interface User {
@@ -17,71 +9,78 @@ export interface User {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
+  /** false → solo puede ver la nivelación */
+  chatbotHabilitado: boolean;
 }
 
+interface ProfileResponse {
+  uid: string;
+  email: string;
+  name: string | null;
+  picture: string | null;
+  chatbot_habilitado?: boolean;
+}
+
+/**
+ * Sesión basada solo en la cookie httpOnly `accessToken` que emite el backend NestJS.
+ * (Antes: Supabase Auth para el OAuth + Firebase Auth con custom token.)
+ */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly auth    = inject(Auth);
-  private readonly http    = inject(HttpClient);
-  private readonly router  = inject(Router);
-  private readonly fs      = inject(FirestoreService);
-  private readonly supa    = inject(SupabaseAuthService);
+  private readonly http   = inject(HttpClient);
+  private readonly router = inject(Router);
 
+  /** undefined = todavía no se sabe; null = sin sesión. */
   private _currentUser = signal<User | undefined | null>(undefined);
   public  currentUser  = this._currentUser.asReadonly();
 
+  private sessionPromise: Promise<User | null> | null = null;
+
   /**
-   * Paso 1 del login — lanza el OAuth de Google via Supabase.
-   * El browser redirige a Google y vuelve a /auth/callback.
+   * Paso 1 del login — redirige al backend, que lanza el OAuth de Google.
+   * Google vuelve al backend (/api/auth/google/callback), este setea la cookie
+   * y redirige a /auth/callback.
    */
   async signInWithGoogle(): Promise<void> {
-    await this.supa.signInWithGoogle();
+    window.location.href = environment.auth.loginUrl;
   }
 
   /**
-   * Paso 2 del login — llamado desde /auth/callback después del redirect.
-   * Intercambia el Supabase token por cookie NestJS + Firebase custom token.
-   * NO navega — la navegación queda a cargo del componente que lo llama.
+   * Paso 2 del login — llamado desde /auth/callback.
+   * La cookie ya viene seteada; solo se carga el perfil.
    */
   async handleOAuthCallback(): Promise<void> {
-    const session = await this.supa.getSessionAfterCallback();
-    if (!session?.access_token) {
-      throw new Error('No se encontró sesión de Supabase tras el callback.');
-    }
+    const user = await this.loadSession(true);
+    if (!user) throw new Error('No se encontró sesión tras el login con Google.');
+  }
 
-    // Llama al BFF → setea cookie httpOnly + devuelve Firebase custom token
-    // Puede lanzar HttpErrorResponse con status 403 si la cuenta no está autorizada.
-    const result = await firstValueFrom(
-      this.http.post<{ ok: boolean; firebaseCustomToken: string; user: any }>(
-        environment.auth.exchangeUrl,
-        {},
-        { headers: { Authorization: `Bearer ${session.access_token}` }, withCredentials: true },
-      ),
-    );
+  /** Devuelve el usuario si hay sesión válida (cachea la consulta). Lo usa el guard. */
+  ensureSession(): Promise<User | null> {
+    const current = this._currentUser();
+    if (current !== undefined) return Promise.resolve(current);
+    return this.loadSession();
+  }
 
-    if (!result.ok) throw new Error('Exchange falló en el backend.');
-
-    // Inicia sesión en Firebase con el custom token → Firestore disponible
-    // NOTA: signInWithCustomToken NO trae displayName/email/photoURL de Google,
-    // por eso los tomamos directamente de result.user (que vienen de Supabase metadata).
-    const fbCred     = await signInWithCustomToken(this.auth, result.firebaseCustomToken);
-    const nombre     = result.user.nombre   ?? fbCred.user.displayName ?? null;
-    const photoURL   = result.user.photoURL ?? fbCred.user.photoURL    ?? null;
-    const email      = result.user.email    ?? fbCred.user.email;
-
-    // Persiste nombre y foto en el perfil de Firebase Auth para que sobrevivan recarga
-    if (nombre || photoURL) {
-      await updateProfile(fbCred.user, {
-        displayName: nombre    ?? undefined,
-        photoURL:    photoURL  ?? undefined,
-      }).catch(e => console.warn('[AuthService] updateProfile falló:', e));
-    }
-
-    this._currentUser.set({ uid: fbCred.user.uid, email, displayName: nombre, photoURL });
-
-    // Persiste nombre/foto en Firestore
-    this.fs.saveUserProfile(nombre, photoURL)
-      .catch(e => console.warn('[AuthService] saveUserProfile falló:', e));
+  /** Consulta /auth/profile para saber si la cookie sigue siendo válida. */
+  loadSession(force = false): Promise<User | null> {
+    if (this.sessionPromise && !force) return this.sessionPromise;
+    this.sessionPromise = firstValueFrom(
+      this.http.get<ProfileResponse>(`${environment.API_URL}/auth/profile`, { withCredentials: true }),
+    )
+      .then(p => {
+        const user: User = {
+          uid: p.uid, email: p.email, displayName: p.name, photoURL: p.picture,
+          chatbotHabilitado: p.chatbot_habilitado !== false,
+        };
+        this._currentUser.set(user);
+        return user;
+      })
+      .catch(() => {
+        this._currentUser.set(null);
+        return null;
+      })
+      .finally(() => { this.sessionPromise = null; });
+    return this.sessionPromise;
   }
 
   /** Navega a la pantalla de despedida — el sign-out real ocurre después. */
@@ -89,28 +88,18 @@ export class AuthService {
     this.router.navigateByUrl('/logout');
   }
 
-  /** Cierra sesión efectivamente en Supabase y Firebase (llamado desde LogoutScreenComponent). */
+  /** Cierra la sesión en el backend (borra la cookie). Llamado desde LogoutScreenComponent. */
   doSignOut(): void {
-    Promise.all([
-      signOut(this.auth),
-      this.supa.signOut(),
-    ]).then(() => {
-      this._currentUser.set(null);
-      this.router.navigateByUrl('/login');
-    });
+    firstValueFrom(this.http.post(`${environment.API_URL}/auth/signout`, {}, { withCredentials: true }))
+      .catch(e => console.warn('[AuthService] signout falló:', e))
+      .finally(() => {
+        this._currentUser.set(null);
+        this.router.navigateByUrl('/login');
+      });
   }
 
-  /** Restaura el usuario desde Firebase si ya hay sesión activa (reload de página). */
-  restoreSession(firebaseUser: any): void {
-    if (firebaseUser) {
-      this._currentUser.set({
-        uid:         firebaseUser.uid,
-        email:       firebaseUser.email,
-        displayName: firebaseUser.displayName,
-        photoURL:    firebaseUser.photoURL,
-      });
-    } else {
-      this._currentUser.set(null);
-    }
+  /** Restaura la sesión al cargar la app (recarga de página). */
+  restoreSession(): void {
+    this.loadSession();
   }
 }

@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './core/auth.guard';
+import { authGuard, chatbotGuard } from './core/auth.guard';
 import { AuthCallbackComponent } from './features/auth/login/auth-callback.component';
 
 export const routes: Routes = [
@@ -19,7 +19,7 @@ export const routes: Routes = [
   },
   {
     path: 'app',
-    canActivate: [authGuard],
+    canActivate: [chatbotGuard],
     loadComponent: () => import('./features/shell/shell.component').then(m => m.ShellComponent),
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'chat' },
@@ -39,6 +39,28 @@ export const routes: Routes = [
         path: 'leaderboard',
         loadComponent: () => import('./features/leaderboard/leaderboard-page.component').then(m => m.LeaderboardPageComponent)
       },
+    ]
+  },
+  {
+    // Selector Chatbot / Nivelación después del login (develop: environment.dev.selectorModulos)
+    path: 'inicio',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/inicio/selector-modulo.component').then(m => m.SelectorModuloComponent)
+  },
+  {
+    // Nivelación: abierta a todos los alumnos logueados (antes de habilitar el chatbot)
+    path: 'nivelacion',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/nivelacion/niv-layout.component').then(m => m.NivLayoutComponent),
+    children: [
+      { path: '', loadComponent: () => import('./features/nivelacion/niv-mundos.component').then(m => m.NivMundosComponent) },
+      { path: 'mundo/:id', loadComponent: () => import('./features/nivelacion/niv-mundo.component').then(m => m.NivMundoComponent) },
+      { path: 'mundo/:id/test', data: { modo: 'test' },
+        loadComponent: () => import('./features/nivelacion/niv-evaluacion.component').then(m => m.NivEvaluacionComponent) },
+      { path: 'nodo/:id/fase', data: { modo: 'fase' },
+        loadComponent: () => import('./features/nivelacion/niv-evaluacion.component').then(m => m.NivEvaluacionComponent) },
+      { path: 'nodo/:id/entrenar',
+        loadComponent: () => import('./features/nivelacion/niv-entrenar.component').then(m => m.NivEntrenarComponent) },
     ]
   },
   { path: '**', redirectTo: 'login' }

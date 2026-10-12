@@ -11,6 +11,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatListModule } from '@angular/material/list';
 import { MatDividerModule } from '@angular/material/divider';
 import { CommonModule } from '@angular/common';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-shell',
@@ -31,6 +32,8 @@ export class ShellComponent implements AfterViewInit {
   private router = inject(Router);
 
   private ui = inject(UiService);
+  /** develop: acceso a la Nivelación desde el menú del chatbot */
+  devSelector = !!environment.dev?.selectorModulos;
   sidebarCollapsed = false;
   topbarHidden = computed(() => !this.ui.topbarVisible());
   currentUser = this.auth.currentUser;

@@ -1,5 +1,5 @@
 """
-Script que enriquece la tabla 'tema' en Supabase con descripciones semánticas ricas.
+Script que enriquece la tabla 'tema' en PostgreSQL con descripciones semánticas ricas.
 Corre UNA SOLA VEZ. Genera una descripción por tema usando GPT + contenido real del curso.
 
 Uso:
@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
 from openai import OpenAI
-from app.core.supabase_client import supabase
+from app.core.postgres import fetch_all, execute
 from app.core.config import settings
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -46,16 +46,14 @@ def generar_descripcion(tema_nombre: str, chunks: list[str]) -> str:
 
 
 def main():
-    print("Cargando temas desde Supabase...")
-    temas_result = supabase.table("tema").select("id_tema, tema, descripcion").execute()
-    temas = temas_result.data or []
+    print("Cargando temas desde PostgreSQL...")
+    temas = fetch_all("SELECT id_tema, tema, descripcion FROM tema")
     print(f"  {len(temas)} temas encontrados.")
 
     # Cargar todos los chunks de una vez
     print("Cargando contenido...")
-    contenido_result = supabase.table("contenido_tema").select("id_tema, texto").execute()
     chunks_por_tema: dict[str, list[str]] = {}
-    for row in (contenido_result.data or []):
+    for row in fetch_all("SELECT id_tema, texto FROM contenido_tema"):
         chunks_por_tema.setdefault(row["id_tema"], []).append(row["texto"])
 
     print("\nGenerando descripciones...\n")
@@ -73,8 +71,8 @@ def main():
 
         try:
             descripcion = generar_descripcion(nombre, chunks)
-            # Guardar en Supabase
-            supabase.table("tema").update({"descripcion": descripcion}).eq("id_tema", id_tema).execute()
+            # Guardar en PostgreSQL
+            execute("UPDATE tema SET descripcion = %s WHERE id_tema = %s", (descripcion, id_tema))
             print(f"OK")
             print(f"    -> {descripcion[:120]}...")
         except Exception as e:

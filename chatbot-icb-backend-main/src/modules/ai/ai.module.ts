@@ -3,9 +3,11 @@ import { HttpModule } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
+import { ChatsModule } from '../chats/chats.module';
 
 @Module({
   imports: [
+    ChatsModule,
     HttpModule.registerAsync({
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => ({

@@ -51,26 +51,33 @@ uvicorn app.main:app --reload --port 8000 --log-level info
 
 ### Database
 ```bash
-cd chatbot-icb-backend-main/Docker
-docker-compose up -d   # PostgreSQL 15 on host port 5434
-
-# Prisma migrations
-cd chatbot-icb-backend-main
-npx prisma migrate dev
-npx prisma generate
+cd deploy
+docker compose -f docker-compose.dev.yml up -d   # PostgreSQL+pgvector :5432 y MongoDB :27017 locales
 ```
+- **PostgreSQL** (antes Supabase): tema, contenido_tema, videos, usuario, whitelist_alumnos, función `match_contenido`.
+- **MongoDB** (antes Firestore): Chat_nr, Hilo_chat, Contexto_chat, Perfil_usuario, nivel_usuario.
+- Despliegue completo en la VM (solo puerto 443): ver `deploy/README.md`.
 
 ---
 
 ## Backend Structure (NestJS)
 
-- **`src/auth/`** — JWT + Google OAuth. `AuthService.signIn()` validates bcrypt password, `signUp()` hashes password. JWT stored in HTTP-only cookies.
+- **`src/auth/`** — Google OAuth (passport) → whitelist en Postgres → JWT en cookie httpOnly `accessToken`. Sin Supabase Auth ni Firebase Auth.
+- **`src/database/`** — `PostgresService` (pg) y `MongoService` (mongodb), globales.
+- **`src/modules/chats/`**, **`src/modules/profile/`** — chats, hilos, perfil y leaderboard en Mongo (antes el frontend escribía directo en Firestore). El uid sale siempre del JWT.
 - **`src/modules/ai/`** — Single controller `POST /v1/ai/answer` (JWT-guarded), proxies to Python service with retry logic. `GET /v1/ai/health` is public.
 - **`src/prisma/`** — Global `PrismaService`, connects on `onModuleInit`.
 - **`prisma/schema.prisma`** — User model: `id` (UUID), `email` (unique), `password_hash`, `first_name`, `last_name`, `rut` (unique), `is_verified`.
 - API versioning is URI-based (default v1), configured in `main.ts`.
 
 **Required env vars:** `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, `PYTHON_BASE_URL`, `PYTHON_ANSWER_PATH`, `PYTHON_MAX_RETRIES`, `CORS_ORIGINS`, `PORT`.
+
+## Nivelación (módulo hermano del chatbot)
+
+- **DB:** `deploy/sql/nivelacion.sql` — esquemas `niv_banco` (preguntas de profesores) y `niv_progreso` (nivel, XP, fases, intentos, análisis). Acceso al chatbot: columna `whitelist_alumnos.chatbot_habilitado` (antiguos true, nuevos false, se activa sola al completar la nivelación).
+- **Backend:** `src/modules/nivelacion/` — `/v1/nivelacion/*`. `ChatbotHabilitadoGuard` bloquea chats/ai/profile si `whitelist_alumnos.chatbot_habilitado` es false.
+- **Python:** `app/routers/nivelacion/` — `/niv/generar` (preguntas para modo Entrenar, no se guardan en el banco) y `/niv/analizar` (agente analista, ajusta el nivel).
+- **Frontend:** `src/app/features/nivelacion/` (port a Angular de la maqueta React de `C:\Propuesta`), ruta `/nivelacion`; `chatbotGuard` redirige ahí si el chatbot no está habilitado.
 
 ## Frontend Structure (Angular 18)
 
