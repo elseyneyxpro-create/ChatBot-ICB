@@ -1,19 +1,13 @@
-// Estilo de la maqueta (C:\Propuesta): dark + glassmorphism. Todo queda dentro de .niv-root
-// para no afectar al chatbot (que usa el tema claro de Angular Material).
+// Estética de la nivelación. Ahora usa los tokens globales de styles.scss, así que responde
+// al botón de modo claro / oscuro. Los nombres antiguos (--bg-dark, --text-primary…) se mapean acá.
 .niv-root {
-  --bg-dark: #0f1115;
-  --bg-panel: rgba(25, 27, 35, 0.7);
-  --bg-panel-hover: rgba(35, 38, 48, 0.8);
-  --accent-primary: #8b5cf6;
-  --accent-secondary: #ec4899;
-  --accent-gradient: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --success: #10b981;
-  --error: #ef4444;
-  --test: #ef4444;
-  --glow: 0 0 20px rgba(139, 92, 246, 0.4);
+  --bg-dark: var(--bg);
+  --accent-primary: var(--accent);
+  --accent-secondary: var(--accent-2);
+  --text-primary: var(--text);
+  --text-secondary: var(--text-3);
+  --border-color: var(--border);
+  --test: var(--error);
 
   position: fixed;
   inset: 0;
@@ -21,10 +15,9 @@
   overflow-x: hidden;
   font-family: 'Outfit', 'Roboto', sans-serif;
   color: var(--text-primary);
-  background-color: var(--bg-dark);
-  background-image:
-    radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.08) 0%, transparent 50%);
+  background-color: var(--bg);
+  background-image: var(--bg-image);
+  transition: background-color 0.25s ease, color 0.25s ease;
 
   h1, h2, h3, p { margin: 0; }
   button { font-family: inherit; }
@@ -35,7 +28,7 @@
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-color);
     border-radius: 20px;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow);
   }
 
   .gradient-text {
@@ -60,14 +53,14 @@
   }
   .btn-secondary {
     background: var(--bg-panel); color: var(--text-primary); border: 1px solid var(--border-color); font-weight: 500;
-    &:hover { background: var(--bg-panel-hover); border-color: rgba(255, 255, 255, 0.2); }
+    &:hover { background: var(--bg-panel-hover); border-color: var(--border-strong); }
   }
 
   .muted { color: var(--text-secondary); }
   .page { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 20px 16px 60px; gap: 30px; }
 
   .error-box {
-    background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error); color: #fecaca;
+    background: var(--error-soft); border: 1px solid var(--error); color: var(--error);
     padding: 14px 18px; border-radius: 12px; max-width: 600px; width: 100%;
   }
 
@@ -75,7 +68,7 @@
   .opciones { display: flex; flex-direction: column; gap: 12px; }
   .opcion {
     padding: 12px 16px; border-radius: 10px; border: 2px solid var(--border-color);
-    background: var(--bg-panel); cursor: pointer; display: flex; align-items: center; gap: 12px;
+    background: var(--bg-input); cursor: pointer; display: flex; align-items: center; gap: 12px;
     transition: all 0.2s ease; font-size: 1.05rem; color: var(--text-primary); text-align: left; width: 100%;
     .letra {
       width: 30px; height: 30px; flex: 0 0 30px; border-radius: 50%; border: 2px solid var(--text-secondary);
@@ -83,14 +76,14 @@
     }
     &.sel { border-color: var(--accent-primary); background: rgba(139, 92, 246, 0.1);
       .letra { background: var(--accent-primary); border-color: var(--accent-primary); color: white; } }
-    &.ok  { border-color: var(--success); background: rgba(16, 185, 129, 0.12); }
-    &.bad { border-color: var(--error);   background: rgba(239, 68, 68, 0.12); }
+    &.ok  { border-color: var(--success); background: var(--success-soft); }
+    &.bad { border-color: var(--error);   background: var(--error-soft); }
     &:disabled { cursor: default; }
   }
   .test .opcion.sel { border-color: var(--test); background: rgba(239, 68, 68, 0.1);
     .letra { background: var(--test); border-color: var(--test); } }
 
-  .chip { background: rgba(255, 255, 255, 0.1); padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; }
+  .chip { background: var(--bg-soft); border: 1px solid var(--border); padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; }
 
   // Animaciones (reemplazan framer-motion)
   .aparecer { animation: niv-aparecer 0.35s ease both; }
@@ -99,7 +92,7 @@
   @keyframes niv-deslizar { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
 
   ::-webkit-scrollbar { width: 8px; }
-  ::-webkit-scrollbar-track { background: var(--bg-dark); }
-  ::-webkit-scrollbar-thumb { background: var(--bg-panel-hover); border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--accent-primary); }
 }

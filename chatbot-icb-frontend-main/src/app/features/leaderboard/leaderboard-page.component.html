@@ -63,6 +63,7 @@
       <mat-icon *ngIf="me.posicion <= 3">emoji_events</mat-icon>
       <span class="rank-num">#{{ me.posicion }}</span>
     </div>
+    <span class="top-pct" *ngIf="totalParticipantes() > 1">Top {{ topPct() }}% de la clase</span>
 
     <div class="my-body">
       <span class="my-label">Tu posición</span>

@@ -19,10 +19,11 @@ const RESPONSES = [
     :host {
       display: flex;
       height: 100dvh;
-      background: linear-gradient(160deg, #283593 0%, #e8eaf6 58%, #f5f6fa 100%);
+      background: var(--bg-image), var(--bg);
       align-items: center;
       justify-content: center;
-      font-family: sans-serif;
+      font-family: var(--font);
+      color: var(--text);
     }
 
     .scene {
@@ -46,12 +47,12 @@ const RESPONSES = [
     .robot-head {
       width: 90px;
       height: 80px;
-      background: #1a237e;
+      background: var(--accent-gradient);
       border-radius: 18px;
       margin: 0 auto;
       position: relative;
       border: 2px solid rgba(255, 255, 255, 0.35);
-      box-shadow: 0 4px 24px rgba(26, 35, 126, 0.5);
+      box-shadow: 0 4px 24px rgba(139, 92, 246, 0.5);
     }
 
     .robot-eyes {
@@ -118,11 +119,11 @@ const RESPONSES = [
     .robot-body {
       width: 70px;
       height: 54px;
-      background: #1a237e;
+      background: var(--accent-gradient);
       border-radius: 12px;
       margin: 6px auto 0;
       border: 2px solid rgba(255, 255, 255, 0.3);
-      box-shadow: 0 4px 18px rgba(26, 35, 126, 0.4);
+      box-shadow: 0 4px 18px rgba(139, 92, 246, 0.4);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -151,21 +152,21 @@ const RESPONSES = [
     .leg {
       width: 16px;
       height: 22px;
-      background: #1a237e;
+      background: var(--accent-gradient);
       border-radius: 0 0 8px 8px;
       border: 2px solid rgba(255, 255, 255, 0.3);
     }
 
     /* ── Burbuja ── */
     .bubble {
-      background: #fff;
-      border: 1.5px solid rgba(63, 81, 181, 0.25);
+      background: var(--bg-elev);
+      border: 1.5px solid var(--border-strong);
       border-radius: 18px;
       padding: 20px 28px;
       max-width: 360px;
       text-align: center;
       position: relative;
-      box-shadow: 0 6px 28px rgba(40, 53, 147, 0.18);
+      box-shadow: var(--shadow);
     }
 
     .bubble::before {
@@ -175,7 +176,7 @@ const RESPONSES = [
       left: 50%;
       transform: translateX(-50%);
       border: 11px solid transparent;
-      border-bottom-color: #fff;
+      border-bottom-color: var(--bg-elev);
       border-top: none;
     }
 
@@ -183,7 +184,7 @@ const RESPONSES = [
       font-size: 0.78rem;
       font-weight: 800;
       letter-spacing: 1.5px;
-      color: #3f51b5;
+      color: var(--accent);
       text-transform: uppercase;
       margin-bottom: 10px;
     }
@@ -191,14 +192,14 @@ const RESPONSES = [
     .bubble-text {
       font-size: 1.05rem;
       line-height: 1.6;
-      color: #1a237e;
+      color: var(--text);
       font-weight: 600;
     }
 
     /* ── Tarjetas de despedida ── */
     .cards-hint {
       font-size: 0.8rem;
-      color: #5c6bc0;
+      color: var(--text-3);
       font-weight: 600;
       letter-spacing: 0.5px;
     }
@@ -212,28 +213,28 @@ const RESPONSES = [
     }
 
     .farewell-card {
-      background: #fff;
-      border: 2px solid rgba(63, 81, 181, 0.2);
+      background: var(--bg-elev);
+      border: 2px solid var(--border-strong);
       border-radius: 14px;
       padding: 10px 18px;
       font-size: 0.9rem;
       font-weight: 600;
-      color: #1a237e;
+      color: var(--text);
       cursor: pointer;
       transition: all 0.18s ease;
-      box-shadow: 0 2px 10px rgba(40, 53, 147, 0.1);
+      box-shadow: 0 2px 10px rgba(139, 92, 246, 0.12);
     }
 
     .farewell-card:hover {
-      background: #e8eaf6;
-      border-color: #3f51b5;
+      background: var(--accent-soft);
+      border-color: var(--accent);
       transform: translateY(-2px);
-      box-shadow: 0 4px 16px rgba(40, 53, 147, 0.2);
+      box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
     }
 
     .farewell-card.selected {
-      background: #3f51b5;
-      border-color: #3f51b5;
+      background: var(--accent-gradient);
+      border-color: transparent;
       color: #fff;
       transform: scale(0.97);
     }
@@ -243,7 +244,7 @@ const RESPONSES = [
       display: flex;
       align-items: center;
       gap: 10px;
-      color: #283593;
+      color: var(--text-2);
       font-size: 0.88rem;
       font-weight: 600;
     }
@@ -253,7 +254,7 @@ const RESPONSES = [
       width: 7px;
       height: 7px;
       border-radius: 50%;
-      background: #3f51b5;
+      background: var(--accent-gradient);
       margin: 0 2px;
       animation: bounce-dot 1.4s ease-in-out infinite;
     }

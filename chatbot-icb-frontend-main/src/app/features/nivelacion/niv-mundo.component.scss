@@ -12,7 +12,7 @@
   background:
     radial-gradient(circle at 15% 25%, rgba(139, 92, 246, 0.12), transparent 40%),
     radial-gradient(circle at 85% 35%, rgba(236, 72, 153, 0.1), transparent 40%),
-    rgba(25, 27, 35, 0.4);
+    var(--bg-soft);
 }
 .mapa-h { position: relative; }
 .camino {
@@ -44,12 +44,12 @@
   background: var(--bg-panel); transition: transform 0.2s ease;
   &:hover:not(:disabled) { transform: scale(1.1); }
   &.actual { transform: scale(1.15); box-shadow: var(--glow); }
-  &.sel { outline: 3px solid rgba(255, 255, 255, 0.7); outline-offset: 3px; }
-  &.bloqueado { cursor: default; border: 2px solid var(--border-color); background: #1a1c24; }
+  &.sel { outline: 3px solid var(--accent-2); outline-offset: 3px; }
+  &.bloqueado { cursor: default; border: 2px solid var(--border-color); background: var(--bg-soft); }
 }
 .centro {
   width: 100%; height: 100%; border-radius: 50%; display: flex; justify-content: center; align-items: center;
-  background: var(--bg-dark); color: var(--text-secondary);
+  background: var(--bg-elev); color: var(--text-secondary);
   &.completado { background: var(--success); color: white; }
   &.actual { background: var(--accent-primary); color: white; }
 }
@@ -66,7 +66,7 @@
   box-shadow: 0 0 25px rgba(239, 68, 68, 0.35); transition: transform 0.2s;
   mat-icon { font-size: 46px; width: 46px; height: 46px; }
   &:hover:not(:disabled) { transform: scale(1.08); }
-  &.bloqueado { border-color: var(--border-color); color: var(--text-secondary); background: #1a1c24; box-shadow: none; cursor: not-allowed; }
+  &.bloqueado { border-color: var(--border-color); color: var(--text-secondary); background: var(--bg-soft); box-shadow: none; cursor: not-allowed; }
   &.hecho { border-color: var(--success); color: var(--success); background: rgba(16, 185, 129, 0.15); box-shadow: none; cursor: default; }
 }
 .panel {

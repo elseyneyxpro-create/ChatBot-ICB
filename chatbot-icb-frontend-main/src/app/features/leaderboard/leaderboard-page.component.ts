@@ -42,6 +42,13 @@ export class LeaderboardPageComponent implements OnInit {
 
   totalParticipantes = computed(() => this.rankedEntries().length);
 
+  /** En qué porcentaje superior de la clase está el alumno (ej. Top 10%) */
+  topPct = computed(() => {
+    const me = this.myEntry();
+    const total = this.totalParticipantes();
+    return me && total ? Math.max(1, Math.ceil((me.posicion / total) * 100)) : 100;
+  });
+
   /** Etiqueta del criterio de ordenamiento activo */
   criterioLabel = computed(() => {
     if (this.vista() === 'aciertos') return 'Mayor precisión (% aciertos)';

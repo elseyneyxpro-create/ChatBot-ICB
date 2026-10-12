@@ -13,7 +13,7 @@
   .an-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
     ul { margin: 6px 0 0; padding-left: 18px; color: var(--text-secondary); line-height: 1.5; } }
   .ok { color: var(--success); } .bad { color: var(--error); }
-  .reco { display: flex; gap: 8px; align-items: flex-start; background: rgba(255, 255, 255, 0.05); padding: 10px 12px; border-radius: 10px;
+  .reco { display: flex; gap: 8px; align-items: flex-start; background: var(--bg-soft); padding: 10px 12px; border-radius: 10px;
     mat-icon { color: var(--accent-secondary); flex: 0 0 auto; } }
   @media (max-width: 600px) { .an-cols { grid-template-columns: 1fr; } }
 }
@@ -23,7 +23,7 @@
   background:
     radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.12), transparent 40%),
     radial-gradient(circle at 80% 30%, rgba(236, 72, 153, 0.1), transparent 40%),
-    rgba(25, 27, 35, 0.4);
+    var(--bg-soft);
 }
 .mapa-h { position: relative; }
 .camino {
@@ -56,14 +56,14 @@
 @keyframes brillar { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
 .circulo {
   width: 90px; height: 90px; border-radius: 50%; display: flex; justify-content: center; align-items: center;
-  background: var(--bg-panel); border: 3px solid rgba(255, 255, 255, 0.2); cursor: pointer; transition: transform 0.3s ease;
+  background: var(--bg-panel); border: 3px solid var(--border-strong); cursor: pointer; transition: transform 0.3s ease;
   color: var(--text-secondary);
   mat-icon { font-size: 40px; width: 40px; height: 40px; }
   &:hover:not(:disabled) { transform: scale(1.1); }
   &.completado { background: var(--success); color: white; }
   &.actual { background: var(--accent-primary); color: white; box-shadow: var(--glow); transform: scale(1.1);
     &:hover { transform: scale(1.2); } }
-  &.bloqueado { cursor: not-allowed; border-color: var(--border-color); background: #1a1c24; }
+  &.bloqueado { cursor: not-allowed; border-color: var(--border-color); background: var(--bg-soft); }
 }
 .etiqueta {
   background: var(--bg-panel); padding: 8px 14px; border-radius: 12px; border: 1px solid var(--border-color); text-align: center;

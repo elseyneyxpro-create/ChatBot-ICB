@@ -87,6 +87,22 @@
 
     <ng-container *ngIf="totalEjercicios() > 0">
 
+      <!-- ══ Puntos a reforzar (agente analista) ══════════════════════════════ -->
+      <section class="section" *ngIf="weakPointsLines().length > 0">
+        <div class="section-header">
+          <mat-icon class="section-icon">tips_and_updates</mat-icon>
+          <div>
+            <h2>Puntos a reforzar</h2>
+            <p class="section-desc">Lo que detectó el tutor a partir de tus respuestas.</p>
+          </div>
+        </div>
+        <div class="weak-card">
+          <ul class="weak-points">
+            <li *ngFor="let l of weakPointsLines()" [innerHTML]="renderLatex(l)"></li>
+          </ul>
+        </div>
+      </section>
+
       <!-- ══ SECCIÓN 2: Estadísticas por tema ═════════════════════════════════ -->
       <section class="section">
         <div class="section-header">
@@ -105,6 +121,7 @@
                 {{ t.porcentaje }}%
               </span>
             </div>
+            <div class="topic-bar"><div [style.width.%]="t.porcentaje"></div></div>
             <div class="topic-row">
               <span class="row-label">Concepto</span>
               <span class="row-stats"><span class="ok">{{ t.concepto_aciertos }}</span> / <span class="bad">{{ t.concepto_errores }}</span></span>

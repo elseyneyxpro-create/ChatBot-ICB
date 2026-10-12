@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../core/auth.service';
 import { NivelacionService } from './nivelacion.service';
 import { environment } from '../../../environments/environment';
+import { ThemeService } from '../../core/theme.service';
 
 /** Contenedor de la nivelación: header (XP, nivel asignado) + pantallas hijas. */
 @Component({
@@ -38,6 +39,11 @@ import { environment } from '../../../environments/environment';
           <mat-icon>chat</mat-icon><span>Chatbot</span>
         </a>
 
+        <button class="btn-secondary chatbot-btn tema-btn" type="button" (click)="theme.toggle()"
+                [title]="theme.tema() === 'dark' ? 'Modo claro' : 'Modo oscuro'">
+          <mat-icon>{{ theme.tema() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        </button>
+
         <button class="avatar" (click)="salir()" title="Cerrar sesión">
           <img *ngIf="foto()" [src]="foto()" alt="" referrerpolicy="no-referrer" />
           <span *ngIf="!foto()">{{ inicial() }}</span>
@@ -58,6 +64,8 @@ export class NivLayoutComponent implements OnInit {
   private niv = inject(NivelacionService);
   private auth = inject(AuthService);
   private router = inject(Router);
+  /** Botón claro / oscuro (mismo que el chatbot) */
+  theme = inject(ThemeService);
 
   estado = this.niv.estado;
   cargando = signal(true);
