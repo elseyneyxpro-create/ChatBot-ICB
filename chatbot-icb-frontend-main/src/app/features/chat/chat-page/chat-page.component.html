@@ -96,6 +96,12 @@
     <ng-container *ngIf="activeChatId()">
       <div class="chat-box">
         <app-message-list [messages]="messages()"></app-message-list>
+        <div class="thinking" *ngIf="loading()" aria-live="polite">
+          <span class="cerebro"><mat-icon>psychology</mat-icon></span>
+          <span>Axiomante está pensando</span>
+          <span class="dots"><span></span><span></span><span></span></span>
+          <span class="seg">{{ elapsedSeconds() }}s</span>
+        </div>
         <app-message-input
           (send)="send($event)"
           [disabled]="loading() || chatBloqueado()"

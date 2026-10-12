@@ -1,3 +1,5 @@
+// Burbujas del chat (tokens claro/oscuro en styles.scss)
+
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0; }
@@ -6,29 +8,27 @@
 .typing-text {
   white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .typing-cursor {
   display: inline-block;
   margin-left: 1px;
   animation: blink 0.8s step-start infinite;
-  color: #3f51b5;
+  color: var(--accent-2);
   font-size: 0.9em;
 }
 
 .messages {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 1rem;
+  gap: 0.75rem;
+  padding: 1.1rem 1.2rem;
   overflow-y: auto;
   overflow-x: hidden;
   height: 100%;
-  box-sizing: border-box;
   min-width: 0;
 }
-
 
 .msg {
   display: flex;
@@ -43,53 +43,80 @@
 
 .bubble {
   max-width: 100%;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.75rem 1rem;
-  border-radius: 14px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-  font-size: 0.93rem;
-  line-height: 1.65;
+  padding: 0.8rem 1.05rem;
+  border-radius: 18px;
+  font-size: 0.94rem;
+  line-height: 1.68;
   word-break: break-word;
   overflow-x: auto;
 
   strong { font-weight: 700; }
   em { font-style: italic; }
+
   code {
     font-family: ui-monospace, 'Fira Code', monospace;
-    background: rgba(0, 0, 0, 0.07);
+    background: var(--code-bg);
     padding: 2px 6px;
     border-radius: 6px;
     font-size: 0.87em;
   }
 
-  .katex-display { margin: 0.5rem 0; overflow-x: auto; }
+  ::ng-deep .katex-display { margin: 0.5rem 0; overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
 
-  // Markdown rendered by KatexRenderPipe
-  h3.md-h3 { font-size: 1rem; font-weight: 700; margin: 0.75rem 0 0.25rem; color: #3f51b5; }
-  h4.md-h4 { font-size: 0.93rem; font-weight: 700; margin: 0.6rem 0 0.2rem; color: #555; }
-  ol, ul { margin: 0.4rem 0 0.4rem 1.25rem; padding: 0; }
-  li { margin: 0.15rem 0; line-height: 1.6; }
-  hr { border: none; border-top: 1px solid #eceef7; margin: 0.6rem 0; }
+  // Markdown que genera KatexRenderPipe
+  ::ng-deep h3.md-h3 { font-size: 1rem; font-weight: 700; margin: 0.8rem 0 0.25rem; color: var(--accent); }
+  ::ng-deep h4.md-h4 { font-size: 0.94rem; font-weight: 700; margin: 0.6rem 0 0.2rem; color: var(--text-2); }
+  ol, ul, ::ng-deep ol, ::ng-deep ul { margin: 0.4rem 0 0.4rem 1.25rem; padding: 0; }
+  ::ng-deep li { margin: 0.15rem 0; line-height: 1.6; }
+  ::ng-deep hr { border: none; border-top: 1px solid var(--border); margin: 0.7rem 0; }
+
+  ::ng-deep .md-table {
+    border-collapse: collapse;
+    margin: 0.6em 0;
+    font-size: 0.9em;
+    th, td { border: 1px solid var(--border-strong); padding: 6px 12px; text-align: left; }
+    thead tr { background: var(--accent-soft); font-weight: 600; }
+    tbody tr:nth-child(even) { background: var(--bg-soft); }
+  }
 }
 
+// Mensaje del alumno: degradado violeta → rosado
 .msg.user .bubble {
-  background: #e8f0ff;
-  color: #1a237e;
-  border-bottom-right-radius: 4px;
+  max-width: min(78%, 680px);
+  background: var(--bubble-user);
+  color: var(--bubble-user-text);
+  border-bottom-right-radius: 6px;
+  box-shadow: 0 6px 18px rgba(139, 92, 246, 0.28);
+
+  code { background: rgba(255, 255, 255, 0.18); }
+  ::ng-deep h3.md-h3, ::ng-deep h4.md-h4 { color: #fff; }
 }
 
+// Respuesta del tutor: panel de vidrio
 .msg.bot .bubble {
-  background: #ffffff;
-  color: rgba(0, 0, 0, 0.87);
-  border: 1px solid #eceef7;
-  border-bottom-left-radius: 4px;
+  width: 100%;
+  background: var(--bubble-bot);
+  color: var(--bubble-bot-text);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 6px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 14px; bottom: 14px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--accent-gradient);
+    opacity: 0.8;
+  }
 }
 
 // ── Mensaje del sistema (resumen de contexto) ────────────────────────────────
 .msg.system {
   align-items: center;
-  margin: 0.75rem 0;
+  margin: 0.5rem 0;
   width: 100%;
 }
 
@@ -98,24 +125,16 @@
   align-items: center;
   gap: 0.5rem;
   max-width: 90%;
-  padding: 0.5rem 0.95rem;
+  padding: 0.45rem 1rem;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(63, 81, 181, 0.08), rgba(92, 107, 192, 0.08));
-  border: 1px dashed rgba(63, 81, 181, 0.35);
-  color: #3f51b5;
+  background: var(--accent-soft);
+  border: 1px dashed var(--accent-soft-2);
+  color: var(--accent);
   font-size: 0.82rem;
-  font-style: italic;
   line-height: 1.4;
   text-align: center;
 
-  mat-icon {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
-    line-height: 1;
-    color: #5c6bc0;
-    flex-shrink: 0;
-  }
+  mat-icon { font-size: 16px; width: 16px; height: 16px; line-height: 1; color: var(--accent-2); flex-shrink: 0; }
 }
 
 .msg-image {
@@ -125,13 +144,14 @@
   border-radius: 12px;
   display: block;
   margin-bottom: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
 }
 
 .time {
-  font-size: 0.75rem;
-  opacity: 0.6;
-  margin-top: 0.25rem;
-  padding: 0 0.25rem;
+  font-size: 0.72rem;
+  color: var(--text-3);
+  margin-top: 0.3rem;
+  padding: 0 0.35rem;
 }
 
 @keyframes fadeSlideIn {
@@ -139,46 +159,40 @@
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-// ── Video de ejemplo en mensaje bot ──────────────────────────────────────────
+// ── Video de ejemplo en mensaje del tutor ────────────────────────────────────
 .ejemplo-videos {
-  margin-top: 0.75rem;
-  border-top: 1px solid #eceef7;
-  padding-top: 0.6rem;
+  margin-top: 0.8rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.65rem;
 }
 
 .ejemplo-label {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.35rem;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #5c6bc0;
+  color: var(--accent);
   margin-bottom: 0.5rem;
-
-  mat-icon { font-size: 16px; width: 16px; height: 16px; line-height: 1; }
+  mat-icon { font-size: 17px; width: 17px; height: 17px; line-height: 1; }
 }
 
 .ejemplo-video-card {
   position: relative;
   display: block;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
   margin-bottom: 0.4rem;
+  max-width: 300px;
+  border: 1px solid var(--border);
 }
 
 .video-thumb-link {
   display: block;
   position: relative;
-  border-radius: 8px;
   overflow: hidden;
 
-  .video-thumb {
-    width: 100%;
-    max-width: 280px;
-    height: auto;
-    display: block;
-    border-radius: 8px;
-  }
+  .video-thumb { width: 100%; height: auto; display: block; transition: transform 0.3s ease; }
 
   .video-play-overlay {
     position: absolute;
@@ -186,19 +200,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0,0,0,0.25);
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.25), rgba(219, 39, 119, 0.25));
     transition: background 0.15s;
-
-    mat-icon {
-      font-size: 44px;
-      width: 44px;
-      height: 44px;
-      color: #fff;
-      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
-    }
-
-    &:hover { background: rgba(0,0,0,0.38); }
+    mat-icon { font-size: 46px; width: 46px; height: 46px; color: #fff; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.45)); }
   }
+
+  &:hover .video-thumb { transform: scale(1.04); }
+  &:hover .video-play-overlay { background: linear-gradient(135deg, rgba(124, 58, 237, 0.45), rgba(219, 39, 119, 0.45)); }
 }
 
 .video-plain-link {
@@ -206,21 +214,20 @@
   align-items: center;
   gap: 0.3rem;
   font-size: 0.85rem;
-  color: #3f51b5;
+  color: var(--accent);
   text-decoration: none;
-
+  padding: 0.5rem 0.7rem;
   &:hover { text-decoration: underline; }
 }
 
-// ── Botón scroll-to-bottom ────────────────────────────────────────────────────
+// ── Botón para bajar al final ────────────────────────────────────────────────
 .scroll-to-bottom-btn {
   position: fixed;
-  bottom: 88px;
+  bottom: 96px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 500;
-  background: rgba(63, 81, 181, 0.92);
-  backdrop-filter: blur(6px);
+  background: var(--accent-gradient);
   color: #fff;
   border: none;
   border-radius: 999px;
@@ -230,21 +237,12 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 18px rgba(63, 81, 181, 0.4);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.45);
   animation: popIn 0.18s cubic-bezier(.22,.68,0,1.2);
-  transition: background 0.15s, box-shadow 0.15s;
+  transition: box-shadow 0.15s;
 
-  &:hover {
-    background: #3f51b5;
-    box-shadow: 0 6px 22px rgba(63, 81, 181, 0.5);
-  }
-
-  mat-icon {
-    font-size: 26px;
-    width: 26px;
-    height: 26px;
-    line-height: 1;
-  }
+  &:hover { box-shadow: 0 8px 26px rgba(139, 92, 246, 0.6); }
+  mat-icon { font-size: 26px; width: 26px; height: 26px; line-height: 1; }
 }
 
 @keyframes popIn {

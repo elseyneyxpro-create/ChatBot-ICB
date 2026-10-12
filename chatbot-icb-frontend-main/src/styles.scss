@@ -1,11 +1,151 @@
-@import '@angular/material/prebuilt-themes/indigo-pink.css';
+// ============================================================================
+// Axiomante — estilos globales
+//   1. Tema de Angular Material (claro y oscuro, paleta violeta/rosada)
+//   2. Tokens de diseño (variables CSS) para modo claro y oscuro
+//   3. Clases compartidas (.glass-panel, .btn-*, animaciones)
+//
+// El modo se controla con <html data-theme="light|dark"> (ThemeService).
+// ============================================================================
+@use '@angular/material' as mat;
 
+@include mat.core();
+
+$axi-primary: mat.m2-define-palette(mat.$m2-deep-purple-palette, 400, 200, 700);
+$axi-accent: mat.m2-define-palette(mat.$m2-pink-palette, A200, A100, A400);
+$axi-warn: mat.m2-define-palette(mat.$m2-red-palette);
+$axi-typography: mat.m2-define-typography-config($font-family: "'Outfit', 'Roboto', sans-serif");
+
+$axi-light: mat.m2-define-light-theme((
+  color: (primary: $axi-primary, accent: $axi-accent, warn: $axi-warn),
+  typography: $axi-typography,
+  density: 0,
+));
+
+$axi-dark: mat.m2-define-dark-theme((
+  color: (primary: mat.m2-define-palette(mat.$m2-deep-purple-palette, 300, 100, 500), accent: $axi-accent, warn: $axi-warn),
+  typography: $axi-typography,
+  density: 0,
+));
+
+html {
+  @include mat.all-component-themes($axi-light);
+}
+
+html[data-theme='dark'] {
+  @include mat.all-component-colors($axi-dark);
+}
+
+// ─── Tokens: modo claro ─────────────────────────────────────────────────────
+:root {
+  color-scheme: light;
+
+  --accent: #7c3aed;
+  --accent-2: #db2777;
+  --accent-gradient: linear-gradient(135deg, #7c3aed, #db2777);
+  --accent-soft: rgba(124, 58, 237, 0.10);
+  --accent-soft-2: rgba(124, 58, 237, 0.18);
+  --on-accent: #ffffff;
+
+  --bg: #f5f3fb;
+  --bg-image:
+    radial-gradient(circle at 12% 20%, rgba(124, 58, 237, 0.10) 0%, transparent 45%),
+    radial-gradient(circle at 88% 15%, rgba(219, 39, 119, 0.08) 0%, transparent 45%);
+  --bg-elev: #ffffff;                       // paneles sólidos
+  --bg-panel: rgba(255, 255, 255, 0.78);    // paneles de vidrio
+  --bg-panel-hover: rgba(255, 255, 255, 0.95);
+  --bg-soft: #f3f0fa;                       // rellenos suaves dentro de paneles
+  --bg-input: #ffffff;
+  --border: rgba(91, 33, 182, 0.12);
+  --border-strong: rgba(91, 33, 182, 0.24);
+
+  --text: #1e1b2e;
+  --text-2: #4c4766;
+  --text-3: #8a85a3;
+
+  --success: #059669;
+  --success-soft: rgba(5, 150, 105, 0.10);
+  --error: #dc2626;
+  --error-soft: rgba(220, 38, 38, 0.08);
+  --warning: #c2410c;
+  --warning-soft: rgba(234, 88, 12, 0.10);
+  --vf: #059669;
+  --err-card: #be185d;
+
+  --shadow: 0 8px 28px rgba(76, 29, 149, 0.10);
+  --shadow-sm: 0 2px 10px rgba(76, 29, 149, 0.08);
+  --glow: 0 0 18px rgba(124, 58, 237, 0.35);
+
+  --bubble-user: linear-gradient(135deg, #7c3aed, #db2777);
+  --bubble-user-text: #ffffff;
+  --bubble-bot: #ffffff;
+  --bubble-bot-text: #1e1b2e;
+  --code-bg: rgba(124, 58, 237, 0.08);
+
+  --font: 'Outfit', 'Roboto', sans-serif;
+  --radius: 18px;
+}
+
+// ─── Tokens: modo oscuro (misma estética de la nivelación) ──────────────────
+html[data-theme='dark'] {
+  color-scheme: dark;
+
+  --accent: #8b5cf6;
+  --accent-2: #ec4899;
+  --accent-gradient: linear-gradient(135deg, #8b5cf6, #ec4899);
+  --accent-soft: rgba(139, 92, 246, 0.14);
+  --accent-soft-2: rgba(139, 92, 246, 0.24);
+
+  --bg: #0f1115;
+  --bg-image:
+    radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.08) 0%, transparent 50%);
+  --bg-elev: #171920;
+  --bg-panel: rgba(25, 27, 35, 0.72);
+  --bg-panel-hover: rgba(35, 38, 48, 0.85);
+  --bg-soft: rgba(255, 255, 255, 0.04);
+  --bg-input: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  --text: #f8fafc;
+  --text-2: #cbd5e1;
+  --text-3: #94a3b8;
+
+  --success: #10b981;
+  --success-soft: rgba(16, 185, 129, 0.12);
+  --error: #ef4444;
+  --error-soft: rgba(239, 68, 68, 0.12);
+  --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.12);
+  --vf: #10b981;
+  --err-card: #ec4899;
+
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.25);
+  --glow: 0 0 20px rgba(139, 92, 246, 0.4);
+
+  --bubble-user: linear-gradient(135deg, #7c3aed, #db2777);
+  --bubble-bot: rgba(30, 32, 42, 0.92);
+  --bubble-bot-text: #f1f5f9;
+  --code-bg: rgba(255, 255, 255, 0.08);
+}
+
+// ─── Base ───────────────────────────────────────────────────────────────────
 html, body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
   overflow: hidden;
+}
+
+body {
+  font-family: var(--font);
+  color: var(--text);
+  background-color: var(--bg);
+  background-image: var(--bg-image);
+  background-attachment: fixed;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 *,
@@ -21,3 +161,50 @@ app-root {
 }
 
 .full { width: 100%; }
+
+// ─── Clases compartidas ─────────────────────────────────────────────────────
+.glass-panel {
+  background: var(--bg-panel);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.gradient-text {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.axi-btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--accent-gradient); color: #fff; border: none; border-radius: 12px;
+  padding: 10px 18px; font: 600 0.95rem var(--font); cursor: pointer;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3); transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+  &:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(139, 92, 246, 0.45); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+}
+
+// KaTeX: hereda el color del texto (se ve bien en claro y oscuro)
+.katex { color: inherit; }
+
+// Diálogos de Material con la misma estética
+.mat-mdc-dialog-container .mdc-dialog__surface {
+  border-radius: var(--radius) !important;
+  background: var(--bg-elev) !important;
+  border: 1px solid var(--border);
+}
+
+// Tooltips
+.mat-mdc-tooltip .mdc-tooltip__surface {
+  font-family: var(--font);
+  background: #1e1b2e;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }

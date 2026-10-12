@@ -6,20 +6,16 @@
     [class.collapsed]="sidebarCollapsed && !isMobile()"
     (click)="$event.stopPropagation()"
   >
-    <!-- Brand -->
+    <!-- Marca -->
     <div class="brand">
-      <div class="brand-left" *ngIf="!sidebarCollapsed">
-        <img
-          src="https://cienciasbasicas.udp.cl/cms/wp-content/uploads/2019/06/logo-ciencias-basicas.png"
-          alt="UDP"
-          class="brand-logo"
-        />
-        <strong class="brand-text">ICB</strong>
-      </div>
+      <a class="brand-left" routerLink="/app/chat" *ngIf="!sidebarCollapsed">
+        <span class="brand-mark"><mat-icon>auto_awesome</mat-icon></span>
+        <span class="brand-text">AXIOMANTE</span>
+      </a>
 
-      <div class="brand-mini" *ngIf="sidebarCollapsed" aria-hidden="true">
-        <mat-icon>school</mat-icon>
-      </div>
+      <span class="brand-mark only-collapsed" *ngIf="sidebarCollapsed" aria-hidden="true">
+        <mat-icon>auto_awesome</mat-icon>
+      </span>
 
       <button
         mat-icon-button
@@ -34,13 +30,10 @@
       </button>
     </div>
 
-    <mat-divider></mat-divider>
-
     <div class="sidenav-body">
-      <mat-nav-list class="main-nav">
+      <nav class="main-nav">
         <!-- Chat -->
         <a
-          mat-list-item
           class="nav-item"
           routerLink="/app/chat"
           routerLinkActive="active"
@@ -49,39 +42,31 @@
           matTooltipPosition="right"
           (click)="closeSidenavOnMobile()"
         >
-          <div class="nav-row">
-            <div class="nav-icon"><mat-icon>chat</mat-icon></div>
-            <div class="nav-copy" *ngIf="!sidebarCollapsed">
-              <div class="item-title">Chatbot</div>
-              <div class="item-line">Haz preguntas y</div>
-              <div class="item-line">recibe videos</div>
-            </div>
-          </div>
+          <span class="nav-icon"><mat-icon>chat</mat-icon></span>
+          <span class="nav-copy" *ngIf="!sidebarCollapsed">
+            <span class="item-title">Chatbot</span>
+            <span class="item-line">Haz preguntas y recibe videos</span>
+          </span>
         </a>
 
         <!-- Nivelación (develop: environment.dev.selectorModulos) -->
         <a
           *ngIf="devSelector"
-          mat-list-item
           class="nav-item"
           routerLink="/nivelacion"
           [matTooltip]="sidebarCollapsed ? 'Nivelación' : ''"
           matTooltipPosition="right"
           (click)="closeSidenavOnMobile()"
         >
-          <div class="nav-row">
-            <div class="nav-icon"><mat-icon>route</mat-icon></div>
-            <div class="nav-copy" *ngIf="!sidebarCollapsed">
-              <div class="item-title">Nivelación</div>
-              <div class="item-line">Mundos, ejercicios</div>
-              <div class="item-line">y entrenamiento</div>
-            </div>
-          </div>
+          <span class="nav-icon"><mat-icon>route</mat-icon></span>
+          <span class="nav-copy" *ngIf="!sidebarCollapsed">
+            <span class="item-title">Nivelación</span>
+            <span class="item-line">Mundos, ejercicios y entrenamiento</span>
+          </span>
         </a>
 
         <!-- Leaderboard -->
         <a
-          mat-list-item
           class="nav-item"
           routerLink="/app/leaderboard"
           routerLinkActive="active"
@@ -90,19 +75,15 @@
           matTooltipPosition="right"
           (click)="closeSidenavOnMobile()"
         >
-          <div class="nav-row">
-            <div class="nav-icon"><mat-icon>leaderboard</mat-icon></div>
-            <div class="nav-copy" *ngIf="!sidebarCollapsed">
-              <div class="item-title">Leaderboard</div>
-              <div class="item-line">Ranking de estudiantes</div>
-              <div class="item-line">más activos</div>
-            </div>
-          </div>
+          <span class="nav-icon"><mat-icon>leaderboard</mat-icon></span>
+          <span class="nav-copy" *ngIf="!sidebarCollapsed">
+            <span class="item-title">Leaderboard</span>
+            <span class="item-line">Ranking de estudiantes</span>
+          </span>
         </a>
 
         <!-- Biblioteca -->
         <a
-          mat-list-item
           class="nav-item"
           routerLink="/app/library"
           routerLinkActive="active"
@@ -111,22 +92,17 @@
           matTooltipPosition="right"
           (click)="closeSidenavOnMobile()"
         >
-          <div class="nav-row">
-            <div class="nav-icon"><mat-icon>video_library</mat-icon></div>
-            <div class="nav-copy" *ngIf="!sidebarCollapsed">
-              <div class="item-title">Biblioteca de videos</div>
-              <div class="item-line">Explora por ramo y tema</div>
-            </div>
-          </div>
+          <span class="nav-icon"><mat-icon>video_library</mat-icon></span>
+          <span class="nav-copy" *ngIf="!sidebarCollapsed">
+            <span class="item-title">Biblioteca de videos</span>
+            <span class="item-line">Explora por ramo y tema</span>
+          </span>
         </a>
-      </mat-nav-list>
+      </nav>
 
       <!-- Footer perfil -->
       <div class="sidebar-footer">
-        <mat-divider></mat-divider>
-
         <a
-          mat-list-item
           class="profile-entry"
           routerLink="/app/perfil"
           routerLinkActive="active"
@@ -135,62 +111,45 @@
           matTooltipPosition="right"
           (click)="closeSidenavOnMobile()"
         >
-          <ng-container *ngIf="!sidebarCollapsed; else collapsedProfile">
-            <div class="profile-row">
-              <ng-container *ngIf="userPicture(); else initialsAvatar">
-                <img class="profile-avatar-img" [src]="userPicture()!" [alt]="displayName()" />
-              </ng-container>
-              <ng-template #initialsAvatar>
-                <div class="profile-avatar">{{ userInitials() }}</div>
-              </ng-template>
-
-              <div class="profile-copy">
-                <div class="profile-name">{{ displayName() }}</div>
-                <div class="profile-sub">Perfil y ajustes</div>
-                <div class="profile-badge" *ngIf="isInstitutional()">Cuenta institucional</div>
-              </div>
-
-              <mat-icon class="profile-chevron">chevron_right</mat-icon>
-            </div>
+          <ng-container *ngIf="userPicture(); else initialsAvatar">
+            <img class="profile-avatar-img" [src]="userPicture()!" [alt]="displayName()" referrerpolicy="no-referrer" />
           </ng-container>
-
-          <ng-template #collapsedProfile>
-            <div class="profile-collapsed">
-              <ng-container *ngIf="userPicture(); else collapsedInitials">
-                <img class="profile-avatar-img" [src]="userPicture()!" [alt]="displayName()" />
-              </ng-container>
-              <ng-template #collapsedInitials>
-                <div class="profile-avatar">{{ userInitials() }}</div>
-              </ng-template>
-            </div>
+          <ng-template #initialsAvatar>
+            <span class="profile-avatar">{{ userInitials() }}</span>
           </ng-template>
+
+          <span class="profile-copy" *ngIf="!sidebarCollapsed">
+            <span class="profile-name">{{ displayName() }}</span>
+            <span class="profile-sub">Perfil y estadísticas</span>
+            <span class="profile-badge" *ngIf="isInstitutional()">Cuenta institucional</span>
+          </span>
+          <mat-icon class="profile-chevron" *ngIf="!sidebarCollapsed">chevron_right</mat-icon>
         </a>
-      </div>
 
-      <!-- Créditos -->
-      <div class="credits-section" *ngIf="!sidebarCollapsed">
-        <div class="credits-title">Equipo de desarrollo</div>
-        <div class="credits-person">
-          <mat-icon class="credits-icon">terminal</mat-icon>
-          <div class="credits-info">
-            <div class="credits-name">Dante Libiot</div>
-            <div class="credits-roles">Arquitectura · Backend · Agentes IA · BD</div>
+        <!-- Créditos -->
+        <div class="credits-section" *ngIf="!sidebarCollapsed">
+          <div class="credits-title">Equipo de desarrollo</div>
+          <div class="credits-person">
+            <mat-icon class="credits-icon">terminal</mat-icon>
+            <div class="credits-info">
+              <div class="credits-name">Dante Libiot</div>
+              <div class="credits-roles">Arquitectura · Backend · Agentes IA · BD</div>
+            </div>
+          </div>
+          <div class="credits-person">
+            <mat-icon class="credits-icon">brush</mat-icon>
+            <div class="credits-info">
+              <div class="credits-name">Rodrigo Jeria</div>
+              <div class="credits-roles">Frontend · Diseño · Datos · Cloud</div>
+            </div>
           </div>
         </div>
-        <div class="credits-person">
-          <mat-icon class="credits-icon">brush</mat-icon>
-          <div class="credits-info">
-            <div class="credits-name">Rodrigo Jeria</div>
-            <div class="credits-roles">Frontend · Diseño · Datos · Cloud</div>
-          </div>
-        </div>
       </div>
-
     </div>
   </mat-sidenav>
 
   <mat-sidenav-content>
-    <!-- Botón hamburguesa flotante: solo visible en mobile cuando el topbar está oculto -->
+    <!-- Botón hamburguesa flotante: solo en mobile cuando el topbar está oculto -->
     <button
       *ngIf="topbarHidden() && isMobile()"
       mat-icon-button
@@ -202,14 +161,30 @@
       <mat-icon>menu</mat-icon>
     </button>
 
-    <mat-toolbar color="primary" class="topbar" [class.topbar--hidden]="topbarHidden()">
-      <button mat-icon-button (click)="$event.stopPropagation(); toggleSidenav()" class="only-mobile" type="button">
+    <header class="topbar" [class.topbar--hidden]="topbarHidden()">
+      <button mat-icon-button (click)="$event.stopPropagation(); toggleSidenav()" class="only-mobile" type="button" aria-label="Menú">
         <mat-icon>menu</mat-icon>
       </button>
-      <span>ICB • Plataforma</span>
+      <span class="topbar-title">
+        <span class="gradient-text">Axiomante</span>
+        <span class="topbar-sub">Tu tutor de Cálculo</span>
+      </span>
       <span class="spacer"></span>
-      <button mat-button type="button" (click)="signOut()">Salir</button>
-    </mat-toolbar>
+
+      <button
+        type="button"
+        class="theme-toggle"
+        (click)="theme.toggle()"
+        [attr.aria-label]="theme.tema() === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+        [matTooltip]="theme.tema() === 'dark' ? 'Modo claro' : 'Modo oscuro'"
+      >
+        <mat-icon>{{ theme.tema() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
+
+      <button type="button" class="salir-btn" (click)="signOut()">
+        <mat-icon>logout</mat-icon><span>Salir</span>
+      </button>
+    </header>
 
     <main class="content" [class.content--expanded]="topbarHidden()">
       <router-outlet></router-outlet>
