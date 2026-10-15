@@ -10,6 +10,7 @@ import { firstValueFrom } from 'rxjs';
 import { ChatService, type VideoItem } from '../../../core/chat.service';
 import { DataService, type ChatNr } from '../../../core/data.service';
 import { UiService } from '../../../core/ui.service';
+import { AuthService } from '../../../core/auth.service';
 import { MessageListComponent } from '../../../shared/message-list/message-list.component';
 import { MessageInputComponent, type SendPayload } from '../../../shared/message-input/message-input.component';
 import { NewChatDialogComponent } from './new-chat-dialog.component';
@@ -54,6 +55,7 @@ export class ChatPageComponent implements OnInit, OnDestroy {
   private ui = inject(UiService);
   private dialog = inject(MatDialog);
   private zone = inject(NgZone);
+  private auth = inject(AuthService);
 
   chatScrolledUp = computed(() => this.ui.chatScrolledUp());
 
@@ -464,6 +466,20 @@ export class ChatPageComponent implements OnInit, OnDestroy {
 
   // ── Envío de mensajes ──────────────────────────────────────────────────────
 
+  /** Traduce el error HTTP a un mensaje entendible (antes salía "Http failure response for …"). */
+  private mensajeError(e: any): string {
+    const status: number | undefined = e?.status;
+    const detalle = e?.error?.message;
+    if (status === 0 || status === undefined) return 'No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.';
+    if (status === 401) return 'Tu sesión expiró. Vuelve a iniciar sesión.';
+    if (status === 403) return typeof detalle === 'string' ? detalle : 'No tienes acceso a este chat.';
+    if (status === 404) return 'Este chat ya no existe. Recargué tu lista de chats: elige otro o crea uno nuevo.';
+    if (status === 400) return 'La pregunta no tiene un formato válido. Intenta escribirla de nuevo.';
+    if (status === 413) return 'La imagen es demasiado grande. Prueba con una más liviana.';
+    if (status === 504 || status === 408) return 'Axiomante tardó demasiado en responder. Intenta de nuevo.';
+    return 'Hubo un problema al generar la respuesta. Intenta de nuevo en unos segundos.';
+  }
+
   async send(payload: SendPayload) {
     if (!this.activeChatId() || this.chatBloqueado()) return;
 
@@ -536,10 +552,19 @@ export class ChatPageComponent implements OnInit, OnDestroy {
         this.chat.push('bot', `⚠️ ${res?.error ?? 'Error del agente'}`);
       }
     } catch (e: any) {
+      const status: number | undefined = e?.status;
       this.zone.run(() => {
-        this.chat.push('bot', `⚠️ ${e?.message ?? 'Error de conexión'}`);
-        this.hasError.set(true);
+        this.chat.push('bot', `⚠️ ${this.mensajeError(e)}`);
+        // Errores de red / servidor: se muestra el aviso rojo. 404/403/401 tienen su propia salida.
+        if (!status || status >= 500) this.hasError.set(true);
       });
+      if (status === 401) {
+        this.auth.signOut();
+      } else if (status === 404 || status === 403) {
+        // El chat ya no existe en la BD (p. ej. se reimportó la base): recargar la lista.
+        this.activeChatId.set(null);
+        await this.loadChatList();
+      }
     } finally {
       this.zone.run(() => {
         this.loading.set(false);
