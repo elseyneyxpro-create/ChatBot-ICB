@@ -42,6 +42,30 @@ export class VideoLibraryComponent implements OnInit {
 
   isFiltered = computed(() => this.selectedTema() !== 'Todos');
 
+  /** Búsqueda dentro del panel de filtros (hay muchos temas) */
+  temaQuery = signal('');
+
+  /** Cantidad de videos por tema, para mostrarla en cada opción */
+  conteoTema = computed(() => {
+    const m = new Map<string, number>();
+    for (const v of this.allVideos()) m.set(v.tema, (m.get(v.tema) ?? 0) + 1);
+    return m;
+  });
+
+  /** Temas que calzan con la búsqueda del panel (sin tildes ni mayúsculas) */
+  temasFiltrados = computed(() => {
+    const q = this.normalizar(this.temaQuery());
+    return q ? this.temas().filter(t => this.normalizar(t).includes(q)) : this.temas();
+  });
+
+  private normalizar(s: string) {
+    return (s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  }
+
+  updateTemaQuery(ev: Event) {
+    this.temaQuery.set((ev.target as HTMLInputElement).value ?? '');
+  }
+
   // Cierra el panel si el click fue fuera del componente
   @HostListener('document:click', ['$event'])
   onDocClick(e: MouseEvent) {
@@ -50,7 +74,13 @@ export class VideoLibraryComponent implements OnInit {
     }
   }
 
-  togglePanel() { this.panelOpen.update(v => !v); }
+  togglePanel() {
+    this.panelOpen.update(v => !v);
+    if (this.panelOpen()) this.temaQuery.set('');
+  }
+
+  @HostListener('document:keydown.escape')
+  onEsc() { this.panelOpen.set(false); }
 
   selectTema(t: string) {
     this.selectedTema.set(t);

@@ -28,22 +28,28 @@
       </div>
 
       <!-- Panel desplegable -->
-      <div class="filter-panel" *ngIf="panelOpen()">
-        <p class="panel-title">Tema</p>
-        <div class="panel-grid">
-          <button
-            class="panel-item"
-            [class.selected]="selectedTema() === 'Todos'"
-            (click)="selectTema('Todos')">
-            Todos
+      <div class="filter-panel" *ngIf="panelOpen()" role="dialog" aria-label="Filtrar por tema">
+        <div class="panel-head">
+          <p class="panel-title">Tema <span class="panel-total">{{ temas().length }}</span></p>
+          <div class="panel-search">
+            <mat-icon>search</mat-icon>
+            <input type="text" placeholder="Buscar tema…" [value]="temaQuery()" (input)="updateTemaQuery($event)" autofocus />
+          </div>
+        </div>
+
+        <!-- Lista con scroll propio: el panel ya no crece con la cantidad de temas -->
+        <div class="panel-list">
+          <button class="panel-item" [class.selected]="selectedTema() === 'Todos'"
+                  *ngIf="!temaQuery()" (click)="selectTema('Todos')">
+            <span class="item-name">Todos los temas</span>
+            <span class="item-count">{{ allVideos().length }}</span>
           </button>
-          <button
-            class="panel-item"
-            *ngFor="let t of temas()"
-            [class.selected]="selectedTema() === t"
-            (click)="selectTema(t)">
-            {{ t }}
+          <button class="panel-item" *ngFor="let t of temasFiltrados()"
+                  [class.selected]="selectedTema() === t" (click)="selectTema(t)">
+            <span class="item-name">{{ t }}</span>
+            <span class="item-count">{{ conteoTema().get(t) ?? 0 }}</span>
           </button>
+          <p class="panel-empty" *ngIf="temasFiltrados().length === 0">Ningún tema coincide con "{{ temaQuery() }}".</p>
         </div>
       </div>
     </div>
