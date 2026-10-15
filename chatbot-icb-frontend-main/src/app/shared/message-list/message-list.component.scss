@@ -177,14 +177,38 @@
   mat-icon { font-size: 17px; width: 17px; height: 17px; line-height: 1; }
 }
 
+.ejemplo-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); font-size: 0.72rem; font-weight: 700;
+}
+
+// Matriz: tantas columnas de ~200px como quepan (máx. 3); con un solo video, tamaño contenido
+.ejemplo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0.6rem;
+  max-width: 720px;
+  &.solo { grid-template-columns: minmax(0, 300px); }
+}
+
 .ejemplo-video-card {
   position: relative;
   display: block;
   border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 0.4rem;
-  max-width: 300px;
   border: 1px solid var(--border);
+  background: var(--bg-soft);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  &:hover { transform: translateY(-2px); border-color: var(--accent-soft-2); box-shadow: var(--shadow-sm), var(--glow); }
+}
+
+.video-num {
+  position: absolute; top: 6px; left: 6px;
+  min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15, 17, 21, 0.75); color: #fff; font-size: 0.72rem; font-weight: 700;
+  backdrop-filter: blur(4px);
 }
 
 .video-thumb-link {
@@ -192,7 +216,8 @@
   position: relative;
   overflow: hidden;
 
-  .video-thumb { width: 100%; height: auto; display: block; transition: transform 0.3s ease; }
+  // 16:9 recortado: la miniatura hqdefault de YouTube trae franjas negras arriba y abajo
+  .video-thumb { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; transition: transform 0.3s ease; }
 
   .video-play-overlay {
     position: absolute;
@@ -248,4 +273,11 @@
 @keyframes popIn {
   from { opacity: 0; transform: translateX(-50%) scale(0.6); }
   to   { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
+// Celular: matriz de 2 columnas para que los videos no ocupen toda la pantalla
+@media (max-width: 640px) {
+  .ejemplo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; }
+  .ejemplo-grid.solo { grid-template-columns: minmax(0, 1fr); }
+  .video-thumb-link .video-play-overlay mat-icon { font-size: 34px; width: 34px; height: 34px; }
 }

@@ -17,12 +17,19 @@
       <div *ngIf="m.text && !m.isTyping" [innerHTML]="m.text | katexRender"></div>
       <div *ngIf="m.isTyping" class="typing-text">{{ m.text }}<span class="typing-cursor">▋</span></div>
       <div *ngIf="m.role === 'bot' && m.ejemploVideos && m.ejemploVideos.length > 0" class="ejemplo-videos">
-        <div class="ejemplo-label"><mat-icon>play_lesson</mat-icon> Ejemplo en video</div>
-        <div *ngFor="let url of m.ejemploVideos" class="ejemplo-video-card">
+        <div class="ejemplo-label">
+          <mat-icon>play_lesson</mat-icon>
+          {{ m.ejemploVideos.length > 1 ? 'Ejemplos en video' : 'Ejemplo en video' }}
+          <span class="ejemplo-count" *ngIf="m.ejemploVideos.length > 1">{{ m.ejemploVideos.length }}</span>
+        </div>
+        <!-- Matriz de videos: 1, 2 o 3 columnas según el ancho disponible -->
+        <div class="ejemplo-grid" [class.solo]="m.ejemploVideos.length === 1">
+        <div *ngFor="let url of m.ejemploVideos; let i = index" class="ejemplo-video-card">
           <ng-container *ngIf="getYouTubeId(url) as ytId; else plainEjemplo">
-            <a [href]="url" target="_blank" rel="noopener" class="video-thumb-link">
-              <img [src]="'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg'" class="video-thumb" alt="Ejemplo en video" />
+            <a [href]="url" target="_blank" rel="noopener" class="video-thumb-link" [attr.aria-label]="'Ver ejemplo ' + (i + 1)">
+              <img [src]="'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg'" class="video-thumb" alt="Ejemplo en video" loading="lazy" />
               <div class="video-play-overlay"><mat-icon>play_circle_filled</mat-icon></div>
+              <span class="video-num" *ngIf="m.ejemploVideos.length > 1">{{ i + 1 }}</span>
             </a>
           </ng-container>
           <ng-template #plainEjemplo>
@@ -30,6 +37,7 @@
               <mat-icon>open_in_new</mat-icon> Ver ejemplo
             </a>
           </ng-template>
+        </div>
         </div>
       </div>
     </div>
