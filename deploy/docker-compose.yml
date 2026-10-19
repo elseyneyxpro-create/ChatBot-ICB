@@ -25,7 +25,9 @@ services:
       retries: 5
 
   mongo:
-    image: mongo:7
+    # 4.4 = última versión que no exige instrucciones AVX en la CPU (la VM no las expone).
+    # Si TI habilita AVX ("CPU type: host"), se puede volver a mongo:7 (y su healthcheck con mongosh).
+    image: mongo:4.4
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
@@ -35,7 +37,7 @@ services:
     ports:
       - "127.0.0.1:27017:27017" # solo accesible desde la misma VM
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongo", "--quiet", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       retries: 5
 
