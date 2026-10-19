@@ -5,3 +5,7 @@ firebase.ts
 claves.txt
 **\/firebase-credentials.json
 _credenciales/
+
+# Respaldos de bases de datos (contienen datos reales de alumnos)
+*.dump
+*.archive
