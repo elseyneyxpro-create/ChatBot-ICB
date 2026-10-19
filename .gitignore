@@ -9,3 +9,7 @@ _credenciales/
 # Respaldos de bases de datos (contienen datos reales de alumnos)
 *.dump
 *.archive
+
+# Certificados y claves (no subir)
+deploy/nginx/certs/
+deploy/nginx/letsencrypt/

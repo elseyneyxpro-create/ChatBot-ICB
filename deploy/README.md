@@ -61,6 +61,29 @@ Los `.env` de backend y agents ya apuntan a `localhost` (Postgres :55432, Mongo 
 El login usa `GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback`: esa URI tiene que estar
 autorizada en el cliente OAuth de Google Cloud Console.
 
+## Cambiar el dominio (o el certificado)
+
+Todo se hace con `deploy/cambiar_dominio.sh`, en la VM y dentro de `deploy/`. Respalda el `.env` y los certificados anteriores, cambia `DOMINIO`, instala el certificado, reinicia backend y nginx, verifica que la API responda y muestra lo que falta configurar en Google.
+
+```bash
+# Certificado entregado por TI (por ejemplo, el *.udp.cl de la universidad)
+./cambiar_dominio.sh axiomante.udp.cl --cert /ruta/fullchain.pem /ruta/privkey.pem
+
+# Certificado gratuito de Let's Encrypt, validado por el mismo puerto 443 (TLS-ALPN-01).
+# Requiere que el dominio ya apunte a la VM y que el 443 esté abierto desde internet.
+./cambiar_dominio.sh axiomante.udp.cl --letsencrypt correo@udp.cl
+
+# Temporal, autofirmado (el navegador muestra una advertencia)
+./cambiar_dominio.sh axiomante.udp.cl --autofirmado
+
+# Renovar Let's Encrypt (dura 90 días). El script imprime la línea de cron para hacerlo solo.
+./cambiar_dominio.sh --renovar
+```
+
+Después, en Google Cloud Console → cliente OAuth, agrega `https://DOMINIO` en *Orígenes autorizados de JavaScript* y `https://DOMINIO/api/auth/google/callback` en *URIs de redireccionamiento autorizados*.
+
+**Mientras no hay dominio** se usa `172-16-31-25.sslip.io` (apunta a la IP interna de la VM). El DNS de la U no lo resuelve, así que en cada PC de prueba hay que agregar al archivo `hosts` la línea `172.16.31.25  172-16-31-25.sslip.io`.
+
 ## Nivelación
 
 Módulo "hermano" del chatbot: mismos usuarios y login, tablas propias en Postgres (`deploy/sql/nivelacion.sql`).
