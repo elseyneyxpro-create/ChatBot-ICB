@@ -65,6 +65,22 @@
           </span>
         </a>
 
+        <!-- Panel docente (solo staff) -->
+        <a
+          *ngIf="esStaff()"
+          class="nav-item"
+          routerLink="/profesor"
+          [matTooltip]="sidebarCollapsed ? 'Panel docente' : ''"
+          matTooltipPosition="right"
+          (click)="closeSidenavOnMobile()"
+        >
+          <span class="nav-icon"><mat-icon>query_stats</mat-icon></span>
+          <span class="nav-copy" *ngIf="!sidebarCollapsed">
+            <span class="item-title">Panel docente</span>
+            <span class="item-line">Reportes de la nivelación</span>
+          </span>
+        </a>
+
         <!-- Leaderboard -->
         <a
           class="nav-item"

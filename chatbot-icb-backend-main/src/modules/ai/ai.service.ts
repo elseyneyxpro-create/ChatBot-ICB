@@ -65,6 +65,39 @@ export class AiService {
     return data;
   }
 
+  /** GET genérico al servicio Python con query params (lo usan los reportes). */
+  get(path: string, params?: Record<string, string | undefined>) {
+    return this.proxyGet(this.conParams(path, params));
+  }
+
+  /** GET de un archivo (Excel) al servicio Python: devuelve los bytes y sus encabezados. */
+  async getArchivo(path: string, params?: Record<string, string | undefined>) {
+    const obs$ = this.http.get<ArrayBuffer>(this.conParams(path, params), {
+      responseType: 'arraybuffer',
+      timeout: Number(this.cfg.get('PYTHON_REPORT_TIMEOUT_MS') ?? 60000),
+    }).pipe(
+      catchError((err: AxiosError<any>) => {
+        this.logger.error(`Python error ${err.response?.status ?? ''} al descargar ${path}: ${err.message}`);
+        return throwError(() => new InternalServerErrorException({
+          status: 'error', source: 'python-service', message: 'No se pudo generar el archivo.',
+        }));
+      }),
+    );
+    const res = await firstValueFrom(obs$);
+    return {
+      data: Buffer.from(res.data),
+      contentType: String(res.headers['content-type'] ?? 'application/octet-stream'),
+      disposition: res.headers['content-disposition'] ? String(res.headers['content-disposition']) : undefined,
+    };
+  }
+
+  private conParams(path: string, params?: Record<string, string | undefined>) {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params ?? {})) if (v !== undefined && v !== '') qs.set(k, v);
+    const s = qs.toString();
+    return s ? `${path}?${s}` : path;
+  }
+
   /** POST genérico al servicio Python (lo usa la nivelación). */
   post(path: string, body: Record<string, any>) {
     return this.proxyPost(path, body);

@@ -31,6 +31,11 @@ import { ThemeService } from '../../core/theme.service';
           <mat-icon>insights</mat-icon>{{ e.estudiante.nivel }}
         </span>
 
+        <!-- Panel docente (solo staff) -->
+        <a class="btn-secondary chatbot-btn" *ngIf="esStaff()" routerLink="/profesor" title="Panel docente">
+          <mat-icon>query_stats</mat-icon><span>Panel docente</span>
+        </a>
+
         <!-- Cambio directo al chatbot (sin pasar por /inicio) -->
         <a class="btn-secondary chatbot-btn" *ngIf="e.estudiante.chatbot_habilitado" routerLink="/app/chat" title="Ir al chatbot">
           <mat-icon>chat</mat-icon><span>Chatbot</span>
@@ -76,6 +81,7 @@ export class NivLayoutComponent implements OnInit {
     const e = this.estado()?.estudiante;
     return e ? (e.xp_en_nivel / e.xp_por_nivel) * 100 : 0;
   });
+  esStaff = computed(() => this.auth.currentUser()?.rol === 'staff');
   foto = computed(() => this.auth.currentUser()?.photoURL ?? null);
   inicial = computed(() => (this.auth.currentUser()?.displayName || this.auth.currentUser()?.email || '?').charAt(0).toUpperCase());
 

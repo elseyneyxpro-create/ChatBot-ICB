@@ -11,6 +11,8 @@ export interface User {
   photoURL: string | null;
   /** false → solo puede ver la nivelación */
   chatbotHabilitado: boolean;
+  /** 'staff' (profesores y equipo) → ve el panel docente */
+  rol: 'staff' | 'alumno';
 }
 
 interface ProfileResponse {
@@ -19,6 +21,7 @@ interface ProfileResponse {
   name: string | null;
   picture: string | null;
   chatbot_habilitado?: boolean;
+  rol?: 'staff' | 'alumno';
 }
 
 /**
@@ -71,6 +74,7 @@ export class AuthService {
         const user: User = {
           uid: p.uid, email: p.email, displayName: p.name, photoURL: p.picture,
           chatbotHabilitado: p.chatbot_habilitado !== false,
+          rol: p.rol === 'staff' ? 'staff' : 'alumno',
         };
         this._currentUser.set(user);
         return user;

@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # El router real vive en app/routers/ai/router.py (app/api se eliminó en el refactor)
 from app.routers.ai.router import router as ai_router
 from app.routers.nivelacion.router import router as niv_router
+from app.routers.reportes.router import router as reportes_router
 
 app = FastAPI(title="ICB AI Service", version="2.0.0")
 
@@ -29,3 +30,4 @@ def health():
 
 app.include_router(ai_router)
 app.include_router(niv_router)
+app.include_router(reportes_router)

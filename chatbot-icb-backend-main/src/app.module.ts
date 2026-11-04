@@ -8,6 +8,7 @@ import { UsersModule } from './modules/users/users.module';
 import { ChatsModule } from './modules/chats/chats.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { NivelacionModule } from './modules/nivelacion/nivelacion.module';
+import { ProfesorModule } from './modules/profesor/profesor.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { NivelacionModule } from './modules/nivelacion/nivelacion.module';
     ChatsModule,
     ProfileModule,
     NivelacionModule,
+    ProfesorModule,
     AiModule,
     AuthModule,
   ],

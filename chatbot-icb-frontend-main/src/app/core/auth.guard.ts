@@ -19,3 +19,13 @@ export const chatbotGuard: CanActivateFn = async () => {
   if (!user) return router.parseUrl('/login');
   return user.chatbotHabilitado ? true : router.parseUrl('/nivelacion');
 };
+
+/** Panel docente: solo staff (whitelist_alumnos.codigo_asignatura = staff/crack). El backend vuelve a validarlo. */
+export const staffGuard: CanActivateFn = async () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  const user = await auth.ensureSession();
+  if (!user) return router.parseUrl('/login');
+  return user.rol === 'staff' ? true : router.parseUrl('/app');
+};

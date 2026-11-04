@@ -23,12 +23,13 @@ Chatbot con pensamiento crítico + módulo de **Nivelación** gamificado, todo c
 7. [Bases de datos](#-bases-de-datos)
 8. [Módulo de Nivelación](#-módulo-de-nivelación)
 9. [Gestión de alumnos (SQL listo para copiar)](#-gestión-de-alumnos-sql-listo-para-copiar)
-10. [API del backend](#-api-del-backend)
-11. [Frontend: estética y navegación](#-frontend-estética-y-navegación)
-12. [Variables de entorno](#-variables-de-entorno)
-13. [Problemas comunes](#-problemas-comunes)
-14. [Checklist antes de producción](#-checklist-antes-de-producción)
-15. [Equipo](#-equipo)
+10. [Panel docente (reportes de la nivelación)](#-panel-docente-reportes-de-la-nivelación)
+11. [API del backend](#-api-del-backend)
+12. [Frontend: estética y navegación](#-frontend-estética-y-navegación)
+13. [Variables de entorno](#-variables-de-entorno)
+14. [Problemas comunes](#-problemas-comunes)
+15. [Checklist antes de producción](#-checklist-antes-de-producción)
+16. [Equipo](#-equipo)
 
 ---
 
@@ -389,6 +390,40 @@ VALUES
 
 ---
 
+## 📊 Panel docente (reportes de la nivelación)
+
+Pantalla `/profesor` para ver el avance de los alumnos en la nivelación y descargar el reporte en Excel.
+
+**Quién entra.** El rol sale de `whitelist_alumnos.codigo_asignatura`: los alumnos llevan su sección (`CBM1101_VC03`, …) y el equipo lleva `STAFF`, `Staff` o `crack` (se compara sin mayúsculas). Esos usuarios ven el panel; un alumno que intente entrar es devuelto al chatbot y el backend responde `403`.
+
+```sql
+-- Dar acceso al panel a un profesor
+UPDATE whitelist_alumnos SET codigo_asignatura = 'STAFF' WHERE lower(email) = 'profe@mail.udp.cl';
+-- ¿Quiénes son staff?
+SELECT email, nombre_completo, codigo_asignatura FROM whitelist_alumnos
+WHERE activo AND lower(trim(codigo_asignatura)) IN ('staff', 'crack');
+```
+
+**Qué muestra.**
+
+| Pestaña | Contenido |
+|---|---|
+| Alumnos | Estado (sin ingresar / en curso / completada), avance, dónde va, % de acierto, última actividad y ficha con avance por mundo, análisis del agente y últimas respuestas |
+| Secciones | Resumen por sección (clic para filtrar) |
+| Mundos y nodos | Acierto por nodo, cuántos lo completaron, atascados y respuestas promedio para completarlo |
+| Preguntas | Preguntas del banco de menor a mayor acierto y el **error más común** de cada una |
+| Alertas | No ha entrado · sin actividad ≥ 7 días · acierto < 50 % · atascado en un nodo o test · el analista sugiere bajar de nivel |
+
+El Excel trae lo mismo en hojas (Resumen, Alumnos, Avance por mundo, Nodos, Preguntas, Alertas, Análisis IA y una hoja «Cómo leer»).
+
+**Cómo funciona.** Frontend → `GET /api/v1/profesor/nivelacion` (backend, valida el rol) → servicio de agentes `GET /reportes/nivelacion` (Python: `app/routers/reportes/`). Todo se calcula en SQL sobre `niv_progreso.*`; el Excel se arma con `openpyxl`, igual que los reportes del chat.
+
+- Los umbrales de las alertas están al inicio de `reportes/metricas.py`.
+- Si cambian las tablas de la nivelación (por ejemplo con el sistema ELO), solo hay que ajustar `reportes/datos.py`.
+- **Secciones por profesor:** hoy todo el staff ve todas las secciones. Para limitar cada profe a las suyas, basta con cambiar `secciones()` en `profesor.controller.ts` del backend (el servicio Python ya filtra por la lista que recibe, también en la ficha de un alumno).
+
+---
+
 ## 🔌 API del backend
 
 Todo bajo `/api` en producción (Nginx lo quita antes de llegar a NestJS). Todas las rutas, salvo las de login, requieren la cookie `accessToken`.
@@ -400,7 +435,7 @@ Todo bajo `/api` en producción (Nginx lo quita antes de llegar a NestJS). Todas
 |---|---|---|
 | GET | `/auth/google` | Inicia el login con Google |
 | GET | `/auth/google/callback` | Vuelta de Google, deja la cookie y redirige a `/auth/callback` |
-| GET | `/auth/profile` | Usuario actual + `chatbot_habilitado` |
+| GET | `/auth/profile` | Usuario actual + `chatbot_habilitado` + `rol` (`staff` / `alumno`) |
 | POST | `/auth/signout` | Cierra sesión |
 </details>
 
@@ -443,6 +478,16 @@ Todo bajo `/api` en producción (Nginx lo quita antes de llegar a NestJS). Todas
 | POST | `/nodos/:id/entrenar` | Genera una pregunta de entrenamiento |
 | POST | `/entrenar/:id` | Responde la pregunta generada |
 | GET | `/analisis` | Último análisis del agente |
+</details>
+
+<details>
+<summary><b>Panel docente</b> — <code>/v1/profesor</code> (solo staff)</summary>
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| GET | `/v1/profesor/nivelacion?seccion=` | Reporte completo (resumen, secciones, mundos, nodos, preguntas, alumnos) |
+| GET | `/v1/profesor/nivelacion/excel?seccion=` | El mismo reporte en Excel |
+| GET | `/v1/profesor/nivelacion/alumnos/:uid` | Últimas respuestas e historial del analista de un alumno |
 </details>
 
 ---

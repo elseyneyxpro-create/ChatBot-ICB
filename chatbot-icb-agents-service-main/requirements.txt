@@ -13,3 +13,5 @@ numpy
 # Bases de datos (reemplazan a supabase y firebase-admin)
 psycopg[binary,pool]>=3.2
 pymongo>=4.8
+# Reportes para profesores (Excel)
+openpyxl>=3.1

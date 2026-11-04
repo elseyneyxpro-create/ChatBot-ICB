@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, chatbotGuard } from './core/auth.guard';
+import { authGuard, chatbotGuard, staffGuard } from './core/auth.guard';
 import { AuthCallbackComponent } from './features/auth/login/auth-callback.component';
 
 export const routes: Routes = [
@@ -62,6 +62,12 @@ export const routes: Routes = [
       { path: 'nodo/:id/entrenar',
         loadComponent: () => import('./features/nivelacion/niv-entrenar.component').then(m => m.NivEntrenarComponent) },
     ]
+  },
+  {
+    // Panel docente: reportes de la nivelación (solo staff)
+    path: 'profesor',
+    canActivate: [staffGuard],
+    loadComponent: () => import('./features/profesor/profesor-panel.component').then(m => m.ProfesorPanelComponent)
   },
   { path: '**', redirectTo: 'login' }
 ];

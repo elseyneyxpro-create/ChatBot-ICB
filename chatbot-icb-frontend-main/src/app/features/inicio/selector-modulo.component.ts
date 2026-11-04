@@ -26,6 +26,8 @@ import { ThemeService } from '../../core/theme.service';
     .saludo p { margin: 0; font-size: 1.05rem; color: var(--text-3); }
     .saludo .gradient { background: var(--accent-gradient); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
     .tarjetas { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 100%; }
+    .tarjetas.tres { grid-template-columns: repeat(3, 1fr); }
+    .wrap.ancho { max-width: 1080px; }
     .tarjeta {
       position: relative; display: flex; flex-direction: column; gap: 14px; padding: 30px 26px; text-align: left;
       border-radius: 22px; border: none; cursor: pointer; color: #fff; font-family: inherit;
@@ -37,6 +39,8 @@ import { ThemeService } from '../../core/theme.service';
     .tarjeta:hover:not(.bloqueada) { transform: translateY(-6px); box-shadow: var(--shadow), var(--glow); }
     .chat { background: linear-gradient(145deg, #4338ca, #7c3aed); }
     .niv { background: linear-gradient(145deg, #a21caf, #db2777); }
+    .docente { background: linear-gradient(145deg, #0f766e, #2563eb); }
+    .tarjeta:nth-child(3) { animation-delay: 0.2s; }
     .icono {
       width: 64px; height: 64px; border-radius: 18px; background: rgba(255, 255, 255, 0.18);
       display: flex; align-items: center; justify-content: center;
@@ -57,19 +61,20 @@ import { ThemeService } from '../../core/theme.service';
     .tema-btn { position: absolute; top: 18px; right: 18px; width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-panel); color: var(--accent); cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .tema-btn:hover { background: var(--accent-soft); }
     @keyframes entrar { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
-    @media (max-width: 680px) { .tarjetas { grid-template-columns: 1fr; } .saludo h1 { font-size: 1.6rem; } }
+    @media (max-width: 900px) { .tarjetas.tres { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 680px) { .tarjetas, .tarjetas.tres { grid-template-columns: 1fr; } .saludo h1 { font-size: 1.6rem; } }
   `],
   template: `
     <button class="tema-btn" type="button" (click)="theme.toggle()" [attr.aria-label]="theme.tema() === 'dark' ? 'Modo claro' : 'Modo oscuro'">
       <mat-icon>{{ theme.tema() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
     </button>
-    <div class="wrap">
+    <div class="wrap" [class.ancho]="esStaff()">
       <div class="saludo">
         <h1>¡Hola<span class="gradient">{{ nombre() ? ', ' + nombre() : '' }}</span>! 👋</h1>
         <p>¿Qué quieres hacer hoy?</p>
       </div>
 
-      <div class="tarjetas">
+      <div class="tarjetas" [class.tres]="esStaff()">
         <button class="tarjeta chat" [class.bloqueada]="!chatHabilitado()" [disabled]="!chatHabilitado()"
                 [attr.aria-disabled]="!chatHabilitado()" (click)="ir('/app/chat')">
           <span class="candado" *ngIf="!chatHabilitado()"><mat-icon>lock</mat-icon></span>
@@ -86,6 +91,13 @@ import { ThemeService } from '../../core/theme.service';
           <p class="desc">Recorre los mundos de pre-cálculo, supera los tests y entrena con preguntas generadas por IA.</p>
           <span class="ir">Entrar <mat-icon>arrow_forward</mat-icon></span>
         </button>
+
+        <button class="tarjeta docente" *ngIf="esStaff()" (click)="ir('/profesor')">
+          <span class="icono"><mat-icon>query_stats</mat-icon></span>
+          <h2>Panel docente</h2>
+          <p class="desc">Avance de tus alumnos en la nivelación, alertas, preguntas difíciles y reportes en Excel.</p>
+          <span class="ir">Entrar <mat-icon>arrow_forward</mat-icon></span>
+        </button>
       </div>
 
       <span class="dev">Selector de módulos · modo develop</span>
@@ -98,6 +110,7 @@ export class SelectorModuloComponent {
   theme = inject(ThemeService);
 
   chatHabilitado = computed(() => this.auth.currentUser()?.chatbotHabilitado ?? false);
+  esStaff = computed(() => this.auth.currentUser()?.rol === 'staff');
   nombre = computed(() => (this.auth.currentUser()?.displayName ?? '').split(' ')[0]);
 
   ir(url: string) {

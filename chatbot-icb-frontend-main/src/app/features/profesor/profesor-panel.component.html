@@ -1,0 +1,399 @@
+<div class="prof-root">
+  <header class="prof-header">
+    <a class="logo" routerLink="/profesor">AXIOMANTE <span>PANEL DOCENTE</span></a>
+    <div class="header-right">
+      <a class="hbtn" routerLink="/nivelacion" title="Ver la nivelación como alumno">
+        <mat-icon>route</mat-icon><span>Nivelación</span>
+      </a>
+      <a class="hbtn" *ngIf="chatHabilitado()" routerLink="/app/chat" title="Ir al chatbot">
+        <mat-icon>chat</mat-icon><span>Chatbot</span>
+      </a>
+      <button class="hbtn icono" type="button" (click)="theme.toggle()"
+              [title]="theme.tema() === 'dark' ? 'Modo claro' : 'Modo oscuro'">
+        <mat-icon>{{ theme.tema() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
+      <button class="avatar" type="button" (click)="salir()" title="Cerrar sesión">
+        <img *ngIf="foto()" [src]="foto()" alt="" referrerpolicy="no-referrer" />
+        <span *ngIf="!foto()">{{ inicial() }}</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="prof-main">
+    <!-- Título y controles -->
+    <section class="cabecera">
+      <div>
+        <h1>Nivelación <span class="grad">· avance de alumnos</span></h1>
+        <p class="muted" *ngIf="reporte() as r">
+          {{ r.resumen.alumnos }} alumnos · actualizado {{ r.generado | date:'dd/MM HH:mm' }}
+        </p>
+      </div>
+      <div class="controles">
+        <label class="campo">
+          <span>Sección</span>
+          <select [ngModel]="seccion() ?? ''" (ngModelChange)="cambiarSeccion($event)" [disabled]="cargando()">
+            <option value="">Todas las secciones</option>
+            <option *ngFor="let s of reporte()?.secciones_disponibles ?? []" [value]="s">{{ s }}</option>
+          </select>
+        </label>
+        <button class="btn" type="button" (click)="cargar()" [disabled]="cargando()" title="Actualizar datos">
+          <mat-icon [class.gira]="cargando()">refresh</mat-icon><span>Actualizar</span>
+        </button>
+        <button class="btn primario" type="button" (click)="descargar()" [disabled]="descargando() || !reporte()">
+          <mat-icon>download</mat-icon><span>{{ descargando() ? 'Generando…' : 'Descargar Excel' }}</span>
+        </button>
+      </div>
+    </section>
+    <div class="aviso error" *ngIf="errorDescarga()">{{ errorDescarga() }}</div>
+
+    <div class="aviso error" *ngIf="error()">
+      {{ error() }}
+      <button class="btn" type="button" (click)="cargar()">Reintentar</button>
+    </div>
+    <div class="cargando" *ngIf="cargando() && !reporte()">
+      <div class="dots"><span></span><span></span><span></span></div>
+      <p class="muted">Calculando el reporte…</p>
+    </div>
+
+    <ng-container *ngIf="reporte() as r">
+      <!-- KPIs -->
+      <section class="kpis" [class.atenuado]="cargando()">
+        <div class="kpi">
+          <mat-icon>groups</mat-icon>
+          <div>
+            <strong>{{ r.resumen.ingresaron }}<small>/{{ r.resumen.alumnos }}</small></strong>
+            <span>entraron a la nivelación</span>
+          </div>
+        </div>
+        <div class="kpi">
+          <mat-icon>task_alt</mat-icon>
+          <div>
+            <strong>{{ r.resumen.completaron }}</strong>
+            <span>la completaron</span>
+          </div>
+        </div>
+        <div class="kpi">
+          <mat-icon>trending_up</mat-icon>
+          <div>
+            <strong>{{ r.resumen.progreso_promedio | number:'1.0-0' }}<small> %</small></strong>
+            <span>avance promedio</span>
+          </div>
+        </div>
+        <div class="kpi" [attr.data-nivel]="nivelAcierto(r.resumen.acierto)">
+          <mat-icon>insights</mat-icon>
+          <div>
+            <strong>{{ r.resumen.acierto === null ? '—' : (r.resumen.acierto | number:'1.0-0') }}<small *ngIf="r.resumen.acierto !== null"> %</small></strong>
+            <span>de acierto</span>
+          </div>
+        </div>
+        <button class="kpi alerta" type="button" (click)="cambiarTab('alertas')" [class.cero]="!r.resumen.con_alertas">
+          <mat-icon>warning_amber</mat-icon>
+          <div>
+            <strong>{{ r.resumen.con_alertas }}</strong>
+            <span>con alertas</span>
+          </div>
+        </button>
+      </section>
+      <p class="nota" *ngIf="r.resumen.nodo_mas_dificil as d">
+        <mat-icon>lightbulb</mat-icon>
+        <span>El nodo con menor acierto es <b>«{{ d.nodo }}»</b> ({{ d.mundo }}, {{ pct(d.acierto) }}).
+        {{ r.resumen.activos_ultima_semana }} alumnos respondieron algo en los últimos 7 días.</span>
+      </p>
+
+      <!-- Pestañas -->
+      <nav class="tabs" role="tablist">
+        <button *ngFor="let t of tabs" type="button" role="tab" [class.activa]="tab() === t.id"
+                [attr.aria-selected]="tab() === t.id" (click)="cambiarTab(t.id)">
+          <mat-icon>{{ t.icon }}</mat-icon><span>{{ t.label }}</span>
+          <em *ngIf="t.id === 'alertas' && r.resumen.con_alertas">{{ r.resumen.con_alertas }}</em>
+        </button>
+      </nav>
+
+      <!-- ═══ Alumnos ═══ -->
+      <section class="panel" *ngIf="tab() === 'alumnos'">
+        <div class="filtros">
+          <label class="buscar">
+            <mat-icon>search</mat-icon>
+            <input type="search" placeholder="Buscar por nombre o correo" [ngModel]="busqueda()"
+                   (ngModelChange)="busqueda.set($event)" />
+          </label>
+          <div class="chips">
+            <button *ngFor="let f of filtros" type="button" class="chip" [class.activa]="filtroEstado() === f.id"
+                    (click)="filtroEstado.set(f.id)">
+              {{ f.label }} <em>{{ conteoEstado()[f.id] }}</em>
+            </button>
+          </div>
+        </div>
+
+        <div class="tabla-wrap">
+          <table class="tabla alumnos">
+            <thead>
+              <tr>
+                <th><button type="button" (click)="ordenar('nombre')">Alumno <mat-icon>{{ flecha('nombre') }}</mat-icon></button></th>
+                <th><button type="button" (click)="ordenar('seccion')">Sección <mat-icon>{{ flecha('seccion') }}</mat-icon></button></th>
+                <th><button type="button" (click)="ordenar('estado')">Estado <mat-icon>{{ flecha('estado') }}</mat-icon></button></th>
+                <th class="w-avance"><button type="button" (click)="ordenar('progreso')">Avance <mat-icon>{{ flecha('progreso') }}</mat-icon></button></th>
+                <th>Dónde va</th>
+                <th class="num"><button type="button" (click)="ordenar('acierto')">Acierto <mat-icon>{{ flecha('acierto') }}</mat-icon></button></th>
+                <th><button type="button" (click)="ordenar('ultima')">Última actividad <mat-icon>{{ flecha('ultima') }}</mat-icon></button></th>
+                <th class="num"><button type="button" (click)="ordenar('alertas')"><mat-icon class="solo">warning_amber</mat-icon><mat-icon>{{ flecha('alertas') }}</mat-icon></button></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let a of alumnosVisibles(); trackBy: trackCorreo" (click)="abrirFicha(a)" tabindex="0"
+                  (keydown.enter)="abrirFicha(a)" [class.sel]="seleccionado()?.correo === a.correo">
+                <td>
+                  <div class="nombre">{{ a.nombre }}</div>
+                  <div class="sub">{{ a.correo }}</div>
+                </td>
+                <td><span class="tag">{{ a.seccion || '—' }}</span></td>
+                <td><span class="estado" [attr.data-estado]="a.estado">{{ a.estado }}</span></td>
+                <td class="w-avance">
+                  <div class="barra"><div [style.width.%]="a.progreso"></div></div>
+                  <div class="sub" *ngIf="a.uid">{{ a.progreso | number:'1.0-0' }} % · {{ a.mundos_completados }}/{{ a.total_mundos }} mundos</div>
+                  <div class="sub" *ngIf="!a.uid">No ha entrado</div>
+                </td>
+                <td>
+                  <ng-container *ngIf="a.mundo_actual; else sinPos">
+                    <div class="pos">{{ a.nodo_actual }}</div>
+                    <div class="sub">{{ a.mundo_actual }}</div>
+                  </ng-container>
+                  <ng-template #sinPos><span class="muted">{{ a.estado === 'Completada' ? 'Terminó' : '—' }}</span></ng-template>
+                </td>
+                <td class="num">
+                  <span class="pct" [attr.data-nivel]="nivelAcierto(a.acierto)">{{ pct(a.acierto) }}</span>
+                  <div class="sub">{{ a.respuestas }} resp.</div>
+                </td>
+                <td>
+                  <div [class.viejo]="(a.dias_sin_actividad ?? 0) >= r.reglas.dias_inactivo">{{ hace(a.ultima_actividad, a.dias_sin_actividad) }}</div>
+                </td>
+                <td class="num">
+                  <span class="badge" *ngIf="a.alertas.length" [title]="a.alertas.join('\n')">{{ a.alertas.length }}</span>
+                </td>
+              </tr>
+              <tr *ngIf="!alumnosVisibles().length">
+                <td colspan="8" class="vacio">No hay alumnos con ese filtro.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ═══ Secciones ═══ -->
+      <section class="panel" *ngIf="tab() === 'secciones'">
+        <div class="tabla-wrap">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Sección</th><th class="num">Alumnos</th><th class="num">Entraron</th><th class="num">Completaron</th>
+                <th class="num">Sin ingresar</th><th class="w-avance">Avance promedio</th><th class="num">Acierto</th>
+                <th class="num">Activos 7 días</th><th class="num">Con alertas</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let s of r.por_seccion" class="clic" (click)="cambiarSeccion(s.seccion)" title="Ver solo esta sección">
+                <td><span class="tag">{{ s.seccion }}</span></td>
+                <td class="num">{{ s.alumnos }}</td>
+                <td class="num">{{ s.ingresaron }}</td>
+                <td class="num">{{ s.completaron }}</td>
+                <td class="num">{{ s.sin_ingresar }}</td>
+                <td class="w-avance">
+                  <div class="barra"><div [style.width.%]="s.progreso_promedio"></div></div>
+                  <div class="sub">{{ s.progreso_promedio | number:'1.0-0' }} %</div>
+                </td>
+                <td class="num"><span class="pct" [attr.data-nivel]="nivelAcierto(s.acierto)">{{ pct(s.acierto) }}</span></td>
+                <td class="num">{{ s.activos_ultima_semana }}</td>
+                <td class="num"><span class="badge" *ngIf="s.con_alertas">{{ s.con_alertas }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted pie">Haz clic en una sección para ver solo sus alumnos.</p>
+      </section>
+
+      <!-- ═══ Mundos y nodos ═══ -->
+      <section class="mundos" *ngIf="tab() === 'mundos'">
+        <article class="panel mundo" *ngFor="let m of nodosPorMundo()">
+          <header>
+            <h2>{{ m.orden }}. {{ m.mundo }}</h2>
+            <div class="mstats">
+              <span><b>{{ m.alumnos_llegaron }}</b> llegaron</span>
+              <span><b>{{ m.alumnos_completaron }}</b> lo completaron</span>
+              <span>Fases <b class="pct" [attr.data-nivel]="nivelAcierto(m.acierto_fases)">{{ pct(m.acierto_fases) }}</b></span>
+              <span>Test <b class="pct" [attr.data-nivel]="nivelAcierto(m.acierto_test)">{{ pct(m.acierto_test) }}</b>
+                <small *ngIf="m.rindieron_test"> ({{ m.rindieron_test }} lo rindieron)</small></span>
+            </div>
+          </header>
+          <div class="tabla-wrap">
+            <table class="tabla compacta">
+              <thead>
+                <tr>
+                  <th>Nodo</th><th class="w-avance">Acierto</th><th class="num">Intentaron</th><th class="num">Completaron</th>
+                  <th class="num">Atascados</th><th class="num" title="Respuestas promedio que necesitaron quienes lo completaron">Resp. para completar</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let n of m.nodos">
+                  <td><span class="orden">{{ n.orden }}</span>{{ n.nodo }}</td>
+                  <td class="w-avance">
+                    <div class="barra acierto" [attr.data-nivel]="nivelAcierto(n.acierto)"><div [style.width.%]="n.acierto ?? 0"></div></div>
+                    <div class="sub">{{ pct(n.acierto) }} · {{ n.respuestas }} resp.</div>
+                  </td>
+                  <td class="num">{{ n.alumnos_intentaron }}</td>
+                  <td class="num">{{ n.alumnos_completaron }}</td>
+                  <td class="num"><span class="badge" *ngIf="n.alumnos_atascados">{{ n.alumnos_atascados }}</span></td>
+                  <td class="num">{{ n.respuestas_para_completar ?? '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <!-- ═══ Preguntas ═══ -->
+      <section class="panel" *ngIf="tab() === 'preguntas'">
+        <p class="muted intro">
+          Preguntas del banco ordenadas de menor a mayor acierto (con {{ r.reglas.min_respuestas_pregunta }} respuestas o más).
+          El <b>error más común</b> ayuda a detectar enunciados confusos o errores de concepto repetidos.
+        </p>
+        <div class="tabla-wrap">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Pregunta</th><th>Correcta</th><th>Error más común</th>
+                <th class="num">Respuestas</th><th class="num">Acierto</th><th>Dónde</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let p of r.preguntas">
+                <td class="enunciado">{{ p.enunciado }}<div class="sub">{{ p.dificultad }} · #{{ p.id }}</div></td>
+                <td><span class="resp ok">{{ p.correcta }}</span></td>
+                <td>
+                  <ng-container *ngIf="p.error_comun; else sinError">
+                    <span class="resp bad">{{ p.error_comun }}</span>
+                    <div class="sub">{{ p.veces_error_comun }} veces</div>
+                  </ng-container>
+                  <ng-template #sinError><span class="muted">—</span></ng-template>
+                </td>
+                <td class="num">{{ p.respuestas }}</td>
+                <td class="num"><span class="pct" [attr.data-nivel]="nivelAcierto(p.acierto)">{{ pct(p.acierto) }}</span></td>
+                <td><div>{{ p.mundo }}</div><div class="sub">{{ p.nodo }} · {{ p.uso }}</div></td>
+              </tr>
+              <tr *ngIf="!r.preguntas.length"><td colspan="6" class="vacio">Todavía no hay suficientes respuestas.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ═══ Alertas ═══ -->
+      <section class="alertas" *ngIf="tab() === 'alertas'">
+        <details class="panel reglas">
+          <summary><mat-icon>help_outline</mat-icon> ¿Cuándo aparece una alerta?</summary>
+          <ul>
+            <li><b>No ha entrado</b>: está en la lista pero nunca abrió la nivelación.</li>
+            <li><b>Sin actividad</b>: no responde nada hace {{ r.reglas.dias_inactivo }} días o más y no ha terminado.</li>
+            <li><b>Acierto bajo</b>: menos de {{ r.reglas.acierto_bajo }} % con al menos {{ r.reglas.min_respuestas_acierto }} respuestas (al azar se acierta cerca de 25 %).</li>
+            <li><b>Atascado</b>: {{ r.reglas.atasco_respuestas_nodo }} respuestas o más en su nodo actual sin completarlo, o {{ r.reglas.atasco_respuestas_test }} en el test del mundo sin aprobarlo.</li>
+            <li><b>Bajar de nivel</b>: el agente analista sugiere un nivel menor al actual.</li>
+          </ul>
+        </details>
+        <div class="vacio panel" *ngIf="!conAlertas().length">No hay alumnos con alertas. 🎉</div>
+        <button type="button" class="panel alerta-item" *ngFor="let a of conAlertas()" (click)="abrirFicha(a)">
+          <div class="cab">
+            <div>
+              <div class="nombre">{{ a.nombre }}</div>
+              <div class="sub">{{ a.seccion }} · {{ a.estado }} · {{ a.progreso | number:'1.0-0' }} % de avance</div>
+            </div>
+            <span class="pct" [attr.data-nivel]="nivelAcierto(a.acierto)">{{ pct(a.acierto) }}</span>
+          </div>
+          <ul>
+            <li *ngFor="let m of a.alertas"><mat-icon>error_outline</mat-icon>{{ m }}</li>
+          </ul>
+        </button>
+      </section>
+    </ng-container>
+  </main>
+
+  <!-- Ficha del alumno -->
+  <div class="velo" *ngIf="seleccionado()" (click)="cerrarFicha()"></div>
+  <aside class="ficha" *ngIf="seleccionado() as a" role="dialog" aria-label="Ficha del alumno" (keydown.escape)="cerrarFicha()">
+    <header>
+      <div>
+        <h2>{{ a.nombre }}</h2>
+        <p class="sub">{{ a.correo }} · {{ a.seccion }}</p>
+      </div>
+      <button class="hbtn icono" type="button" (click)="cerrarFicha()" title="Cerrar"><mat-icon>close</mat-icon></button>
+    </header>
+
+    <div class="ficha-body">
+      <div class="fila-tags">
+        <span class="estado" [attr.data-estado]="a.estado">{{ a.estado }}</span>
+        <span class="tag">Nivel inicial: {{ a.nivel_inicial }}</span>
+        <span class="tag" *ngIf="a.nivel_actual && a.nivel_actual !== a.nivel_inicial">Nivel actual: {{ a.nivel_actual }}</span>
+        <span class="tag" [class.ok]="a.chatbot_habilitado">{{ a.chatbot_habilitado ? 'Chatbot habilitado' : 'Chatbot bloqueado' }}</span>
+      </div>
+
+      <div class="mini-kpis">
+        <div><strong>{{ a.progreso | number:'1.0-0' }} %</strong><span>avance</span></div>
+        <div><strong class="pct" [attr.data-nivel]="nivelAcierto(a.acierto)">{{ pct(a.acierto) }}</strong><span>acierto</span></div>
+        <div><strong>{{ a.respuestas }}</strong><span>respuestas</span></div>
+        <div><strong>{{ horas(a.minutos) }}</strong><span>tiempo aprox.</span></div>
+      </div>
+
+      <div class="alertas-ficha" *ngIf="a.alertas.length">
+        <div *ngFor="let m of a.alertas"><mat-icon>error_outline</mat-icon>{{ m }}</div>
+      </div>
+
+      <h3>Avance por mundo</h3>
+      <div class="mundo-fila" *ngFor="let m of a.por_mundo">
+        <div class="mf-top">
+          <span>{{ tituloMundo(m.mundo_id) }}</span>
+          <span class="sub">{{ m.nodos_completados }}/{{ m.total_nodos }} nodos</span>
+        </div>
+        <div class="barra" [class.lista]="m.completado"><div [style.width.%]="m.total_nodos ? m.nodos_completados * 100 / m.total_nodos : 0"></div></div>
+        <div class="sub test" [class.ok]="m.completado">{{ textoTest(m) }}</div>
+      </div>
+
+      <div class="porcentajes" *ngIf="a.respuestas">
+        <span>Fases <b class="pct" [attr.data-nivel]="nivelAcierto(a.acierto_fases)">{{ pct(a.acierto_fases) }}</b></span>
+        <span>Tests <b class="pct" [attr.data-nivel]="nivelAcierto(a.acierto_tests)">{{ pct(a.acierto_tests) }}</b></span>
+        <span>Entrenar <b class="pct" [attr.data-nivel]="nivelAcierto(a.acierto_entrenar)">{{ pct(a.acierto_entrenar) }}</b>
+          <small>({{ a.respuestas_entrenar }})</small></span>
+      </div>
+
+      <ng-container *ngIf="a.analisis as an">
+        <h3><mat-icon>psychology</mat-icon> Análisis del agente <small class="sub">{{ an.fecha | date:'dd/MM HH:mm' }}</small></h3>
+        <p class="resumen" *ngIf="an.resumen">{{ an.resumen }}</p>
+        <div class="fd">
+          <div *ngIf="an.fortalezas.length">
+            <b>Fortalezas</b>
+            <ul><li *ngFor="let f of an.fortalezas">{{ f }}</li></ul>
+          </div>
+          <div *ngIf="an.debilidades.length">
+            <b>Debilidades</b>
+            <ul><li *ngFor="let d of an.debilidades">{{ d }}</li></ul>
+          </div>
+        </div>
+        <p class="recomendacion" *ngIf="an.recomendacion"><mat-icon>lightbulb</mat-icon>{{ an.recomendacion }}</p>
+      </ng-container>
+
+      <h3>Últimas respuestas</h3>
+      <p class="muted" *ngIf="!a.uid">Este alumno todavía no entra a la nivelación.</p>
+      <p class="muted" *ngIf="cargandoDetalle()">Cargando…</p>
+      <p class="aviso error" *ngIf="errorDetalle()">{{ errorDetalle() }}</p>
+      <ng-container *ngIf="detalle() as d">
+        <p class="muted" *ngIf="!d.ultimas_respuestas.length">Sin respuestas todavía.</p>
+        <div class="resp-item" *ngFor="let x of d.ultimas_respuestas" [class.bien]="x.es_correcto">
+          <mat-icon>{{ x.es_correcto ? 'check_circle' : 'cancel' }}</mat-icon>
+          <div>
+            <div class="enun">{{ x.enunciado }}</div>
+            <div class="sub">
+              {{ contexto(x.contexto) }} · {{ x.nodo || x.mundo || 'General' }} · {{ x.created_at | date:'dd/MM HH:mm' }}
+              <ng-container *ngIf="!x.es_correcto && x.respuesta"> · respondió «{{ x.respuesta }}», correcta «{{ x.correcta }}»</ng-container>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  </aside>
+</div>
