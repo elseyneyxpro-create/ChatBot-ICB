@@ -354,10 +354,10 @@ flowchart LR
 | Termina la nivelación | pasa a `true` automáticamente |
 
 ```sql
--- Cargar alumnos nuevos con el nivel inicial que definen los profesores
-INSERT INTO whitelist_alumnos (email, activo, nivel_inicial) VALUES
-  ('alumno1@mail.udp.cl', true, 'Intermedio'),
-  ('alumno2@mail.udp.cl', true, 'Principiante');
+-- Cargar alumnos nuevos con el nivel inicial y la carrera que definen los profesores
+INSERT INTO whitelist_alumnos (email, nombre_completo, activo, nivel_inicial, carrera) VALUES
+  ('alumno1@mail.udp.cl', 'Nombre Apellido', true, 'Intermedio',   'Ingeniería Civil Industrial'),
+  ('alumno2@mail.udp.cl', 'Nombre Apellido', true, 'Principiante', 'Ingeniería Civil en Informática y Telecomunicaciones');
 
 -- Habilitar / bloquear a mano
 UPDATE whitelist_alumnos SET chatbot_habilitado = true  WHERE lower(email) = 'alumno1@mail.udp.cl';
@@ -394,7 +394,9 @@ VALUES
 
 Pantalla `/profesor` para ver el avance de los alumnos en la nivelación y descargar el reporte en Excel.
 
-**Quién entra.** El rol sale de `whitelist_alumnos.codigo_asignatura`: los alumnos llevan su sección (`CBM1101_VC03`, …) y el equipo lleva `STAFF`, `Staff` o `crack` (se compara sin mayúsculas). Esos usuarios ven el panel; un alumno que intente entrar es devuelto al chatbot y el backend responde `403`.
+Durante la nivelación los alumnos **todavía no tienen sección** (se les asigna al empezar el semestre), así que el panel los agrupa por **carrera** (`whitelist_alumnos.carrera`, texto libre que cargan los profesores junto con el nivel inicial). Los que no tienen carrera aparecen como «Sin carrera». La columna se crea al aplicar `deploy/sql/nivelacion.sql`.
+
+**Quién entra.** El rol sale de `whitelist_alumnos.codigo_asignatura`: el equipo lleva `STAFF`, `Staff` o `crack` (los alumnos llevan su sección o nada) (se compara sin mayúsculas). Esos usuarios ven el panel; un alumno que intente entrar es devuelto al chatbot y el backend responde `403`.
 
 ```sql
 -- Dar acceso al panel a un profesor
@@ -409,7 +411,7 @@ WHERE activo AND lower(trim(codigo_asignatura)) IN ('staff', 'crack');
 | Pestaña | Contenido |
 |---|---|
 | Alumnos | Estado (sin ingresar / en curso / completada), avance, dónde va, % de acierto, última actividad y ficha con avance por mundo, análisis del agente y últimas respuestas |
-| Secciones | Resumen por sección (clic para filtrar) |
+| Carreras | Resumen por carrera (clic para filtrar) |
 | Mundos y nodos | Acierto por nodo, cuántos lo completaron, atascados y respuestas promedio para completarlo |
 | Preguntas | Preguntas del banco de menor a mayor acierto y el **error más común** de cada una |
 | Alertas | No ha entrado · sin actividad ≥ 7 días · acierto < 50 % · atascado en un nodo o test · el analista sugiere bajar de nivel |
@@ -420,7 +422,7 @@ El Excel trae lo mismo en hojas (Resumen, Alumnos, Avance por mundo, Nodos, Preg
 
 - Los umbrales de las alertas están al inicio de `reportes/metricas.py`.
 - Si cambian las tablas de la nivelación (por ejemplo con el sistema ELO), solo hay que ajustar `reportes/datos.py`.
-- **Secciones por profesor:** hoy todo el staff ve todas las secciones. Para limitar cada profe a las suyas, basta con cambiar `secciones()` en `profesor.controller.ts` del backend (el servicio Python ya filtra por la lista que recibe, también en la ficha de un alumno).
+- **Filtrar por profesor:** hoy todo el staff ve todas las carreras. Para limitar a un profe, basta con cambiar `carreras()` en `profesor.controller.ts` del backend (el servicio Python ya filtra por la lista que recibe, también en la ficha de un alumno).
 
 ---
 
@@ -485,8 +487,8 @@ Todo bajo `/api` en producción (Nginx lo quita antes de llegar a NestJS). Todas
 
 | Método | Ruta | Qué hace |
 |---|---|---|
-| GET | `/v1/profesor/nivelacion?seccion=` | Reporte completo (resumen, secciones, mundos, nodos, preguntas, alumnos) |
-| GET | `/v1/profesor/nivelacion/excel?seccion=` | El mismo reporte en Excel |
+| GET | `/v1/profesor/nivelacion?carrera=` | Reporte completo (resumen, carreras, mundos, nodos, preguntas, alumnos) |
+| GET | `/v1/profesor/nivelacion/excel?carrera=` | El mismo reporte en Excel |
 | GET | `/v1/profesor/nivelacion/alumnos/:uid` | Últimas respuestas e historial del analista de un alumno |
 </details>
 

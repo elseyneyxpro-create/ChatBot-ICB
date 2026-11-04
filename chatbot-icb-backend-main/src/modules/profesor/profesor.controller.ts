@@ -7,7 +7,7 @@ import { StaffGuard } from './staff.guard';
 /**
  * Panel de profesores: reportes de la nivelación.
  * El cálculo y el Excel los hace el servicio Python (/reportes/...); aquí solo se valida
- * el rol y se decide qué secciones puede ver cada profesor.
+ * el rol y se decide qué carreras puede ver cada profesor.
  */
 @Controller({ path: 'profesor', version: '1' })
 @UseGuards(AuthGuard('jwt'), StaffGuard)
@@ -15,28 +15,30 @@ export class ProfesorController {
   constructor(private readonly ai: AiService) {}
 
   /**
-   * Secciones que se le piden al servicio Python (undefined = todas).
+   * Carreras que se le piden al servicio Python (undefined = todas).
+   * Durante la nivelación los alumnos aún no tienen sección, así que se agrupan por carrera
+   * (whitelist_alumnos.carrera).
    *
-   * Hoy todo el staff ve todas las secciones. Cuando cada profesor tenga sus secciones
-   * asignadas, basta con buscarlas aquí (por ejemplo en una tabla profesor_seccion por correo),
-   * devolver solo la intersección con la `seccion` pedida y rechazar las que no le correspondan.
+   * Hoy todo el staff ve todas las carreras. Si más adelante cada profesor debe ver solo
+   * algunas, basta con buscarlas aquí (por ejemplo en una tabla por correo del profesor),
+   * devolver la intersección con la `carrera` pedida y rechazar las que no le correspondan.
    */
-  private secciones(_req: any, seccion?: string): string | undefined {
-    if (seccion === undefined || seccion === '') return undefined;
-    if (seccion.length > 80 || seccion.includes(',')) throw new BadRequestException('Sección inválida.');
-    return seccion;
+  private carreras(_req: any, carrera?: string): string | undefined {
+    if (carrera === undefined || carrera === '') return undefined;
+    if (carrera.length > 120 || carrera.includes(',')) throw new BadRequestException('Carrera inválida.');
+    return carrera;
   }
 
-  /** Todo el reporte (resumen, por sección, por mundo, por nodo, preguntas y alumnos). */
+  /** Todo el reporte (resumen, por carrera, por mundo, por nodo, preguntas y alumnos). */
   @Get('nivelacion')
-  nivelacion(@Req() req: any, @Query('seccion') seccion?: string) {
-    return this.ai.get('/reportes/nivelacion', { secciones: this.secciones(req, seccion) });
+  nivelacion(@Req() req: any, @Query('carrera') carrera?: string) {
+    return this.ai.get('/reportes/nivelacion', { carreras: this.carreras(req, carrera) });
   }
 
   /** El mismo reporte como Excel. */
   @Get('nivelacion/excel')
-  async excel(@Req() req: any, @Res() res: Response, @Query('seccion') seccion?: string) {
-    const archivo = await this.ai.getArchivo('/reportes/nivelacion/excel', { secciones: this.secciones(req, seccion) });
+  async excel(@Req() req: any, @Res() res: Response, @Query('carrera') carrera?: string) {
+    const archivo = await this.ai.getArchivo('/reportes/nivelacion/excel', { carreras: this.carreras(req, carrera) });
     res.setHeader('Content-Type', archivo.contentType);
     res.setHeader('Content-Disposition', archivo.disposition ?? 'attachment; filename="reporte_nivelacion.xlsx"');
     res.setHeader('Cache-Control', 'no-store');
@@ -45,10 +47,10 @@ export class ProfesorController {
 
   /** Ficha de un alumno: últimas respuestas e historial del agente analista. */
   @Get('nivelacion/alumnos/:uid')
-  alumno(@Req() req: any, @Param('uid') uid: string, @Query('seccion') seccion?: string) {
+  alumno(@Req() req: any, @Param('uid') uid: string, @Query('carrera') carrera?: string) {
     if (!/^[\w-]{1,64}$/.test(uid)) throw new BadRequestException('Alumno inválido.');
     return this.ai.get(`/reportes/nivelacion/alumno/${encodeURIComponent(uid)}`, {
-      secciones: this.secciones(req, seccion),
+      carreras: this.carreras(req, carrera),
     });
   }
 }

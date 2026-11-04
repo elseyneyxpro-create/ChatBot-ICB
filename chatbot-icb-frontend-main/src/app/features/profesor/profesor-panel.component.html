@@ -30,10 +30,10 @@
       </div>
       <div class="controles">
         <label class="campo">
-          <span>Sección</span>
-          <select [ngModel]="seccion() ?? ''" (ngModelChange)="cambiarSeccion($event)" [disabled]="cargando()">
-            <option value="">Todas las secciones</option>
-            <option *ngFor="let s of reporte()?.secciones_disponibles ?? []" [value]="s">{{ s }}</option>
+          <span>Carrera</span>
+          <select [ngModel]="carrera() ?? ''" (ngModelChange)="cambiarCarrera($event)" [disabled]="cargando()">
+            <option value="">Todas las carreras</option>
+            <option *ngFor="let s of reporte()?.carreras_disponibles ?? []" [value]="s">{{ s }}</option>
           </select>
         </label>
         <button class="btn" type="button" (click)="cargar()" [disabled]="cargando()" title="Actualizar datos">
@@ -130,7 +130,7 @@
             <thead>
               <tr>
                 <th><button type="button" (click)="ordenar('nombre')">Alumno <mat-icon>{{ flecha('nombre') }}</mat-icon></button></th>
-                <th><button type="button" (click)="ordenar('seccion')">Sección <mat-icon>{{ flecha('seccion') }}</mat-icon></button></th>
+                <th><button type="button" (click)="ordenar('carrera')">Carrera <mat-icon>{{ flecha('carrera') }}</mat-icon></button></th>
                 <th><button type="button" (click)="ordenar('estado')">Estado <mat-icon>{{ flecha('estado') }}</mat-icon></button></th>
                 <th class="w-avance"><button type="button" (click)="ordenar('progreso')">Avance <mat-icon>{{ flecha('progreso') }}</mat-icon></button></th>
                 <th>Dónde va</th>
@@ -146,7 +146,7 @@
                   <div class="nombre">{{ a.nombre }}</div>
                   <div class="sub">{{ a.correo }}</div>
                 </td>
-                <td><span class="tag">{{ a.seccion || '—' }}</span></td>
+                <td><span class="tag carrera">{{ a.carrera || 'Sin carrera' }}</span></td>
                 <td><span class="estado" [attr.data-estado]="a.estado">{{ a.estado }}</span></td>
                 <td class="w-avance">
                   <div class="barra"><div [style.width.%]="a.progreso"></div></div>
@@ -179,20 +179,20 @@
         </div>
       </section>
 
-      <!-- ═══ Secciones ═══ -->
-      <section class="panel" *ngIf="tab() === 'secciones'">
+      <!-- ═══ Carreras ═══ -->
+      <section class="panel" *ngIf="tab() === 'carreras'">
         <div class="tabla-wrap">
           <table class="tabla">
             <thead>
               <tr>
-                <th>Sección</th><th class="num">Alumnos</th><th class="num">Entraron</th><th class="num">Completaron</th>
+                <th>Carrera</th><th class="num">Alumnos</th><th class="num">Entraron</th><th class="num">Completaron</th>
                 <th class="num">Sin ingresar</th><th class="w-avance">Avance promedio</th><th class="num">Acierto</th>
                 <th class="num">Activos 7 días</th><th class="num">Con alertas</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let s of r.por_seccion" class="clic" (click)="cambiarSeccion(s.seccion)" title="Ver solo esta sección">
-                <td><span class="tag">{{ s.seccion }}</span></td>
+              <tr *ngFor="let s of r.por_carrera" class="clic" (click)="cambiarCarrera(s.carrera)" title="Ver solo esta carrera">
+                <td><span class="tag carrera">{{ s.carrera }}</span></td>
                 <td class="num">{{ s.alumnos }}</td>
                 <td class="num">{{ s.ingresaron }}</td>
                 <td class="num">{{ s.completaron }}</td>
@@ -208,7 +208,7 @@
             </tbody>
           </table>
         </div>
-        <p class="muted pie">Haz clic en una sección para ver solo sus alumnos.</p>
+        <p class="muted pie">Haz clic en una carrera para ver solo sus alumnos.</p>
       </section>
 
       <!-- ═══ Mundos y nodos ═══ -->
@@ -302,7 +302,7 @@
           <div class="cab">
             <div>
               <div class="nombre">{{ a.nombre }}</div>
-              <div class="sub">{{ a.seccion }} · {{ a.estado }} · {{ a.progreso | number:'1.0-0' }} % de avance</div>
+              <div class="sub">{{ a.carrera || 'Sin carrera' }} · {{ a.estado }} · {{ a.progreso | number:'1.0-0' }} % de avance</div>
             </div>
             <span class="pct" [attr.data-nivel]="nivelAcierto(a.acierto)">{{ pct(a.acierto) }}</span>
           </div>
@@ -320,7 +320,7 @@
     <header>
       <div>
         <h2>{{ a.nombre }}</h2>
-        <p class="sub">{{ a.correo }} · {{ a.seccion }}</p>
+        <p class="sub">{{ a.correo }} · {{ a.carrera || 'Sin carrera' }}</p>
       </div>
       <button class="hbtn icono" type="button" (click)="cerrarFicha()" title="Cerrar"><mat-icon>close</mat-icon></button>
     </header>

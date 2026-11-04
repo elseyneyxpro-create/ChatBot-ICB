@@ -6,7 +6,7 @@ fuente_datos.py de los reportes del chat). Todo se agrega en SQL para que el
 reporte siga siendo rápido aunque haya cientos de alumnos y miles de respuestas.
 
 Tablas que lee (todas de PostgreSQL):
-  whitelist_alumnos            → quiénes son alumnos y su sección (codigo_asignatura)
+  whitelist_alumnos            → quiénes son alumnos (codigo_asignatura) y su carrera (carrera)
   niv_banco.mundo / nodo / pregunta
   niv_progreso.estudiante      → nivel, XP (existe desde que el alumno entra por primera vez)
   niv_progreso.progreso_nodo   → fases aprobadas por nodo
@@ -18,8 +18,10 @@ Si el sistema ELO cambia estas tablas, este es el único archivo que hay que aju
 """
 from app.core.postgres import fetch_all
 
-# En whitelist_alumnos.codigo_asignatura los alumnos llevan su sección y el equipo
-# lleva alguno de estos valores (se comparan sin mayúsculas/minúsculas).
+# En whitelist_alumnos.codigo_asignatura los alumnos llevan su sección (o nada, si aún
+# no tienen) y el equipo lleva alguno de estos valores (se comparan sin mayúsculas/minúsculas).
+# Durante la nivelación los alumnos todavía no tienen sección: se agrupan por carrera
+# (whitelist_alumnos.carrera, la cargan los profesores junto con el nivel inicial).
 CODIGOS_STAFF = ("staff", "crack")
 
 # Fases que debe aprobar un alumno para completar un nodo (igual que REGLAS.FASES_POR_NODO del backend).
@@ -32,36 +34,36 @@ ZONA = "America/Santiago"
 _ES_ALUMNO = "lower(trim(coalesce(w.codigo_asignatura, ''))) <> ALL(%(staff)s)"
 
 
-def _params(secciones: list[str] | None) -> dict:
-    return {"staff": list(CODIGOS_STAFF), "secciones": secciones, "fases": FASES_POR_NODO,
+def _params(carreras: list[str] | None) -> dict:
+    return {"staff": list(CODIGOS_STAFF), "carreras": carreras, "fases": FASES_POR_NODO,
             "completo": FASE_TEST_COMPLETO, "zona": ZONA}
 
 
-def _filtro_seccion(secciones: list[str] | None) -> str:
-    return "AND w.codigo_asignatura = ANY(%(secciones)s)" if secciones else ""
+def _filtro_carrera(carreras: list[str] | None) -> str:
+    return "AND w.carrera = ANY(%(carreras)s)" if carreras else ""
 
 
 # CTE con un alumno por correo (la whitelist puede tener el mismo correo repetido).
-def _cte_alumnos(secciones: list[str] | None) -> str:
+def _cte_alumnos(carreras: list[str] | None) -> str:
     return f"""
     alumnos AS (
       SELECT DISTINCT ON (lower(w.email))
-             lower(w.email) AS correo, w.nombre_completo, w.codigo_asignatura AS seccion,
+             lower(w.email) AS correo, w.nombre_completo, w.carrera,
              w.nivel_inicial, w.chatbot_habilitado
         FROM whitelist_alumnos w
-       WHERE w.activo AND {_ES_ALUMNO} {_filtro_seccion(secciones)}
+       WHERE w.activo AND {_ES_ALUMNO} {_filtro_carrera(carreras)}
        ORDER BY lower(w.email), w.created_at
     )"""
 
 
-def secciones_disponibles() -> list[str]:
+def carreras_disponibles() -> list[str]:
     rows = fetch_all(
-        f"""SELECT DISTINCT w.codigo_asignatura AS seccion FROM whitelist_alumnos w
-             WHERE w.activo AND w.codigo_asignatura IS NOT NULL AND {_ES_ALUMNO}
+        f"""SELECT DISTINCT w.carrera FROM whitelist_alumnos w
+             WHERE w.activo AND w.carrera IS NOT NULL AND w.carrera <> '' AND {_ES_ALUMNO}
              ORDER BY 1""",
         _params(None),
     )
-    return [r["seccion"] for r in rows]
+    return [r["carrera"] for r in rows]
 
 
 def mundos_y_nodos() -> tuple[list[dict], list[dict]]:
@@ -76,11 +78,11 @@ def mundos_y_nodos() -> tuple[list[dict], list[dict]]:
     return mundos, nodos
 
 
-def alumnos(secciones: list[str] | None) -> list[dict]:
+def alumnos(carreras: list[str] | None) -> list[dict]:
     """Un registro por alumno, con o sin actividad en la nivelación."""
     return fetch_all(
         f"""
-        WITH {_cte_alumnos(secciones)},
+        WITH {_cte_alumnos(carreras)},
         uids AS (
           SELECT e.uid FROM alumnos a JOIN niv_progreso.estudiante e ON lower(e.correo) = a.correo
         ),
@@ -119,7 +121,7 @@ def alumnos(secciones: list[str] | None) -> list[dict]:
           SELECT pt.uid, count(*) FILTER (WHERE pt.fase >= %(completo)s)::int AS mundos_completados
             FROM niv_progreso.progreso_test pt GROUP BY pt.uid
         )
-        SELECT a.correo, a.nombre_completo AS nombre, a.seccion, a.nivel_inicial, a.chatbot_habilitado,
+        SELECT a.correo, a.nombre_completo AS nombre, a.carrera, a.nivel_inicial, a.chatbot_habilitado,
                e.uid, e.nivel AS nivel_actual, coalesce(e.xp, 0) AS xp, e.created_at AS primer_ingreso,
                coalesce(s.intentos, 0) AS intentos, coalesce(s.correctas, 0) AS correctas,
                coalesce(s.intentos_fase, 0) AS intentos_fase, coalesce(s.correctas_fase, 0) AS correctas_fase,
@@ -136,9 +138,9 @@ def alumnos(secciones: list[str] | None) -> list[dict]:
           LEFT JOIN tiempo t  ON t.uid  = e.uid
           LEFT JOIN nodos  n  ON n.uid  = e.uid
           LEFT JOIN tests  ts ON ts.uid = e.uid
-         ORDER BY a.seccion, a.nombre_completo
+         ORDER BY a.carrera NULLS LAST, a.nombre_completo
         """,
-        _params(secciones),
+        _params(carreras),
     )
 
 

@@ -38,7 +38,7 @@ def _local(v: datetime.datetime | None) -> datetime.datetime | None:
     return v.astimezone(ZONA) if v else None
 
 
-def generar(secciones: list[str] | None = None) -> dict:
+def generar(carreras: list[str] | None = None) -> dict:
     ahora = datetime.datetime.now(ZONA)
     mundos, nodos = datos.mundos_y_nodos()
     nodos_por_mundo: dict[int, list[dict]] = defaultdict(list)
@@ -48,7 +48,7 @@ def generar(secciones: list[str] | None = None) -> dict:
     total_nodos = len(nodos)
     total_mundos = len(mundos)
 
-    filas = datos.alumnos(secciones)
+    filas = datos.alumnos(carreras)
     uids = [f["uid"] for f in filas if f["uid"]]
     prog_nodo: dict[str, dict[int, dict]] = defaultdict(dict)
     for r in datos.progreso_nodos(uids):
@@ -142,7 +142,7 @@ def generar(secciones: list[str] | None = None) -> dict:
             "uid": uid,
             "correo": f["correo"],
             "nombre": f["nombre"],
-            "seccion": f["seccion"],
+            "carrera": f["carrera"],
             "estado": estado,
             "nivel_inicial": f["nivel_inicial"],
             "nivel_actual": f["nivel_actual"],
@@ -228,7 +228,7 @@ def generar(secciones: list[str] | None = None) -> dict:
         })
     preguntas.sort(key=lambda p: (p["acierto"], -p["respuestas"]))
 
-    # ── Resumen general y por sección ────────────────────────────────────────
+    # ── Resumen general y por carrera ────────────────────────────────────────
     def resumir(grupo: list[dict]) -> dict:
         activos = [a for a in grupo if a["uid"]]
         con_resp = [a for a in grupo if a["respuestas"] > 0]
@@ -246,10 +246,10 @@ def generar(secciones: list[str] | None = None) -> dict:
             "horas_totales": round(sum(a["minutos"] for a in grupo) / 60, 1),
         }
 
-    por_seccion = []
-    for sec in sorted({a["seccion"] or "Sin sección" for a in alumnos}):
-        grupo = [a for a in alumnos if (a["seccion"] or "Sin sección") == sec]
-        por_seccion.append({"seccion": sec, **resumir(grupo)})
+    por_carrera = []
+    for sec in sorted({a["carrera"] or "Sin carrera" for a in alumnos}):
+        grupo = [a for a in alumnos if (a["carrera"] or "Sin carrera") == sec]
+        por_carrera.append({"carrera": sec, **resumir(grupo)})
 
     resumen = resumir(alumnos)
     candidatos = [n for n in por_nodo if n["respuestas"] >= MIN_RESPUESTAS_NODO and n["acierto"] is not None]
@@ -258,8 +258,8 @@ def generar(secciones: list[str] | None = None) -> dict:
 
     return {
         "generado": ahora.isoformat(),
-        "secciones": secciones,
-        "secciones_disponibles": datos.secciones_disponibles(),
+        "carreras": carreras,
+        "carreras_disponibles": datos.carreras_disponibles(),
         "reglas": {
             "fases_por_nodo": datos.FASES_POR_NODO,
             "dias_inactivo": DIAS_INACTIVO,
@@ -272,7 +272,7 @@ def generar(secciones: list[str] | None = None) -> dict:
         "mundos": [{"id": m["id"], "orden": m["orden"], "titulo": m["titulo"],
                     "total_nodos": len(nodos_por_mundo[m["id"]])} for m in mundos],
         "resumen": resumen,
-        "por_seccion": por_seccion,
+        "por_carrera": por_carrera,
         "por_mundo": por_mundo,
         "por_nodo": por_nodo,
         "preguntas": preguntas,

@@ -119,7 +119,7 @@ def _num(v):
 def generar_excel(r: dict) -> bytes:
     wb = Workbook()
     generado = _fecha(r["generado"])
-    filtro = ", ".join(r["secciones"]) if r["secciones"] else "Todas las secciones"
+    filtro = ", ".join(r["carreras"]) if r["carreras"] else "Todas las carreras"
     sub = f"Generado el {generado}  |  {filtro}  |  {len(r['alumnos'])} alumnos"
     res = r["resumen"]
 
@@ -150,11 +150,11 @@ def generar_excel(r: dict) -> bytes:
 
     ws.append([])
     ws.append([])
-    _encabezado(ws, ["Sección", "Alumnos", "Entraron", "Completaron", "En curso", "No han entrado",
+    _encabezado(ws, ["Carrera", "Alumnos", "Entraron", "Completaron", "En curso", "No han entrado",
                      "Avance promedio", "Acierto", "Con alertas", "Activos 7 días"],
                 [40, 18, 34, 14, 12, 16, 16, 12, 14, 14], AZUL_OSC)
-    for s in r["por_seccion"]:
-        _fila(ws, [s["seccion"], s["alumnos"], s["ingresaron"], s["completaron"], s["en_curso"], s["sin_ingresar"],
+    for s in r["por_carrera"]:
+        _fila(ws, [s["carrera"], s["alumnos"], s["ingresaron"], s["completaron"], s["en_curso"], s["sin_ingresar"],
                    s["progreso_promedio"], _num(s["acierto"]), s["con_alertas"], s["activos_ultima_semana"]],
               formatos={6: FMT_PCT, 7: FMT_PCT})
 
@@ -172,15 +172,15 @@ def generar_excel(r: dict) -> bytes:
     ws = wb.create_sheet("Alumnos")
     _titulo(ws, "AVANCE POR ALUMNO", 23, sub=sub)
     _encabezado(ws, [
-        "N°", "Nombre", "Correo", "Sección", "Estado", "Nivel inicial", "Nivel actual", "Avance",
+        "N°", "Nombre", "Correo", "Carrera", "Estado", "Nivel inicial", "Nivel actual", "Avance",
         "Nodos completados", "Mundos completados", "Mundo actual", "Nodo actual",
         "Respuestas", "% Acierto", "% Acierto fases", "% Acierto tests", "% Acierto entrenar",
         "Días con actividad", "Tiempo aprox.*", "Última actividad", "Días sin actividad",
         "Chatbot habilitado", "Alertas",
-    ], [5, 30, 30, 16, 14, 14, 14, 10, 12, 12, 26, 28, 12, 11, 11, 11, 11, 11, 12, 18, 11, 11, 60])
+    ], [5, 30, 30, 32, 14, 14, 14, 10, 12, 12, 26, 28, 12, 11, 11, 11, 11, 11, 12, 18, 11, 11, 60])
     for i, a in enumerate(r["alumnos"], 1):
         _fila(ws, [
-            i, a["nombre"], a["correo"], a["seccion"], a["estado"], a["nivel_inicial"], a["nivel_actual"] or "",
+            i, a["nombre"], a["correo"], a["carrera"], a["estado"], a["nivel_inicial"], a["nivel_actual"] or "",
             a["progreso"], f"{a['nodos_completados']}/{a['total_nodos']}", f"{a['mundos_completados']}/{a['total_mundos']}",
             a["mundo_actual"] or "", a["nodo_actual"] or "",
             a["respuestas"], _num(a["acierto"]), _num(a["acierto_fases"]), _num(a["acierto_tests"]),
@@ -197,15 +197,15 @@ def generar_excel(r: dict) -> bytes:
 
     # ── 3. Avance por mundo (matriz) ─────────────────────────────────────────
     ws = wb.create_sheet("Avance por mundo")
-    headers = ["Nombre", "Sección"]
-    widths = [30, 16]
+    headers = ["Nombre", "Carrera"]
+    widths = [30, 30]
     for m in r["mundos"]:
         headers += [f"{m['orden']}. {m['titulo']} · nodos", f"{m['orden']}. Test"]
         widths += [16, 16]
     _titulo(ws, "AVANCE POR MUNDO", len(headers), sub=sub)
     _encabezado(ws, headers, widths)
     for a in r["alumnos"]:
-        valores, colores = [a["nombre"], a["seccion"]], {}
+        valores, colores = [a["nombre"], a["carrera"]], {}
         for j, pm in enumerate(a["por_mundo"]):
             if not a["uid"]:
                 valores += ["—", "—"]
@@ -258,11 +258,11 @@ def generar_excel(r: dict) -> bytes:
     # ── 6. Alertas ───────────────────────────────────────────────────────────
     ws = wb.create_sheet("Alertas")
     _titulo(ws, "ALUMNOS QUE REQUIEREN ATENCIÓN", 7, ROJO, sub=sub)
-    _encabezado(ws, ["Nombre", "Sección", "Estado", "Avance", "% Acierto", "Última actividad", "Motivos"],
-                [30, 16, 14, 10, 11, 18, 80], ROJO)
+    _encabezado(ws, ["Nombre", "Carrera", "Estado", "Avance", "% Acierto", "Última actividad", "Motivos"],
+                [30, 30, 14, 10, 11, 18, 80], ROJO)
     con = [a for a in r["alumnos"] if a["alertas"]]
-    for a in sorted(con, key=lambda a: (-len(a["alertas"]), a["seccion"] or "", a["nombre"])):
-        _fila(ws, [a["nombre"], a["seccion"], a["estado"], a["progreso"], _num(a["acierto"]),
+    for a in sorted(con, key=lambda a: (-len(a["alertas"]), a["carrera"] or "", a["nombre"])):
+        _fila(ws, [a["nombre"], a["carrera"], a["estado"], a["progreso"], _num(a["acierto"]),
                    _fecha(a["ultima_actividad"]), "\n".join(a["alertas"])],
               formatos={3: FMT_PCT, 4: FMT_PCT}, color=ROJO_CLARO)
     if not con:
@@ -272,14 +272,14 @@ def generar_excel(r: dict) -> bytes:
     # ── 7. Análisis del agente ──────────────────────────────────────────────
     ws = wb.create_sheet("Análisis IA")
     _titulo(ws, "ÚLTIMO ANÁLISIS DEL AGENTE ANALISTA", 9, MORADO, sub=sub)
-    _encabezado(ws, ["Nombre", "Sección", "Fecha", "Nivel actual", "Nivel sugerido", "Fortalezas", "Debilidades",
+    _encabezado(ws, ["Nombre", "Carrera", "Fecha", "Nivel actual", "Nivel sugerido", "Fortalezas", "Debilidades",
                      "Recomendación", "Resumen"],
-                [30, 16, 18, 13, 13, 40, 40, 50, 60], MORADO)
+                [30, 30, 18, 13, 13, 40, 40, 50, 60], MORADO)
     for a in r["alumnos"]:
         an = a["analisis"]
         if not an:
             continue
-        _fila(ws, [a["nombre"], a["seccion"], _fecha(an["fecha"]), a["nivel_actual"] or "", an["nivel_sugerido"] or "",
+        _fila(ws, [a["nombre"], a["carrera"], _fecha(an["fecha"]), a["nivel_actual"] or "", an["nivel_sugerido"] or "",
                    "\n".join(an["fortalezas"]), "\n".join(an["debilidades"]), an["recomendacion"] or "",
                    an["resumen"] or ""])
     ws.freeze_panes = "B4"

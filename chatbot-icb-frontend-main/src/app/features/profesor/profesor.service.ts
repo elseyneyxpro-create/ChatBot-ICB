@@ -14,7 +14,7 @@ export interface AlumnoReporte {
   uid: string | null;
   correo: string;
   nombre: string;
-  seccion: string | null;
+  carrera: string | null;
   estado: EstadoAlumno;
   nivel_inicial: string;
   nivel_actual: string | null;
@@ -50,15 +50,15 @@ export interface ResumenGrupo {
 
 export interface ReporteNivelacion {
   generado: string;
-  secciones: string[] | null;
-  secciones_disponibles: string[];
+  carreras: string[] | null;
+  carreras_disponibles: string[];
   reglas: {
     fases_por_nodo: number; dias_inactivo: number; acierto_bajo: number; min_respuestas_acierto: number;
     atasco_respuestas_nodo: number; atasco_respuestas_test: number; min_respuestas_pregunta: number;
   };
   mundos: { id: number; orden: number; titulo: string; total_nodos: number }[];
   resumen: ResumenGrupo & { nodo_mas_dificil: { mundo: string; nodo: string; acierto: number } | null };
-  por_seccion: (ResumenGrupo & { seccion: string })[];
+  por_carrera: (ResumenGrupo & { carrera: string })[];
   por_mundo: {
     mundo_id: number; orden: number; mundo: string; total_nodos: number;
     alumnos_llegaron: number; alumnos_completaron: number; acierto_fases: number | null;
@@ -94,23 +94,23 @@ export class ProfesorService {
   private http = inject(HttpClient);
   private base = `${environment.AGENTS_URL}/profesor/nivelacion`;
 
-  private params(seccion: string | null) {
-    return seccion ? new HttpParams().set('seccion', seccion) : undefined;
+  private params(carrera: string | null) {
+    return carrera ? new HttpParams().set('carrera', carrera) : undefined;
   }
 
-  reporte(seccion: string | null) {
-    return firstValueFrom(this.http.get<ReporteNivelacion>(this.base, { params: this.params(seccion) }));
+  reporte(carrera: string | null) {
+    return firstValueFrom(this.http.get<ReporteNivelacion>(this.base, { params: this.params(carrera) }));
   }
 
-  detalle(uid: string, seccion: string | null) {
+  detalle(uid: string, carrera: string | null) {
     return firstValueFrom(this.http.get<DetalleAlumno>(`${this.base}/alumnos/${encodeURIComponent(uid)}`,
-      { params: this.params(seccion) }));
+      { params: this.params(carrera) }));
   }
 
   /** Descarga el Excel con el nombre que manda el servidor. */
-  async descargarExcel(seccion: string | null): Promise<void> {
+  async descargarExcel(carrera: string | null): Promise<void> {
     const res: HttpResponse<Blob> = await firstValueFrom(this.http.get(`${this.base}/excel`, {
-      params: this.params(seccion), responseType: 'blob', observe: 'response',
+      params: this.params(carrera), responseType: 'blob', observe: 'response',
     }));
     const disp = res.headers.get('content-disposition') ?? '';
     const nombre = /filename="?([^";]+)"?/.exec(disp)?.[1] ?? 'reporte_nivelacion.xlsx';
@@ -125,7 +125,7 @@ export class ProfesorService {
   }
 
   static mensajeError(e: any, def = 'No se pudo cargar el reporte. Intenta de nuevo.'): string {
-    if (e?.status === 403) return 'Esta sección es solo para profesores.';
+    if (e?.status === 403) return 'Este panel es solo para profesores.';
     if (e?.status === 0) return 'No hay conexión con el servidor.';
     const m = e?.error?.message;
     if (typeof m === 'string') return m;

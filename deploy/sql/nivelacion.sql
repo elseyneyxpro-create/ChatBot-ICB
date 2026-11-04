@@ -97,6 +97,11 @@ BEGIN
   END IF;
 END $$;
 
+-- Carrera de cada alumno (Ing. Civil Industrial, Ing. Civil en Informática y Telecomunicaciones…).
+-- La cargan los profesores junto con el nivel inicial. Durante la nivelación los alumnos aún no
+-- tienen sección, así que el panel docente los agrupa por carrera. Texto libre; NULL = sin carrera.
+ALTER TABLE IF EXISTS public.whitelist_alumnos ADD COLUMN IF NOT EXISTS carrera text;
+
 -- (versión anterior usaba una tabla aparte; ya no se usa)
 DROP TABLE IF EXISTS niv_progreso.chatbot_habilitado;
 

@@ -7,12 +7,13 @@ import { AuthService } from '../../core/auth.service';
 import { ThemeService } from '../../core/theme.service';
 import { AlumnoReporte, DetalleAlumno, ProfesorService, ReporteNivelacion } from './profesor.service';
 
-type Tab = 'alumnos' | 'secciones' | 'mundos' | 'preguntas' | 'alertas';
+type Tab = 'alumnos' | 'carreras' | 'mundos' | 'preguntas' | 'alertas';
 type FiltroEstado = 'todos' | 'En curso' | 'Completada' | 'Sin ingresar' | 'alertas';
-type ColOrden = 'nombre' | 'seccion' | 'estado' | 'progreso' | 'acierto' | 'ultima' | 'alertas';
+type ColOrden = 'nombre' | 'carrera' | 'estado' | 'progreso' | 'acierto' | 'ultima' | 'alertas';
 
-const LS_SECCION = 'axi-prof-seccion';
+const LS_CARRERA = 'axi-prof-carrera';
 const LS_TAB = 'axi-prof-tab';
+const TABS: Tab[] = ['alumnos', 'carreras', 'mundos', 'preguntas', 'alertas'];
 
 const leer = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
 const guardar = (k: string, v: string | null) => {
@@ -41,8 +42,8 @@ export class ProfesorPanelComponent implements OnInit {
   descargando = signal(false);
   errorDescarga = signal<string | null>(null);
 
-  seccion = signal<string | null>(leer(LS_SECCION));
-  tab = signal<Tab>((leer(LS_TAB) as Tab) || 'alumnos');
+  carrera = signal<string | null>(leer(LS_CARRERA));
+  tab = signal<Tab>(TABS.includes(leer(LS_TAB) as Tab) ? (leer(LS_TAB) as Tab) : 'alumnos');
 
   busqueda = signal('');
   filtroEstado = signal<FiltroEstado>('todos');
@@ -55,7 +56,7 @@ export class ProfesorPanelComponent implements OnInit {
 
   readonly tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'alumnos', label: 'Alumnos', icon: 'groups' },
-    { id: 'secciones', label: 'Secciones', icon: 'school' },
+    { id: 'carreras', label: 'Carreras', icon: 'engineering' },
     { id: 'mundos', label: 'Mundos y nodos', icon: 'route' },
     { id: 'preguntas', label: 'Preguntas', icon: 'quiz' },
     { id: 'alertas', label: 'Alertas', icon: 'warning_amber' },
@@ -103,7 +104,7 @@ export class ProfesorPanelComponent implements OnInit {
     const val = (a: AlumnoReporte): string | number => {
       switch (col) {
         case 'nombre': return this.normalizar(a.nombre);
-        case 'seccion': return a.seccion ?? '';
+        case 'carrera': return a.carrera ?? '';
         case 'estado': return ['Sin ingresar', 'En curso', 'Completada'].indexOf(a.estado);
         case 'progreso': return a.progreso;
         case 'acierto': return a.acierto ?? -1;
@@ -132,10 +133,10 @@ export class ProfesorPanelComponent implements OnInit {
     this.cargando.set(true);
     this.error.set(null);
     try {
-      const r = await this.api.reporte(this.seccion());
-      // Si la sección guardada ya no existe, volver a "todas"
-      if (this.seccion() && !r.secciones_disponibles.includes(this.seccion()!)) {
-        this.cambiarSeccion(null);
+      const r = await this.api.reporte(this.carrera());
+      // Si la carrera guardada ya no existe, volver a "todas"
+      if (this.carrera() && !r.carreras_disponibles.includes(this.carrera()!)) {
+        this.cambiarCarrera(null);
         return;
       }
       this.reporte.set(r);
@@ -146,9 +147,9 @@ export class ProfesorPanelComponent implements OnInit {
     }
   }
 
-  cambiarSeccion(s: string | null) {
-    this.seccion.set(s || null);
-    guardar(LS_SECCION, s || null);
+  cambiarCarrera(s: string | null) {
+    this.carrera.set(s || null);
+    guardar(LS_CARRERA, s || null);
     this.cerrarFicha();
     this.cargar();
   }
@@ -161,7 +162,7 @@ export class ProfesorPanelComponent implements OnInit {
   ordenar(col: ColOrden) {
     const o = this.orden();
     // Primer clic: texto A→Z, números de mayor a menor
-    const inicial: 1 | -1 = col === 'nombre' || col === 'seccion' ? 1 : -1;
+    const inicial: 1 | -1 = col === 'nombre' || col === 'carrera' ? 1 : -1;
     this.orden.set({ col, dir: o.col === col ? (o.dir === 1 ? -1 : 1) : inicial });
   }
 
@@ -174,7 +175,7 @@ export class ProfesorPanelComponent implements OnInit {
     this.descargando.set(true);
     this.errorDescarga.set(null);
     try {
-      await this.api.descargarExcel(this.seccion());
+      await this.api.descargarExcel(this.carrera());
     } catch (e) {
       this.errorDescarga.set(ProfesorService.mensajeError(e, 'No se pudo generar el Excel.'));
     } finally {
@@ -189,7 +190,7 @@ export class ProfesorPanelComponent implements OnInit {
     if (!a.uid) return;
     this.cargandoDetalle.set(true);
     try {
-      const d = await this.api.detalle(a.uid, this.seccion());
+      const d = await this.api.detalle(a.uid, this.carrera());
       if (this.seleccionado()?.uid === a.uid) this.detalle.set(d);
     } catch (e) {
       this.errorDetalle.set(ProfesorService.mensajeError(e, 'No se pudo cargar el detalle.'));
