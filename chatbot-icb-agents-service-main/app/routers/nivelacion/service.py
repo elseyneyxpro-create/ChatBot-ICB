@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.core.postgres import execute, fetch_all
 from app.routers.nivelacion.prompts import (
     ANALISTA_HUMAN, ANALISTA_SYSTEM, GENERADOR_HUMAN, GENERADOR_SYSTEM,
-    RETRO_HUMAN, RETRO_SYSTEM, TUTOR_INICIO, TUTOR_SYSTEM,
+    RETRO_HUMAN, RETRO_SYSTEM, TUTOR_INICIO, TUTOR_SYSTEM, VERIFICADOR_SYSTEM,
 )
 
 logger = logging.getLogger("icb.niv")
@@ -69,15 +69,40 @@ def generar_pregunta(mundo: str, nodo: str, nivel: str, ejemplos: list[dict], gu
         human += f"\n\nGuía del nodo según el cuaderno de nivelación (respeta sus objetivos y su notación):\n{guia}"
 
     ultimo_error = None
-    for intento in range(3):  # el LLM a veces devuelve algo inválido: se reintenta
+    for intento in range(4):  # el LLM a veces devuelve algo inválido o mal resuelto: se reintenta
         try:
             pregunta = _validar_pregunta(_invocar_json(GENERADOR_SYSTEM, human, temperature=0.8))
+            _verificar_pregunta(pregunta)
             logger.info(f"[NIV] pregunta generada nodo='{nodo}' nivel={nivel}: {pregunta['enunciado'][:80]!r}")
             return pregunta
         except Exception as e:
             ultimo_error = e
-            logger.warning(f"[NIV] generación inválida (intento {intento + 1}): {e}")
+            logger.warning(f"[NIV] generación descartada (intento {intento + 1}): {e}")
     raise RuntimeError(f"No se pudo generar una pregunta válida: {ultimo_error}")
+
+
+def _normalizar_alt(a: str) -> str:
+    """Para comparar alternativas sin que molesten $, espacios ni mayúsculas."""
+    return "".join(str(a).replace("$", "").split()).lower()
+
+
+def _verificar_pregunta(p: dict) -> None:
+    """
+    Revisor independiente: resuelve la pregunta sin ver la respuesta marcada (temperatura 0).
+    Se descarta si su respuesta no coincide con la marcada, si dice que ninguna es correcta
+    o si hay más de una correcta.
+    """
+    human = f"Enunciado: {p['enunciado']}\nAlternativas:\n" + "\n".join(f"- {a}" for a in p["alternativas"])
+    r = _invocar_json(VERIFICADOR_SYSTEM, human, temperature=0)
+    respuesta = str(r.get("respuesta") or "").strip()
+    try:
+        correctas = int(r.get("correctas", 1))
+    except (TypeError, ValueError):
+        correctas = 1
+    if correctas != 1 or respuesta.upper() == "NINGUNA":
+        raise ValueError(f"el revisor encontró {correctas} alternativas correctas (resultado: {r.get('resultado')!r})")
+    if _normalizar_alt(respuesta) != _normalizar_alt(p["correcta"]):
+        raise ValueError(f"el revisor respondió {respuesta!r} y la marcada era {p['correcta']!r}")
 
 
 # ── Analista ────────────────────────────────────────────────────────────────

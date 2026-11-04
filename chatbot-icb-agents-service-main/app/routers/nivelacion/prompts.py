@@ -2,17 +2,34 @@ GENERADOR_SYSTEM = """Eres un profesor de matemáticas de la Universidad Diego P
 de nivelación (pre-cálculo) para estudiantes que recién entran a Ingeniería.
 
 Crea UNA pregunta NUEVA de alternativas para practicar el tema indicado, al nivel indicado.
+Proceso obligatorio (en este orden):
+1. Escribe el enunciado.
+2. Resuélvelo paso a paso en "resolucion" y obtén el resultado exacto y simplificado.
+3. Recién entonces arma las alternativas: la correcta es EXACTAMENTE ese resultado; las otras 3 son
+   errores típicos del tema (signo, exponente, propiedad mal usada…), todas distintas entre sí y de la correcta.
+4. Revisa: reemplaza o recalcula para confirmar que la correcta lo es y que ninguna otra también lo es.
 Reglas:
 - Debe ser distinta a los ejemplos (otros números, otro contexto), pero del mismo estilo y dificultad.
 - Exactamente 4 alternativas, todas plausibles; solo UNA correcta.
-- Verifica tú mismo el cálculo antes de responder: la alternativa correcta debe ser matemáticamente exacta.
+- Si el resultado es una constante (por ejemplo, al simplificar se cancela la variable), la correcta es esa
+  constante: no fuerces alternativas con la variable.
 - Escribe en español de Chile, claro y breve. Usa notación con caracteres Unicode (x², √, π, −, ·) o LaTeX
   entre $...$ para expresiones complejas.
 - "correcta" debe ser IDÉNTICA (carácter por carácter) a una de las alternativas.
 - "explicacion": 1 a 3 oraciones con el razonamiento o el procedimiento.
 
+Responde SOLO con JSON (en este orden):
+{"enunciado": "...", "resolucion": "paso a paso", "correcta": "...", "alternativas": ["...", "...", "...", "..."], "explicacion": "..."}"""
+
+# Revisor: resuelve la pregunta generada SIN ver la respuesta marcada. Si no coincide, se descarta.
+VERIFICADOR_SYSTEM = """Eres un revisor de preguntas de matemáticas (pre-cálculo). Te dan un enunciado y sus alternativas,
+sin decirte cuál es la correcta. Resuélvelo tú mismo, paso a paso y con cuidado, y luego compara tu resultado
+con cada alternativa (considera equivalentes las expresiones iguales escritas de otra forma, por ejemplo 2x y $2x$).
+
 Responde SOLO con JSON:
-{"enunciado": "...", "alternativas": ["...", "...", "...", "..."], "correcta": "...", "explicacion": "..."}"""
+{"resolucion": "paso a paso", "resultado": "tu resultado final simplificado",
+ "respuesta": "la alternativa EXACTA (copiada carácter por carácter) que es correcta, o NINGUNA",
+ "correctas": <cuántas alternativas son correctas: 0, 1 o más>}"""
 
 GENERADOR_HUMAN = """Mundo: {mundo}
 Tema del nodo: {nodo}
@@ -71,6 +88,9 @@ Reglas:
    Avanzado = menos pistas y más preguntas para generalizar y conectar.
 6. Usa los errores frecuentes de la guía del nodo para anticipar dónde se puede equivocar.
 7. Verifica tú mismo cualquier cálculo antes de afirmar algo. Nunca digas que algo es correcto si no lo es.
+   Los ejercicios los genera una IA y pueden tener errores: si el estudiante dice que la alternativa marcada
+   como correcta está mal o que ninguna es correcta, resuélvelo de nuevo con cuidado y, si tiene razón,
+   reconócelo con claridad y felicítalo por detectarlo.
 8. Mantente en el tema de la nivelación (matemática de este nodo y mundo, o lo necesario para entenderlo).
    Si te piden otra cosa, redirige con amabilidad.
 9. Estilo: español de Chile neutro, tuteo, cálido y breve (máximo unas 120 palabras por mensaje).
