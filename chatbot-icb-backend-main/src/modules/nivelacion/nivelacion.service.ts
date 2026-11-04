@@ -54,7 +54,7 @@ export class NivelacionService {
    * Crea/lee el estudiante. El nivel NO lo elige el alumno: la primera vez se toma de
    * whitelist_alumnos.nivel_inicial (lo cargan los profesores) y después lo ajusta el agente analista.
    */
-  private async estudiante(u: Usuario) {
+  async estudiante(u: Usuario) {
     return this.pg.queryOne<{ uid: string; nivel: Nivel; xp: number; entrenamientos: number }>(
       `INSERT INTO niv_progreso.estudiante (uid, correo, nivel)
        VALUES ($1, $2, COALESCE(
@@ -148,15 +148,16 @@ export class NivelacionService {
     };
   }
 
-  private async nodoInfo(u: Usuario, nodoId: number, permitir: ('actual' | 'completado')[]) {
-    const n = await this.pg.queryOne<{ id: number; mundo_id: number; titulo: string }>(
-      'SELECT id, mundo_id, titulo FROM niv_banco.nodo WHERE id = $1', [nodoId],
+  /** Nodo con su estado para el alumno; lanza 403 si no está en `permitir`. Lo usa también el tutor. */
+  async nodoInfo(u: Usuario, nodoId: number, permitir: ('actual' | 'completado')[]) {
+    const n = await this.pg.queryOne<{ id: number; mundo_id: number; titulo: string; descripcion: string | null; guia: string | null }>(
+      'SELECT id, mundo_id, titulo, descripcion, guia FROM niv_banco.nodo WHERE id = $1', [nodoId],
     );
     if (!n) throw new NotFoundException('Nodo no encontrado.');
     const { nodos, mundo } = await this.mundo(u, n.mundo_id);
     const nodo = nodos.find((x: any) => x.id === nodoId);
     if (!permitir.includes(nodo.estado)) throw new ForbiddenException('Este nodo todavía está bloqueado.');
-    return { ...nodo, mundo_id: n.mundo_id, mundo_titulo: mundo.titulo };
+    return { ...nodo, mundo_id: n.mundo_id, mundo_titulo: mundo.titulo, descripcion: n.descripcion, guia: n.guia };
   }
 
   // ── Preguntas del banco ──────────────────────────────────────────────────
@@ -199,14 +200,17 @@ export class NivelacionService {
       if (!p || vistas.has(r.pregunta_id)) throw new BadRequestException(`Pregunta ${r.pregunta_id} no válida para esta evaluación.`);
       vistas.add(r.pregunta_id);
       const es_correcto = r.respuesta === p.correcta;
-      await this.pg.query(
+      const fila = await this.pg.queryOne<{ id: string }>(
         `INSERT INTO niv_progreso.intento
            (uid, origen, contexto, pregunta_id, mundo_id, nodo_id, dificultad, enunciado, alternativas, respuesta, correcta, es_correcto)
-         VALUES ($1, 'banco', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+         VALUES ($1, 'banco', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         RETURNING id`,
         [u.uid, contexto, p.id, mundoId, nodoId ?? p.nodo_id, p.dificultad, p.enunciado,
          JSON.stringify(p.alternativas), r.respuesta, p.correcta, es_correcto],
       );
       resultados.push({
+        // intento_id: para pedir la retroalimentación de la IA y abrir el tutor sobre esta pregunta
+        intento_id: String(fila?.id ?? ''),
         pregunta_id: p.id, enunciado: p.enunciado, respuesta: r.respuesta,
         es_correcto, correcta: p.correcta, explicacion: p.explicacion,
       });
@@ -316,7 +320,7 @@ export class NivelacionService {
     return { puntaje, aprobado, fase, mundo_completado: fase >= 2, chatbot_desbloqueado, xp_ganado: xp, resultados };
   }
 
-  // ── Modo Entrenar (preguntas generadas por IA) ───────────────────────────
+  // ── Ejercicios generados por IA (los propone el tutor; antes "modo Entrenar") ──
 
   private get generadas() { return this.mongo.col('niv_generadas'); }
 
@@ -327,7 +331,7 @@ export class NivelacionService {
       .map((p) => ({ enunciado: p.enunciado, alternativas: p.alternativas, correcta: p.correcta }));
 
     const res = await this.ai.post('/niv/generar', {
-      mundo: nodo.mundo_titulo, nodo: nodo.titulo, nivel, ejemplos,
+      mundo: nodo.mundo_titulo, nodo: nodo.titulo, nivel, ejemplos, guia: nodo.guia ?? '',
     });
     if (!res?.ok || !res.pregunta) throw new BadRequestException('No se pudo generar una pregunta. Intenta de nuevo.');
     const p = res.pregunta as { enunciado: string; alternativas: string[]; correcta: string; explicacion?: string };

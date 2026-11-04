@@ -254,7 +254,7 @@ export class ProfesorPanelComponent implements OnInit {
   }
 
   contexto(c: string) {
-    return c === 'fase' ? 'Fase' : c === 'test' ? 'Test' : 'Entrenar';
+    return c === 'fase' ? 'Fase' : c === 'test' ? 'Test' : 'Tutor';
   }
 
   private normalizar(s: string) {

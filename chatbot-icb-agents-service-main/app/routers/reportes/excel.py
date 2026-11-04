@@ -174,7 +174,7 @@ def generar_excel(r: dict) -> bytes:
     _encabezado(ws, [
         "N°", "Nombre", "Correo", "Carrera", "Estado", "Nivel inicial", "Nivel actual", "Avance",
         "Nodos completados", "Mundos completados", "Mundo actual", "Nodo actual",
-        "Respuestas", "% Acierto", "% Acierto fases", "% Acierto tests", "% Acierto entrenar",
+        "Respuestas", "% Acierto", "% Acierto fases", "% Acierto tests", "% Acierto ejercicios del tutor",
         "Días con actividad", "Tiempo aprox.*", "Última actividad", "Días sin actividad",
         "Chatbot habilitado", "Alertas",
     ], [5, 30, 30, 32, 14, 14, 14, 10, 12, 12, 26, 28, 12, 11, 11, 11, 11, 11, 12, 18, 11, 11, 60])
@@ -297,7 +297,7 @@ def generar_excel(r: dict) -> bytes:
                    "Completada: aprobó el test de todos los mundos (se le habilita el chatbot)."),
         ("Avance", "Porcentaje de nodos completados y tests aprobados, sobre el total de nodos más mundos."),
         ("Nodo completado", f"El alumno aprobó las {reg['fases_por_nodo']} fases del nodo."),
-        ("% Acierto", "Respuestas correctas sobre el total. Incluye fases, tests y el modo Entrenar "
+        ("% Acierto", "Respuestas correctas sobre el total. Incluye fases, tests y los ejercicios del tutor "
                       "(preguntas generadas por IA). En preguntas de 4 alternativas, al azar se acierta cerca de 25 %."),
         ("Mundo / nodo actual", "Donde está trabajando el alumno: el primer nodo del mundo que aún no completa, "
                                 "o el test del mundo si ya completó todos sus nodos."),

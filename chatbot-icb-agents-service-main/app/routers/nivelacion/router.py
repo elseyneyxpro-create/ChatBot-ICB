@@ -24,6 +24,7 @@ class GenerarIn(BaseModel):
     nodo: str
     nivel: str
     ejemplos: list[Ejemplo] = Field(default_factory=list)
+    guia: str = ""
 
 
 class AnalizarIn(BaseModel):
@@ -35,7 +36,7 @@ async def generar(payload: GenerarIn):
     try:
         pregunta = await asyncio.to_thread(
             service.generar_pregunta,
-            payload.mundo, payload.nodo, payload.nivel, [e.model_dump() for e in payload.ejemplos],
+            payload.mundo, payload.nodo, payload.nivel, [e.model_dump() for e in payload.ejemplos], payload.guia,
         )
         return JSONResponse({"ok": True, "pregunta": pregunta})
     except Exception as e:
@@ -48,3 +49,41 @@ async def analizar(payload: AnalizarIn, background_tasks: BackgroundTasks):
     """Responde altiro y analiza en segundo plano (el alumno no espera al agente)."""
     background_tasks.add_task(service.analizar_en_background, payload.uid)
     return JSONResponse({"ok": True})
+
+
+class Mensaje(BaseModel):
+    rol: str          # alumno | tutor | evento
+    texto: str
+
+
+class TutorIn(BaseModel):
+    contexto: dict = Field(default_factory=dict)
+    historial: list[Mensaje] = Field(default_factory=list)
+    mensaje: str | None = None
+
+
+@router.post("/tutor")
+async def tutor(payload: TutorIn):
+    try:
+        texto = await asyncio.to_thread(
+            service.tutor_responder, payload.contexto, [m.model_dump() for m in payload.historial], payload.mensaje,
+        )
+        return JSONResponse({"ok": True, "respuesta": texto})
+    except Exception as e:
+        logger.exception("tutor falló")
+        return JSONResponse({"ok": False, "error": str(e)})
+
+
+class RetroIn(BaseModel):
+    contexto: dict = Field(default_factory=dict)
+    preguntas: list[dict] = Field(default_factory=list)
+
+
+@router.post("/retroalimentar")
+async def retroalimentar(payload: RetroIn):
+    try:
+        r = await asyncio.to_thread(service.retroalimentar, payload.contexto, payload.preguntas)
+        return JSONResponse({"ok": True, **r})
+    except Exception as e:
+        logger.exception("retroalimentación falló")
+        return JSONResponse({"ok": False, "error": str(e)})

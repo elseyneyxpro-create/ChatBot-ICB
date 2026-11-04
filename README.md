@@ -322,12 +322,21 @@ docker compose exec -T postgres pg_dump -U icb_user icb_chatbot > respaldo_$(dat
 
 ```mermaid
 flowchart LR
-    W1[🌍 Mundo 1] --> W2[🌍 Mundo 2] --> W3[🌍 Mundo 3] --> W4[🌍 Mundo 4] --> FIN([🏆 Chatbot habilitado])
+    W1[🔢 Números, potencias y raíces] --> W2[🔣 Álgebra] --> W3[⚖️ Lineal y cuadrática] --> W4[📈 Geometría analítica] --> W5[📐 Geometría elemental] --> FIN([🏆 Chatbot habilitado])
     subgraph Mundo
       direction LR
-      N1((Nodo 1)) --> N2((Nodo 2)) --> N3((…)) --> N10((Nodo 10)) --> T{{Test final}}
+      N1((Nodo 1)) --> N2((Nodo 2)) --> N3((…)) --> T{{Test final}}
     end
 ```
+
+**Mapa del cuaderno.** Los mundos y nodos siguen el *Cuaderno de nivelación Matemática* (ICB-UDP, oct. 2026): 5 mundos y 26 nodos (5 + 5 + 6 + 6 + 4). Recta y parábola van en Geometría analítica; Lineal y cuadrática son las ecuaciones del capítulo 3. Cada nodo tiene una columna `guia` (objetivos, ideas clave y errores frecuentes del cuaderno) que usan los agentes de IA.
+
+```bash
+# Base que todavía tiene el mapa antiguo de la maqueta (4 mundos × 10 nodos): correr una vez
+docker compose exec -T postgres psql -U icb_user -d icb_chatbot < sql/migrar_mundos_cuaderno.sql
+docker compose exec -T postgres psql -U icb_user -d icb_chatbot < sql/nivelacion.sql
+```
+La migración borra el mapa antiguo y el avance por nodo/test en él; conserva el historial de respuestas, nivel, XP y análisis.
 
 | Regla | Valor |
 |---|---|
@@ -338,7 +347,8 @@ flowchart LR
 | Corrección | Siempre en el servidor (el frontend nunca recibe la respuesta correcta antes) |
 
 - **Banco de los profesores** (`niv_banco.pregunta`): fases y tests usan solo estas preguntas.
-- **Modo Entrenar**: el agente generador crea preguntas nuevas para el nodo. **No se guardan en el banco**; solo quedan como `intento` con `origen = 'generada'` (suman XP y alimentan al analista).
+- **Retroalimentación al terminar una fase o un test**: la IA comenta cada pregunta (sobre todo por qué la alternativa elegida está mal) y sugiere qué reforzar. Si hubo errores, la acción principal es **Revisar con el tutor**.
+- **Aprende con el tutor** (reemplaza a "Entrenar con IA"): chat socrático por nodo, **fuera de las fases y tests**. Conoce el mundo, el nodo, la guía del cuaderno, el nivel del alumno (y su ELO cuando exista la columna), sus errores recientes y las preguntas que vino a revisar. No da la respuesta de entrada: pistas escalonadas y método de Polya. Puede proponer ejercicios generados por IA, que **no se guardan en el banco** y quedan como `intento` con `origen = 'generada'` (suman XP y alimentan al analista, no cuentan para avanzar). Conversaciones en Mongo (`niv_tutor`), límite diario `TUTOR_LIMITE_DIARIO` (80 por defecto).
 - **Agente analista**: corre después de cada fase/test y cada 5 entrenamientos. Guarda fortalezas, debilidades y recomendación, y **ajusta el nivel** (Principiante / Intermedio / Avanzado).
 - **El alumno nunca elige su nivel**: parte con `whitelist_alumnos.nivel_inicial` (lo definen los profes).
 - Al completar todos los mundos, el backend pone `chatbot_habilitado = true` y la pantalla lo celebra.
@@ -477,8 +487,12 @@ Todo bajo `/api` en producción (Nginx lo quita antes de llegar a NestJS). Todas
 | GET | `/mundos/:id` | Nodos del mundo y estado del test |
 | GET / POST | `/nodos/:id/fase` | Pide / responde una fase |
 | GET / POST | `/mundos/:id/test` | Pide / responde el test (devuelve `chatbot_desbloqueado`) |
-| POST | `/nodos/:id/entrenar` | Genera una pregunta de entrenamiento |
-| POST | `/entrenar/:id` | Responde la pregunta generada |
+| POST | `/retroalimentacion` | Comentario de la IA por pregunta (`intento_ids` del resultado) |
+| POST | `/tutor/sesiones` | Abre o retoma el tutor (`nodo_id`, o `intento_ids` para revisar) |
+| GET | `/tutor/sesiones/:id` | Conversación |
+| POST | `/tutor/sesiones/:id/mensajes` | Mensaje al tutor |
+| POST | `/tutor/sesiones/:id/ejercicio` | El tutor propone un ejercicio |
+| POST | `/tutor/sesiones/:id/ejercicio/:ej/respuesta` · `/solucion` | Responder / ver la solución (solo después de intentarlo) |
 | GET | `/analisis` | Último análisis del agente |
 </details>
 

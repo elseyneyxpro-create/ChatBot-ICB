@@ -80,7 +80,7 @@ import { MundoDetalle, NivelacionService, NodoMapa } from './nivelacion.service'
             <mat-icon>{{ n.estado === 'completado' ? 'replay' : 'play_arrow' }}</mat-icon>
             {{ n.estado === 'completado' ? 'Repasar' : 'Jugar fase ' + (n.fases + 1) }}
           </button>
-          <button class="btn-secondary" (click)="irEntrenar(n)"><mat-icon>fitness_center</mat-icon> Entrenar con IA</button>
+          <button class="btn-secondary" (click)="irTutor(n)"><mat-icon>school</mat-icon> Aprende con el tutor</button>
         </div>
       </div>
       <p class="muted pista" *ngIf="!sel()"><mat-icon>touch_app</mat-icon> Toca el nodo con la estrella para seguir avanzando</p>
@@ -153,7 +153,7 @@ export class NivMundoComponent implements OnInit {
 
   seleccionar(n: NodoMapa) { this.sel.set(this.sel()?.id === n.id ? null : n); }
   irFase(n: NodoMapa) { this.router.navigate(['/nivelacion/nodo', n.id, 'fase']); }
-  irEntrenar(n: NodoMapa) { this.router.navigate(['/nivelacion/nodo', n.id, 'entrenar']); }
+  irTutor(n: NodoMapa) { this.router.navigate(['/nivelacion/tutor'], { queryParams: { nodo: n.id } }); }
   irTest() { this.router.navigate(['/nivelacion/mundo', this.data()!.mundo.id, 'test']); }
   volver() { this.router.navigate(['/nivelacion']); }
 }

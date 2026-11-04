@@ -1,19 +1,22 @@
 """
 Agentes de la nivelación:
-  - generador: crea preguntas nuevas para el modo Entrenar (no se guardan en el banco).
-  - analista:  revisa los intentos del alumno, guarda un análisis y ajusta su nivel.
+  - generador:         crea preguntas nuevas (ejercicios del tutor; no se guardan en el banco).
+  - analista:          revisa los intentos del alumno, guarda un análisis y ajusta su nivel.
+  - tutor:             "Aprende con el tutor", conversación socrática con contexto del nodo.
+  - retroalimentación: comentario por pregunta al terminar una fase o un test.
 """
 import json
 import logging
 import random
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
 from app.core.postgres import execute, fetch_all
 from app.routers.nivelacion.prompts import (
     ANALISTA_HUMAN, ANALISTA_SYSTEM, GENERADOR_HUMAN, GENERADOR_SYSTEM,
+    RETRO_HUMAN, RETRO_SYSTEM, TUTOR_INICIO, TUTOR_SYSTEM,
 )
 
 logger = logging.getLogger("icb.niv")
@@ -56,12 +59,14 @@ def _validar_pregunta(p: dict) -> dict:
     }
 
 
-def generar_pregunta(mundo: str, nodo: str, nivel: str, ejemplos: list[dict]) -> dict:
+def generar_pregunta(mundo: str, nodo: str, nivel: str, ejemplos: list[dict], guia: str = "") -> dict:
     ejemplos_txt = "\n".join(
         f"- {e.get('enunciado')} | alternativas: {e.get('alternativas')} | correcta: {e.get('correcta')}"
         for e in ejemplos
     ) or "(no hay ejemplos cargados; usa tu criterio para el nivel indicado)"
     human = GENERADOR_HUMAN.format(mundo=mundo, nodo=nodo, nivel=nivel, ejemplos=ejemplos_txt)
+    if guia:
+        human += f"\n\nGuía del nodo según el cuaderno de nivelación (respeta sus objetivos y su notación):\n{guia}"
 
     ultimo_error = None
     for intento in range(3):  # el LLM a veces devuelve algo inválido: se reintenta
@@ -134,3 +139,104 @@ def analizar_en_background(uid: str) -> None:
         analizar_estudiante(uid)
     except Exception as e:
         logger.warning(f"[NIV] análisis falló uid={uid}: {e}")
+
+
+# ── Tutor socrático ─────────────────────────────────────────────────────────
+
+MAX_HISTORIAL_TUTOR = 16
+
+
+def _llm_texto(temperature: float) -> ChatOpenAI:
+    return ChatOpenAI(
+        model=settings.OPENAI_MODEL,
+        api_key=settings.OPENAI_API_KEY,
+        temperature=temperature,
+        request_timeout=60,
+    )
+
+
+def _pregunta_txt(p: dict, mostrar_correcta: bool = True) -> str:
+    alts = p.get("alternativas") or []
+    partes = [f"Enunciado: {p.get('enunciado')}"]
+    if alts:
+        partes.append("Alternativas: " + " | ".join(str(a) for a in alts))
+    if p.get("respuesta") is not None:
+        partes.append(f"Respondió: {p.get('respuesta')}")
+    if mostrar_correcta and p.get("correcta") is not None:
+        partes.append(f"Correcta: {p.get('correcta')}")
+    if p.get("es_correcto") is not None:
+        partes.append("Resultado: " + ("CORRECTA" if p.get("es_correcto") else "INCORRECTA"))
+    if p.get("explicacion"):
+        partes.append(f"Explicación del banco: {p.get('explicacion')}")
+    return " · ".join(partes)
+
+
+def contexto_txt(ctx: dict) -> str:
+    """Pasa el contexto que arma el backend a texto para el prompt."""
+    lineas = [
+        f"Mundo: {ctx.get('mundo') or '?'}",
+        f"Nodo: {ctx.get('nodo') or '?'}" + (f" — {ctx['nodo_descripcion']}" if ctx.get("nodo_descripcion") else ""),
+    ]
+    nivel = ctx.get("nivel") or "Principiante"
+    elo = ctx.get("elo")
+    lineas.append(f"Nivel del estudiante: {nivel}" + (f" (ELO {elo})" if elo is not None else ""))
+    if ctx.get("guia"):
+        lineas.append(f"Guía del nodo (cuaderno):\n{ctx['guia']}")
+    if ctx.get("debilidades"):
+        lineas.append("Debilidades que detectó el agente analista: " + "; ".join(ctx["debilidades"]))
+    if ctx.get("errores_recientes"):
+        lineas.append("Errores recientes del estudiante en este nodo:\n" + "\n".join(
+            f"- {_pregunta_txt(e)}" for e in ctx["errores_recientes"]))
+    if ctx.get("revisar"):
+        lineas.append(
+            "Preguntas de su última fase/test que quiere revisar (la correcta es solo para ti: "
+            "no la reveles de entrada, guíalo para que la encuentre):\n"
+            + "\n".join(f"{i}. {_pregunta_txt(p)}" for i, p in enumerate(ctx["revisar"], 1)))
+    ej = ctx.get("ejercicio")
+    if ej:
+        estado = ("ya respondió" if ej.get("respuesta") is not None else "todavía no responde")
+        lineas.append(
+            f"Ejercicio que el tutor le propuso ({estado}; "
+            + ("la solución YA se le mostró" if ej.get("revelado") else "no reveles la correcta salvo regla 2d")
+            + "):\n" + _pregunta_txt(ej))
+    return "\n\n".join(lineas)
+
+
+def tutor_responder(contexto: dict, historial: list[dict], mensaje: str | None) -> str:
+    """Siguiente mensaje del tutor. Sin mensaje = la plataforma abre la conversación."""
+    msgs = [SystemMessage(content=TUTOR_SYSTEM.format(contexto=contexto_txt(contexto)))]
+    for m in historial[-MAX_HISTORIAL_TUTOR:]:
+        texto = str(m.get("texto") or "")
+        if m.get("rol") == "tutor":
+            msgs.append(AIMessage(content=texto))
+        elif m.get("rol") == "evento":
+            msgs.append(HumanMessage(content=f"(Aviso de la plataforma, no lo escribió el estudiante) {texto}"))
+        else:
+            msgs.append(HumanMessage(content=texto))
+    msgs.append(HumanMessage(content=mensaje if mensaje else TUTOR_INICIO))
+    respuesta = str(_llm_texto(0.4).invoke(msgs).content).strip()
+    logger.info(f"[NIV] tutor nodo='{contexto.get('nodo')}' ({len(historial)} msgs previos)")
+    return respuesta
+
+
+# ── Retroalimentación de fase / test ───────────────────────────────────────
+
+def retroalimentar(contexto: dict, preguntas: list[dict]) -> dict:
+    preguntas_txt = "\n".join(f"{i}. {_pregunta_txt(p)}" for i, p in enumerate(preguntas, 1))
+    human = RETRO_HUMAN.format(
+        mundo=contexto.get("mundo") or "?", nodo=contexto.get("nodo") or "test del mundo",
+        nivel=contexto.get("nivel") or "Principiante", guia=contexto.get("guia") or "(sin guía)",
+        preguntas=preguntas_txt,
+    )
+    r = _invocar_json(RETRO_SYSTEM, human, temperature=0.3)
+    comentarios = {}
+    for it in r.get("items") or []:
+        try:
+            comentarios[int(it.get("n"))] = str(it.get("comentario") or "").strip()
+        except (TypeError, ValueError):
+            continue
+    return {
+        "resumen": str(r.get("resumen") or "").strip(),
+        "reforzar": [str(x).strip() for x in (r.get("reforzar") or []) if str(x).strip()][:3],
+        "items": [comentarios.get(i, "") for i in range(1, len(preguntas) + 1)],
+    }

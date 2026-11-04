@@ -11,7 +11,7 @@ Tablas que lee (todas de PostgreSQL):
   niv_progreso.estudiante      → nivel, XP (existe desde que el alumno entra por primera vez)
   niv_progreso.progreso_nodo   → fases aprobadas por nodo
   niv_progreso.progreso_test   → avance del test de cada mundo (fase 2 = mundo completado)
-  niv_progreso.intento         → cada respuesta (fase, test o entrenar)
+  niv_progreso.intento         → cada respuesta (fase, test o "entrenar" = ejercicios del tutor)
   niv_progreso.analisis        → conclusiones del agente analista
 
 Si el sistema ELO cambia estas tablas, este es el único archivo que hay que ajustar.

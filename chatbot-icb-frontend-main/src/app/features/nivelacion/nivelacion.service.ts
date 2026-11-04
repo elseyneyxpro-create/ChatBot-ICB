@@ -49,6 +49,8 @@ export interface MundoDetalle {
 export interface PreguntaPublica { id: number; enunciado: string; alternativas: string[] }
 
 export interface ResultadoPregunta {
+  /** Id del intento: sirve para pedir la retroalimentación y abrir el tutor sobre esta pregunta */
+  intento_id: string;
   pregunta_id: number; enunciado: string; respuesta: string;
   es_correcto: boolean; correcta: string; explicacion: string | null;
 }
@@ -63,9 +65,34 @@ export interface ResultadoEvaluacion {
   chatbot_desbloqueado?: boolean;
 }
 
-export interface PreguntaGenerada {
+/** Comentario de la IA por pregunta al terminar una fase o un test. */
+export interface Retroalimentacion {
+  ok: boolean;
+  resumen: string | null;
+  reforzar: string[];
+  items: { intento_id: string; comentario: string }[];
+}
+
+export interface EjercicioTutor {
   id: string; enunciado: string; alternativas: string[];
-  nodo: { id: number; titulo: string; mundo_id: number; mundo_titulo: string };
+  respuesta: string | null; es_correcto: boolean | null; revelado: boolean;
+  /** Solo viene si acertó o si pidió ver la solución */
+  correcta: string | null; explicacion: string | null;
+}
+
+export interface MensajeTutor {
+  id: string; rol: 'alumno' | 'tutor'; texto: string; at: string;
+  ejercicio: EjercicioTutor | null;
+}
+
+export interface SesionTutor {
+  id: string; modo: 'nodo' | 'revision';
+  nodo: { id: number; titulo: string; orden: number } | null;
+  mundo: { id: number; titulo: string } | null;
+  /** Cuántas preguntas de la última fase/test se están revisando */
+  revisando: number;
+  mensajes: MensajeTutor[];
+  restantes_hoy: number;
 }
 
 /** Cliente de /api/v1/nivelacion + estado compartido (nivel, XP) para el header. */
@@ -103,11 +130,27 @@ export class NivelacionService {
     return this.send<ResultadoEvaluacion>('POST', `/mundos/${mundoId}/test`, { respuestas });
   }
 
-  generarPregunta(nodoId: number) { return this.send<PreguntaGenerada>('POST', `/nodos/${nodoId}/entrenar`); }
-  responderGenerada(id: string, respuesta: string) {
-    return this.send<{ es_correcto: boolean; correcta: string; explicacion: string | null; xp_ganado: number }>(
-      'POST', `/entrenar/${id}`, { respuesta },
+  // ── Retroalimentación y tutor ──────────────────────────────────────────
+  retroalimentacion(intentoIds: string[]) {
+    return this.send<Retroalimentacion>('POST', '/retroalimentacion', { intento_ids: intentoIds });
+  }
+
+  abrirTutor(opts: { nodo_id?: number; mundo_id?: number; intento_ids?: string[]; nueva?: boolean }) {
+    return this.send<SesionTutor>('POST', '/tutor/sesiones', opts);
+  }
+  enviarAlTutor(sesionId: string, texto: string) {
+    return this.send<{ mensajes: MensajeTutor[]; restantes_hoy: number }>('POST', `/tutor/sesiones/${sesionId}/mensajes`, { texto });
+  }
+  pedirEjercicio(sesionId: string) {
+    return this.send<{ mensajes: MensajeTutor[] }>('POST', `/tutor/sesiones/${sesionId}/ejercicio`);
+  }
+  responderEjercicio(sesionId: string, ejId: string, respuesta: string) {
+    return this.send<{ es_correcto: boolean; xp_ganado: number; ejercicio: EjercicioTutor; mensajes: MensajeTutor[] }>(
+      'POST', `/tutor/sesiones/${sesionId}/ejercicio/${ejId}/respuesta`, { respuesta },
     );
+  }
+  verSolucion(sesionId: string, ejId: string) {
+    return this.send<{ ejercicio: EjercicioTutor }>('POST', `/tutor/sesiones/${sesionId}/ejercicio/${ejId}/solucion`);
   }
 
   /** Mensaje legible desde un HttpErrorResponse del backend. */

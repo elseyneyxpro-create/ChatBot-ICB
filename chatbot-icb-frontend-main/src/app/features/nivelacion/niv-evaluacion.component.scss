@@ -7,7 +7,7 @@
   h2 { font-size: 1.5rem; line-height: 1.35; }
 }
 .test .etiqueta { color: var(--test); }
-.btn-link { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.9rem; align-self: center; &:hover { color: white; } }
+.btn-link { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.9rem; align-self: center; &:hover { color: var(--accent-primary); } }
 .evaluando {
   min-height: 60vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
   h2 { font-size: 1.5rem; text-align: center; }
@@ -40,8 +40,29 @@
   .item-top { display: flex; gap: 8px; align-items: flex-start; mat-icon { color: var(--error); flex: 0 0 auto; } }
   .item-resp { font-size: 0.9rem; color: var(--text-secondary); }
   .ok-txt { color: var(--success); }
-  .item-exp { font-size: 0.9rem; }
+  .item-exp { font-size: 0.92rem; line-height: 1.5; color: var(--text-primary); }
 }
+.detalle-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.chip.ia { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-primary);
+  mat-icon { font-size: 16px; width: 16px; height: 16px; } }
+.retro-cargando {
+  display: flex; align-items: center; gap: 12px; color: var(--text-secondary); font-size: 0.92rem;
+  padding: 12px 14px; border-radius: 12px; background: var(--bg-soft);
+  .dots span { display: inline-block; width: 7px; height: 7px; margin: 0 2px; border-radius: 50%; background: var(--accent-gradient);
+    animation: niv-rebote 1.4s ease-in-out infinite; &:nth-child(2) { animation-delay: .2s; } &:nth-child(3) { animation-delay: .4s; } }
+}
+@keyframes niv-rebote { 0%, 80%, 100% { transform: scale(.6); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
+.retro-resumen { line-height: 1.55; }
+.reforzar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.9rem; }
+.btn-mini {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
+  padding: 6px 12px; border-radius: 10px; border: 1px solid var(--accent-primary); background: transparent;
+  color: var(--accent-primary); font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  mat-icon { font-size: 17px; width: 17px; height: 17px; }
+  &:hover { background: rgba(139, 92, 246, 0.12); }
+}
+.res-card .btn-link { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; } }
 .desbloqueo {
   display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;
   padding: 14px 16px; border-radius: 14px; background: rgba(16, 185, 129, 0.12); border: 1px solid var(--success);

@@ -1,0 +1,121 @@
+// "Aprende con el tutor". Usa los tokens de la nivelación (niv-theme.scss).
+:host { display: block; }
+
+.tutor-page { padding-top: 0; padding-bottom: 16px; }
+.tutor-wrap {
+  width: 100%; max-width: 860px;
+  height: calc(100dvh - 64px - 24px - 16px);   // header de la nivelación + márgenes
+  min-height: 460px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+// ── Cabecera ─────────────────────────────────────────────────────────────────
+.t-head {
+  display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 18px;
+  .icono { padding: 8px; flex: 0 0 auto; }
+}
+.t-avatar, .m-avatar {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center; border-radius: 14px;
+  background: var(--accent-gradient); color: #fff; box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
+}
+.t-avatar { width: 46px; height: 46px; mat-icon { font-size: 26px; width: 26px; height: 26px; } }
+.t-tit {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+  h1 { font-size: 1.2rem; line-height: 1.25; }
+  small { font-size: 0.82rem; }
+}
+.t-kicker { font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--accent-primary); }
+
+// ── Conversación ─────────────────────────────────────────────────────────────
+.t-chat {
+  flex: 1; min-height: 0; overflow-y: auto; padding: 18px 16px; border-radius: 18px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.t-cargando { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.dots span, .escribiendo span {
+  display: inline-block; width: 8px; height: 8px; margin: 0 2px; border-radius: 50%; background: var(--accent-gradient);
+  animation: t-rebote 1.4s ease-in-out infinite;
+  &:nth-child(2) { animation-delay: 0.2s; } &:nth-child(3) { animation-delay: 0.4s; }
+}
+@keyframes t-rebote { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+
+.msg {
+  display: flex; gap: 10px; align-items: flex-end; animation: niv-aparecer 0.25s ease both;
+  &.alumno { justify-content: flex-end; }
+}
+.m-avatar { width: 32px; height: 32px; border-radius: 10px; mat-icon { font-size: 18px; width: 18px; height: 18px; } }
+.m-cuerpo { display: flex; flex-direction: column; gap: 8px; max-width: min(620px, 82%); }
+.alumno .m-cuerpo { align-items: flex-end; }
+.burbuja {
+  padding: 11px 15px; border-radius: 16px; line-height: 1.55; font-size: 0.97rem; overflow-wrap: anywhere;
+  .tutor & { background: var(--bg-elev); border: 1px solid var(--border-color); border-bottom-left-radius: 5px; }
+  .alumno & { background: var(--accent-gradient); color: #fff; border-bottom-right-radius: 5px; }
+  &.escribiendo { display: flex; gap: 2px; padding: 14px 16px; }
+}
+
+// ── Ejercicio dentro del chat ────────────────────────────────────────────────
+.ejercicio {
+  border: 1px solid var(--border-color); border-radius: 16px; padding: 14px; background: var(--bg-panel);
+  display: flex; flex-direction: column; gap: 12px;
+  .opciones { gap: 8px; }
+  .opcion { font-size: 0.95rem; padding: 10px 12px; }
+}
+.ej-top {
+  display: flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px;
+  text-transform: uppercase; color: var(--accent-primary);
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+.ej-enunciado { font-size: 1.02rem; font-weight: 500; line-height: 1.5; }
+.ej-acciones {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  .btn-primary { padding: 9px 18px; font-size: 0.92rem; }
+  .btn-link { background: none; border: none; color: var(--accent-primary); font-weight: 600; cursor: pointer; padding: 4px 0; text-decoration: underline; }
+}
+.ej-estado {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600;
+  mat-icon { font-size: 19px; width: 19px; height: 19px; }
+  &.ok { color: var(--success); } &.bad { color: var(--error); }
+}
+.ej-solucion {
+  font-size: 0.92rem; line-height: 1.5; padding: 10px 12px; border-radius: 12px;
+  background: var(--success-soft); border: 1px solid var(--success);
+}
+
+// ── Entrada ──────────────────────────────────────────────────────────────────
+.t-input { display: flex; flex-direction: column; gap: 8px; }
+.sugerencias { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.chip-sug {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; padding: 7px 13px; border-radius: 20px;
+  border: 1px solid var(--border-strong); background: var(--bg-panel); color: var(--text-primary);
+  font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: border-color 0.2s, background 0.2s;
+  mat-icon { font-size: 16px; width: 16px; height: 16px; color: var(--accent-primary); }
+  &:hover:not(:disabled) { border-color: var(--accent-primary); background: rgba(139, 92, 246, 0.1); }
+  &:disabled { opacity: 0.5; cursor: default; }
+}
+.caja {
+  display: flex; align-items: flex-end; gap: 8px; padding: 8px 8px 8px 16px; border-radius: 18px;
+  background: var(--bg-elev); border: 1px solid var(--border-strong); box-shadow: var(--shadow-sm);
+  &:focus-within { border-color: var(--accent-primary); }
+  &.deshabilitada { opacity: 0.6; }
+  textarea {
+    flex: 1; resize: none; border: none; outline: none; background: transparent; color: var(--text-primary);
+    font: inherit; font-size: 0.97rem; line-height: 1.45; padding: 7px 0; max-height: 160px;
+  }
+}
+.enviar {
+  flex: 0 0 auto; width: 42px; height: 42px; border-radius: 12px; border: none; cursor: pointer;
+  background: var(--accent-gradient); color: #fff; display: flex; align-items: center; justify-content: center;
+  &:disabled { opacity: 0.45; cursor: default; }
+}
+.t-pie { font-size: 0.78rem; text-align: center; .aviso { color: var(--error); } }
+
+@media (max-width: 700px) {
+  .tutor-wrap { height: calc(100dvh - 56px - 24px - 12px); min-height: 420px; gap: 8px; }
+  .t-pie .largo { display: none; }
+  .t-head { padding: 10px 12px; gap: 10px; }
+  .t-avatar { width: 38px; height: 38px; }
+  .t-tit h1 { font-size: 1.02rem; }
+  .t-chat { padding: 14px 10px; }
+  .m-cuerpo { max-width: 88%; }
+  .m-avatar { display: none; }
+}
