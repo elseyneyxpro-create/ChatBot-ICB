@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { KatexRenderPipe } from '../../shared/katex-render.pipe';
-import { NivelacionService, PreguntaPublica, ResultadoEvaluacion, ResultadoPregunta, Retroalimentacion } from './nivelacion.service';
+import { NivelacionService, PreguntaPublica, ResultadoEvaluacion, ResultadoPregunta, Retroalimentacion, latexSuelto } from './nivelacion.service';
 import { AuthService } from '../../core/auth.service';
 
 /**
@@ -31,7 +31,7 @@ import { AuthService } from '../../core/auth.service';
       <div class="opciones">
         <button *ngFor="let op of q.alternativas; let i = index" class="opcion" [class.sel]="seleccion() === op"
                 (click)="seleccion.set(op)">
-          <span class="letra">{{ letra(i) }}</span><span [innerHTML]="op | katexRender"></span>
+          <span class="letra">{{ letra(i) }}</span><span [innerHTML]="latex(op) | katexRender"></span>
         </button>
       </div>
       <button class="btn-primary" [class.danger]="modo === 'test'" [disabled]="!seleccion()" (click)="siguiente()">
@@ -98,8 +98,8 @@ import { AuthService } from '../../core/auth.service';
           <div class="item-top"><mat-icon>{{ it.es_correcto ? 'check_circle' : 'cancel' }}</mat-icon>
             <span [innerHTML]="(numero(it) + '. ' + it.enunciado) | katexRender"></span></div>
           <div class="item-resp" *ngIf="!it.es_correcto">
-            Respondiste <strong [innerHTML]="it.respuesta | katexRender"></strong> ·
-            correcta <strong class="ok-txt" [innerHTML]="it.correcta | katexRender"></strong>
+            Respondiste <strong [innerHTML]="latex(it.respuesta) | katexRender"></strong> ·
+            correcta <strong class="ok-txt" [innerHTML]="latex(it.correcta) | katexRender"></strong>
           </div>
           <div class="item-exp" *ngIf="comentario(it) as c" [innerHTML]="c | katexRender"></div>
           <button class="btn-mini" *ngIf="!it.es_correcto" (click)="abrirTutor([it.intento_id])">
@@ -147,6 +147,7 @@ export class NivEvaluacionComponent implements OnInit {
       : `${i.nombre} · ${i.repaso ? 'Repaso' : 'Fase ' + i.fase + '/4'}`;
   });
   letra = (i: number) => String.fromCharCode(65 + i);
+  latex = latexSuelto;
 
   ngOnInit() { this.cargar(); }
 

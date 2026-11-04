@@ -8,6 +8,7 @@ Agentes de la nivelación:
 import json
 import logging
 import random
+import re
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -42,10 +43,32 @@ def _invocar_json(system: str, human: str, temperature: float) -> dict:
 
 # ── Generador ────────────────────────────────────────────────────────────────
 
+_CMD_LATEX = re.compile(r"\\[A-Za-z]+")
+_PALABRAS = re.compile(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}")
+
+
+def latex_suelto(texto: str) -> str:
+    """
+    Envuelve en $...$ una expresión corta que trae LaTeX sin delimitar (ej. "\\frac{5}{2}" o "x^{2}"),
+    como a veces devuelve el LLM en las alternativas. No toca textos con $ ni frases con palabras.
+    """
+    t = str(texto).strip()
+    if not t or "$" in t:
+        return t
+    t = re.sub(r"\\\((.+?)\\\)", r"$\1$", t)  # \( ... \)  →  $ ... $
+    if "$" in t:
+        return t
+    tiene_latex = bool(_CMD_LATEX.search(t)) or bool(re.search(r"[\^_]\{", t))
+    sin_comandos = _CMD_LATEX.sub("", t)
+    if tiene_latex and not _PALABRAS.search(sin_comandos):
+        return f"${t}$"
+    return t
+
+
 def _validar_pregunta(p: dict) -> dict:
     enunciado = str(p.get("enunciado") or "").strip()
-    alternativas = [str(a).strip() for a in (p.get("alternativas") or []) if str(a).strip()]
-    correcta = str(p.get("correcta") or "").strip()
+    alternativas = [latex_suelto(a) for a in (p.get("alternativas") or []) if str(a).strip()]
+    correcta = latex_suelto(p.get("correcta") or "")
     if not enunciado or len(alternativas) < 2 or len(set(alternativas)) != len(alternativas):
         raise ValueError("pregunta incompleta o con alternativas repetidas")
     if correcta not in alternativas:

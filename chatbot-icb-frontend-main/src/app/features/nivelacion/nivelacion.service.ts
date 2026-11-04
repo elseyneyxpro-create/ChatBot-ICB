@@ -95,6 +95,22 @@ export interface SesionTutor {
   restantes_hoy: number;
 }
 
+/**
+ * Envuelve en $...$ una alternativa corta que trae LaTeX sin delimitar (ej. "\\frac{5}{2}"),
+ * para que KaTeX la dibuje. No toca textos que ya tienen $ ni frases con palabras.
+ * (Mismo criterio que latex_suelto() del servicio de agentes; esto cubre lo que ya estaba guardado.)
+ */
+export function latexSuelto(texto: string | null | undefined): string {
+  let t = (texto ?? '').trim();
+  if (!t || t.includes('$')) return t;
+  t = t.replace(/\\\((.+?)\\\)/g, '$$$1$$');
+  if (t.includes('$')) return t;
+  const cmd = /\\[A-Za-z]+/g;
+  const tieneLatex = cmd.test(t) || /[\^_]\{/.test(t);
+  const sinComandos = t.replace(/\\[A-Za-z]+/g, '');
+  return tieneLatex && !/[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}/.test(sinComandos) ? `$${t}$` : t;
+}
+
 /** Cliente de /api/v1/nivelacion + estado compartido (nivel, XP) para el header. */
 @Injectable({ providedIn: 'root' })
 export class NivelacionService {

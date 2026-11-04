@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { KatexRenderPipe } from '../../shared/katex-render.pipe';
-import { EjercicioTutor, MensajeTutor, NivelacionService, SesionTutor } from './nivelacion.service';
+import { EjercicioTutor, MensajeTutor, NivelacionService, SesionTutor, latexSuelto } from './nivelacion.service';
 
 interface Sugerencia { texto: string; accion?: 'ejercicio' | 'prellenar' }
 
@@ -61,7 +61,7 @@ interface Sugerencia { texto: string; accion?: 'ejercicio' | 'prellenar' }
                           [class.bad]="ej.respuesta === op && ej.es_correcto === false"
                           [disabled]="ej.respuesta !== null || ocupado()"
                           (click)="elegir(ej, op)">
-                    <span class="letra">{{ letra(i) }}</span><span [innerHTML]="op | katexRender"></span>
+                    <span class="letra">{{ letra(i) }}</span><span [innerHTML]="latex(op) | katexRender"></span>
                   </button>
                 </div>
                 <div class="ej-acciones">
@@ -146,6 +146,7 @@ export class NivTutorComponent implements OnInit {
   });
 
   letra = (i: number) => String.fromCharCode(65 + i);
+  latex = latexSuelto;
   porId = (_: number, m: MensajeTutor) => m.id;
 
   async ngOnInit() {

@@ -13,8 +13,9 @@ Reglas:
 - Exactamente 4 alternativas, todas plausibles; solo UNA correcta.
 - Si el resultado es una constante (por ejemplo, al simplificar se cancela la variable), la correcta es esa
   constante: no fuerces alternativas con la variable.
-- Escribe en español de Chile, claro y breve. Usa notación con caracteres Unicode (x², √, π, −, ·) o LaTeX
-  entre $...$ para expresiones complejas.
+- Escribe en español de Chile, claro y breve. Usa notación con caracteres Unicode (x², √, π, −, ·) o LaTeX.
+- TODO LaTeX va SIEMPRE entre signos de dólar, también en las alternativas, en "correcta" y en la explicación:
+  escribe "$\\frac{5}{2}$", nunca "\\frac{5}{2}" suelto. No uses $ para dinero (escribe "pesos").
 - "correcta" debe ser IDÉNTICA (carácter por carácter) a una de las alternativas.
 - "explicacion": 1 a 3 oraciones con el razonamiento o el procedimiento.
 
