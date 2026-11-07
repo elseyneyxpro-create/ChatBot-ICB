@@ -24,7 +24,7 @@ import { NivelacionService } from './nivelacion.service';
           <path *ngFor="let t of tramos()" [attr.d]="t.d" [class.hecho]="t.hecho" />
         </svg>
 
-        <div class="hito inicio" [style.left.px]="PAD - 125" [style.top.px]="puntos()[0]?.y ?? 0">
+        <div class="hito inicio" [style.left.px]="PAD - 125" [style.top.px]="puntos().at(0)?.y ?? 0">
           <mat-icon>flag</mat-icon><span>Inicio</span>
         </div>
 
@@ -44,8 +44,8 @@ import { NivelacionService } from './nivelacion.service';
         </div>
 
         <div class="hito meta" [class.logrado]="e.estudiante.nivelacion_completa"
-             [style.left.px]="(puntos()[puntos().length - 1]?.x ?? 0) + 125"
-             [style.top.px]="puntos()[puntos().length - 1]?.y ?? 0">
+             [style.left.px]="(puntos().at(-1)?.x ?? 0) + 125"
+             [style.top.px]="puntos().at(-1)?.y ?? 0">
           <mat-icon>emoji_events</mat-icon><span>Meta</span>
         </div>
         <div class="suelo"></div>

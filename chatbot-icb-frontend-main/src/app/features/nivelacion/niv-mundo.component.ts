@@ -30,7 +30,7 @@ import { MundoDetalle, NivelacionService, NodoMapa } from './nivelacion.service'
             <path *ngFor="let t of tramos()" [attr.d]="t.d" [class.hecho]="t.hecho" />
           </svg>
 
-          <div class="hito inicio" [style.left.px]="PAD - 95" [style.top.px]="puntos()[0]?.y ?? 0">
+          <div class="hito inicio" [style.left.px]="PAD - 95" [style.top.px]="puntos().at(0)?.y ?? 0">
             <mat-icon>flag</mat-icon><span>Inicio</span>
           </div>
 
