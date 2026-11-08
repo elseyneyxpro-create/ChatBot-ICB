@@ -76,6 +76,8 @@ export interface Retroalimentacion {
 export interface EjercicioTutor {
   id: string; enunciado: string; alternativas: string[];
   respuesta: string | null; es_correcto: boolean | null; revelado: boolean;
+  /** Pasó mucho tiempo sin responderlo: ya no se puede responder, se pide otro */
+  vencido: boolean;
   /** Solo viene si acertó o si pidió ver la solución */
   correcta: string | null; explicacion: string | null;
 }

@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { NivelacionService } from './nivelacion.service';
-import { RespuestaEntrenarDto, RespuestasDto } from './nivelacion.dto';
+import { RespuestasDto } from './nivelacion.dto';
 
 const usuario = (req: any) => ({ uid: req.user.sub as string, email: req.user.email as string });
 
@@ -44,18 +44,8 @@ export class NivelacionController {
     return this.niv.responderTest(usuario(req), id, dto.respuestas);
   }
 
-  /** Modo Entrenar: genera una pregunta nueva con IA (no se guarda en el banco). */
-  @Post('nodos/:id/entrenar')
-  @HttpCode(200)
-  generar(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
-    return this.niv.generarPregunta(usuario(req), id);
-  }
-
-  @Post('entrenar/:id')
-  @HttpCode(200)
-  responderGenerada(@Req() req: any, @Param('id') id: string, @Body() dto: RespuestaEntrenarDto) {
-    return this.niv.responderGenerada(usuario(req), id, dto.respuesta);
-  }
+  // Los ejercicios generados por IA (antes "modo Entrenar") se piden y responden SOLO a través del
+  // tutor (tutor.controller.ts), que aplica el límite diario. No hay rutas directas.
 
   @Get('analisis')
   analisis(@Req() req: any) {

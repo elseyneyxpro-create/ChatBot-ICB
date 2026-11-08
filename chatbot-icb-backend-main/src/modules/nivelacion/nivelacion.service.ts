@@ -162,12 +162,15 @@ export class NivelacionService {
 
   // ── Preguntas del banco ──────────────────────────────────────────────────
 
-  /** Preguntas de práctica para un nodo: primero las del nodo, luego las del mundo, luego las generales. */
-  private async poolNodo(mundoId: number, nodoId: number, dificultad: Nivel): Promise<PreguntaBanco[]> {
+  /**
+   * Preguntas de práctica para un nodo: primero las del nodo, luego las del mundo, luego las generales.
+   * dificultad = null → de todos los niveles (para validar un envío, ver responderFase).
+   */
+  private async poolNodo(mundoId: number, nodoId: number, dificultad: Nivel | null): Promise<PreguntaBanco[]> {
     return this.pg.query<PreguntaBanco>(
       `SELECT id, mundo_id, nodo_id, dificultad, enunciado, alternativas, correcta, explicacion
          FROM niv_banco.pregunta
-        WHERE activa AND tipo = 'nodo' AND dificultad = $3
+        WHERE activa AND tipo = 'nodo' AND ($3::text IS NULL OR dificultad = $3)
           AND (nodo_id = $2 OR (nodo_id IS NULL AND (mundo_id = $1 OR mundo_id IS NULL)))
         ORDER BY CASE WHEN nodo_id = $2 THEN 0 WHEN mundo_id = $1 THEN 1 ELSE 2 END, random()`,
       [mundoId, nodoId, dificultad],
@@ -235,9 +238,14 @@ export class NivelacionService {
   }
 
   async responderFase(u: Usuario, nodoId: number, respuestas: { pregunta_id: number; respuesta: string }[]) {
-    const nivel = await this.nivelRequerido(u);
     const nodo = await this.nodoInfo(u, nodoId, ['actual', 'completado']);
-    const pool = await this.poolNodo(nodo.mundo_id, nodoId, nivel);
+    // Se valida con el nivel en que se ENTREGARON las preguntas, no con el nivel actual: el analista
+    // corre en segundo plano después de cada fase y puede cambiar el nivel mientras el alumno responde.
+    const todas = await this.poolNodo(nodo.mundo_id, nodoId, null);
+    const primera = todas.find((p) => p.id === respuestas[0]?.pregunta_id);
+    if (!primera) throw new BadRequestException(`Pregunta ${respuestas[0]?.pregunta_id} no válida para esta evaluación.`);
+    // Todas las respuestas deben ser de ese mismo nivel (corregir() rechaza las que no estén en el pool)
+    const pool = todas.filter((p) => p.dificultad === primera.dificultad);
     const esperadas = Math.min(REGLAS.PREGUNTAS_POR_FASE, pool.length);
     if (respuestas.length !== esperadas) throw new BadRequestException(`Se esperaban ${esperadas} respuestas.`);
 
@@ -350,6 +358,11 @@ export class NivelacionService {
       id, enunciado: p.enunciado, alternativas: p.alternativas,
       nodo: { id: nodo.id, titulo: nodo.titulo, mundo_id: nodo.mundo_id, mundo_titulo: nodo.mundo_titulo },
     };
+  }
+
+  /** ¿Sigue disponible para responder? (las generadas vencen a las 2 horas, índice TTL en Mongo) */
+  async generadaVigente(u: Usuario, id: string): Promise<boolean> {
+    return (await this.generadas.countDocuments({ _id: id, uid: u.uid }, { limit: 1 })) > 0;
   }
 
   async responderGenerada(u: Usuario, id: string, respuesta: string) {

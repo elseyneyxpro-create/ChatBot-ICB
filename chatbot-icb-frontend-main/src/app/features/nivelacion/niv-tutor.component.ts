@@ -56,18 +56,21 @@ interface Sugerencia { texto: string; accion?: 'ejercicio' | 'prellenar' }
                 <p class="ej-enunciado" [innerHTML]="ej.enunciado | katexRender"></p>
                 <div class="opciones">
                   <button *ngFor="let op of ej.alternativas; let i = index" class="opcion"
-                          [class.sel]="ej.respuesta === null && eleccion()[ej.id] === op"
+                          [class.sel]="ej.respuesta === null && !ej.vencido && eleccion()[ej.id] === op"
                           [class.ok]="op === ej.correcta"
                           [class.bad]="ej.respuesta === op && ej.es_correcto === false"
-                          [disabled]="ej.respuesta !== null || ocupado()"
+                          [disabled]="ej.respuesta !== null || ej.vencido || ocupado()"
                           (click)="elegir(ej, op)">
                     <span class="letra">{{ letra(i) }}</span><span [innerHTML]="latex(op) | katexRender"></span>
                   </button>
                 </div>
                 <div class="ej-acciones">
-                  <button class="btn-primary" *ngIf="ej.respuesta === null" [disabled]="!eleccion()[ej.id] || ocupado()" (click)="responder(ej)">
+                  <button class="btn-primary" *ngIf="ej.respuesta === null && !ej.vencido" [disabled]="!eleccion()[ej.id] || ocupado()" (click)="responder(ej)">
                     Responder
                   </button>
+                  <span class="ej-estado vencido" *ngIf="ej.vencido && ej.respuesta === null">
+                    <mat-icon>schedule</mat-icon> Este ejercicio venció. Pide uno nuevo cuando quieras.
+                  </span>
                   <span class="ej-estado ok" *ngIf="ej.es_correcto === true"><mat-icon>check_circle</mat-icon> ¡Correcta!</span>
                   <ng-container *ngIf="ej.es_correcto === false">
                     <span class="ej-estado bad"><mat-icon>cancel</mat-icon>{{ ej.revelado ? ' No era esa.' : ' No era esa: conversa con el tutor para encontrar el error' }}</span>
@@ -134,7 +137,7 @@ export class NivTutorComponent implements OnInit {
     if (!s) return '…';
     return s.nodo ? s.nodo.titulo : `Test: ${s.mundo?.titulo ?? ''}`;
   });
-  pendiente = computed(() => this.mensajes().some(m => m.ejercicio && m.ejercicio.respuesta === null));
+  pendiente = computed(() => this.mensajes().some(m => m.ejercicio && m.ejercicio.respuesta === null && !m.ejercicio.vencido));
   sugerencias = computed<Sugerencia[]>(() => {
     const s = this.sesion();
     if (!s) return [];
@@ -269,8 +272,10 @@ export class NivTutorComponent implements OnInit {
       this.mensajes.update(ms => [...ms, ...r.mensajes]);
       this.restantes.update(n => Math.max(n - 1, 0));
       if (r.xp_ganado) this.niv.cargarEstado().catch(() => {});
-    } catch (e) {
-      this.mostrarError(e);
+    } catch (e: any) {
+      // Venció: la tarjeta del ejercicio ya lo explica y vuelve "Dame un ejercicio"
+      if (e?.status === 410) this.actualizarEjercicio(ej.id, { vencido: true });
+      else this.mostrarError(e);
     } finally {
       this.enviando.set(false);
       this.pensando.set(false);

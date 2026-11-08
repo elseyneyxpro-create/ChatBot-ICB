@@ -75,6 +75,7 @@
   display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600;
   mat-icon { font-size: 19px; width: 19px; height: 19px; }
   &.ok { color: var(--success); } &.bad { color: var(--error); }
+  &.vencido { color: var(--text-secondary); font-weight: 500; }
 }
 .ej-solucion {
   font-size: 0.92rem; line-height: 1.5; padding: 10px 12px; border-radius: 12px;

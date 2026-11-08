@@ -20,6 +20,8 @@ interface EjercicioSesion {
   correcta?: string;
   explicacion?: string | null;
   revelado?: boolean;
+  /** No se respondió antes de que venciera (las generadas duran 2 h) y ya no se puede responder. */
+  vencido?: boolean;
 }
 
 interface MensajeSesion {
@@ -165,7 +167,8 @@ export class TutorService {
           ORDER BY created_at DESC LIMIT ${ERRORES_RECIENTES}`,
         [u.uid, s.nodo_id, s.intento_ids])
       : [];
-    const ej = s.ejercicios.at(-1);
+    const ultimo = s.ejercicios.at(-1);
+    const ej = ultimo && !ultimo.vencido ? ultimo : undefined;
     return {
       mundo: mundo?.titulo ?? null,
       nodo: nodo?.titulo ?? (s.nodo_id ? null : 'Test del mundo'),
@@ -213,6 +216,26 @@ export class TutorService {
     return s as Sesion;
   }
 
+  /** Ejercicio que el alumno todavía puede responder. */
+  private pendiente(e: EjercicioSesion) {
+    return e.respuesta === undefined && !e.vencido;
+  }
+
+  /**
+   * Marca como vencidos los ejercicios pendientes cuya pregunta generada ya expiró. Sin esto, una
+   * conversación retomada horas después quedaba trabada: no se podía responder ni pedir otro.
+   */
+  private async revisarVencidos(u: Usuario, s: Sesion) {
+    let cambio = false;
+    for (const e of s.ejercicios) {
+      if (this.pendiente(e) && !(await this.niv.generadaVigente(u, e.id))) {
+        e.vencido = true;
+        cambio = true;
+      }
+    }
+    if (cambio) await this.guardar(s, [], { ejercicios: s.ejercicios });
+  }
+
   // ── Vista para el frontend (sin respuestas correctas ocultas ni eventos internos) ──
 
   private vistaEjercicio(e: EjercicioSesion) {
@@ -220,6 +243,7 @@ export class TutorService {
     return {
       id: e.id, enunciado: e.enunciado, alternativas: e.alternativas,
       respuesta: e.respuesta ?? null, es_correcto: e.es_correcto ?? null, revelado: !!e.revelado,
+      vencido: !!e.vencido,
       correcta: mostrar ? e.correcta ?? null : null,
       explicacion: mostrar ? e.explicacion ?? null : null,
     };
@@ -234,6 +258,7 @@ export class TutorService {
   }
 
   private async vista(u: Usuario, s: Sesion) {
+    await this.revisarVencidos(u, s);
     const [nodo, mundo, usados] = await Promise.all([
       s.nodo_id ? this.pg.queryOne<{ id: number; titulo: string; orden: number }>(
         'SELECT id, titulo, orden FROM niv_banco.nodo WHERE id = $1', [s.nodo_id]) : Promise.resolve(null),
@@ -317,7 +342,8 @@ export class TutorService {
   async ejercicio(u: Usuario, id: string) {
     const s = await this.sesion(u, id);
     if (!s.nodo_id) throw new BadRequestException('Los ejercicios se piden desde un nodo.');
-    if (s.ejercicios.some((e) => e.respuesta === undefined)) {
+    await this.revisarVencidos(u, s);
+    if (s.ejercicios.some((e) => this.pendiente(e))) {
       throw new BadRequestException('Primero responde el ejercicio que tienes pendiente.');
     }
     await this.verificarLimite(u.uid);
@@ -337,10 +363,19 @@ export class TutorService {
     const ej = s.ejercicios.find((e) => e.id === ejId);
     if (!ej) throw new NotFoundException('Ejercicio no encontrado.');
     if (ej.respuesta !== undefined) throw new BadRequestException('Ya respondiste este ejercicio.');
+    if (ej.vencido) throw this.vencido();
     if (!ej.alternativas.includes(respuesta)) throw new BadRequestException('Alternativa no válida.');
 
     // Registra el intento (origen "generada": suma XP y alimenta al analista, no cuenta para el nivel/ELO)
-    const r = await this.niv.responderGenerada(u, ejId, respuesta);
+    let r: Awaited<ReturnType<NivelacionService['responderGenerada']>>;
+    try {
+      r = await this.niv.responderGenerada(u, ejId, respuesta);
+    } catch (e) {
+      if (!(e instanceof NotFoundException)) throw e;
+      ej.vencido = true; // la pregunta generada expiró entre medio
+      await this.guardar(s, [], { ejercicios: s.ejercicios });
+      throw this.vencido();
+    }
     Object.assign(ej, { respuesta, es_correcto: r.es_correcto, correcta: r.correcta, explicacion: r.explicacion });
 
     const evento = this.msg('evento', r.es_correcto
@@ -362,6 +397,13 @@ export class TutorService {
       es_correcto: r.es_correcto, xp_ganado: r.xp_ganado,
       ejercicio: this.vistaEjercicio(ej), mensajes: this.vistaMensajes(s, [tutor]),
     };
+  }
+
+  private vencido() {
+    return new HttpException(
+      { code: 'EJERCICIO_VENCIDO', message: 'Este ejercicio venció porque pasó mucho tiempo. Pide uno nuevo.' },
+      HttpStatus.GONE,
+    );
   }
 
   /** Muestra la solución de un ejercicio, solo después de haberlo intentado. */

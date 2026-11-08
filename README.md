@@ -40,7 +40,7 @@ Axiomante tiene **dos módulos** que comparten login y usuarios:
 | Módulo | Qué hace |
 |---|---|
 | **Chatbot** | El alumno pregunta de Cálculo. Un agente responde con LaTeX, busca contenido con RAG (pgvector) y genera un panel de **pensamiento crítico** con ejercicios (concepto, verdadero/falso, encuentra el error) y videos. Si hay un error grave, el chat se bloquea hasta resolver los ejercicios. |
-| **Nivelación** | Mapa tipo *Mario Bros* de mundos → nodos → fases. Preguntas base de los profesores, modo **Entrenar** con preguntas generadas por IA y un **agente analista** que ajusta el nivel del alumno. Al completarla, se habilita el chatbot. |
+| **Nivelación** | Mapa tipo *Mario Bros* de mundos → nodos → fases. Preguntas base de los profesores, un **tutor socrático** que propone ejercicios generados por IA y un **agente analista** que ajusta el nivel del alumno. Al completarla, se habilita el chatbot. |
 
 ---
 
@@ -142,7 +142,7 @@ ChatBot-ICB/
 │           ├── shell/                menú lateral + topbar (tema, salir)
 │           ├── chat/chat-page/       chat de 3 columnas con paneles plegables
 │           ├── inicio/               selector de módulo (Chatbot / Nivelación)
-│           ├── nivelacion/           mapa de mundos, nodos, evaluación, entrenar
+│           ├── nivelacion/           mapa de mundos, nodos, evaluación, tutor
 │           ├── profile/ leaderboard/ library/ auth/
 ├── chatbot-icb-backend-main/         NestJS 11 (BFF)
 │   └── src/
@@ -314,7 +314,7 @@ docker compose exec -T postgres pg_dump -U icb_user icb_chatbot > respaldo_$(dat
 | `Contexto_chat` | Memoria de conversación del agente |
 | `Perfil_usuario` | Perfil y puntos a reforzar |
 | `nivel_usuario` | Estadísticas por tema (único por `uid + tema`) |
-| `niv_generadas` | Preguntas de *Entrenar* pendientes (TTL 2 h, no van al banco) |
+| `niv_generadas` | Ejercicios del tutor sin responder (TTL 2 h, no van al banco; si vencen, el tutor los marca y deja pedir otro) |
 
 ---
 
@@ -343,7 +343,7 @@ La migración borra el mapa antiguo y el avance por nodo/test en él; conserva e
 | Fases por nodo | **4** (4 preguntas cada una) |
 | Para aprobar | **≥ 70 %** |
 | Test del mundo | **2 fases**, 10 preguntas; la fase 2 usa un nivel más alto |
-| XP | fase **10** · test fase 1 **250** · test fase 2 **500** · entrenar **5** · 100 XP por nivel |
+| XP | fase **10** · test fase 1 **250** · test fase 2 **500** · ejercicio del tutor **5** · 100 XP por nivel |
 | Corrección | Siempre en el servidor (el frontend nunca recibe la respuesta correcta antes) |
 
 - **Banco de los profesores** (`niv_banco.pregunta`): fases y tests usan solo estas preguntas.

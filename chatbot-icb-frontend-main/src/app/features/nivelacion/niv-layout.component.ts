@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewEncapsulation, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, ViewEncapsulation, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -50,10 +50,23 @@ import { ThemeService } from '../../core/theme.service';
           <mat-icon>{{ theme.tema() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
         </button>
 
-        <button class="avatar" (click)="salir()" title="Cerrar sesión">
-          <img *ngIf="foto()" [src]="foto()" alt="" referrerpolicy="no-referrer" />
-          <span *ngIf="!foto()">{{ inicial() }}</span>
-        </button>
+        <!-- Cuenta: el avatar abre un menú; cerrar sesión ya no es un clic accidental -->
+        <div class="cuenta">
+          <button class="avatar" type="button" (click)="menu.set(!menu())" title="Tu cuenta"
+                  aria-haspopup="menu" [attr.aria-expanded]="menu()">
+            <img *ngIf="foto()" [src]="foto()" alt="" referrerpolicy="no-referrer" />
+            <span *ngIf="!foto()">{{ inicial() }}</span>
+          </button>
+          <div class="menu-cuenta" *ngIf="menu()" role="menu">
+            <div class="mc-info">
+              <strong *ngIf="nombre()">{{ nombre() }}</strong>
+              <small class="muted">{{ correo() }}</small>
+            </div>
+            <button class="mc-salir" type="button" role="menuitem" (click)="salir()">
+              <mat-icon>logout</mat-icon> Cerrar sesión
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -73,7 +86,10 @@ export class NivLayoutComponent implements OnInit {
   /** Botón claro / oscuro (mismo que el chatbot) */
   theme = inject(ThemeService);
 
+  private host = inject(ElementRef<HTMLElement>);
+
   estado = this.niv.estado;
+  menu = signal(false);
   cargando = signal(true);
   error = signal<string | null>(null);
 
@@ -83,6 +99,8 @@ export class NivLayoutComponent implements OnInit {
   });
   esStaff = computed(() => this.auth.currentUser()?.rol === 'staff');
   foto = computed(() => this.auth.currentUser()?.photoURL ?? null);
+  nombre = computed(() => this.auth.currentUser()?.displayName ?? '');
+  correo = computed(() => this.auth.currentUser()?.email ?? '');
   inicial = computed(() => (this.auth.currentUser()?.displayName || this.auth.currentUser()?.email || '?').charAt(0).toUpperCase());
 
   async ngOnInit() {
@@ -95,7 +113,19 @@ export class NivLayoutComponent implements OnInit {
     }
   }
 
+  /** Cierra el menú de la cuenta al hacer clic fuera de él o con Escape. */
+  @HostListener('document:click', ['$event'])
+  clicFuera(ev: MouseEvent) {
+    if (!this.menu()) return;
+    const cuenta = this.host.nativeElement.querySelector('.cuenta');
+    if (cuenta && !cuenta.contains(ev.target as Node)) this.menu.set(false);
+  }
+
+  @HostListener('document:keydown.escape')
+  escape() { this.menu.set(false); }
+
   salir() {
+    this.menu.set(false);
     this.auth.signOut();
   }
 }

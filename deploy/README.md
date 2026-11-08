@@ -95,7 +95,8 @@ Módulo "hermano" del chatbot: mismos usuarios y login, tablas propias en Postgr
 | `whitelist_alumnos` | (tabla existente) + columna `chatbot_habilitado` |
 
 - **Fases de nodo y test** usan solo preguntas del banco. La corrección es en el servidor.
-- **Modo Entrenar**: el agente generador crea preguntas nuevas; **no se guardan en el banco**, solo como
+- **Ejercicios del tutor** (antes modo Entrenar): el agente generador crea preguntas nuevas, solo a través del tutor
+  (con su límite diario); **no se guardan en el banco**, solo como
   `intento` con `origen = 'generada'` (suman XP y alimentan al analista).
 - **Agente analista**: después de cada fase/test y cada 5 entrenamientos revisa los últimos intentos,
   guarda `fortalezas/debilidades/recomendación` y ajusta el nivel del alumno.
