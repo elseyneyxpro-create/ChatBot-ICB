@@ -85,6 +85,8 @@ export interface EjercicioTutor {
 export interface MensajeTutor {
   id: string; rol: 'alumno' | 'tutor'; texto: string; at: string;
   ejercicio: EjercicioTutor | null;
+  /** Mensaje del alumno que es un ejercicio suyo ("Traigo mi ejercicio") */
+  propio?: boolean;
 }
 
 export interface SesionTutor {
@@ -156,8 +158,8 @@ export class NivelacionService {
   abrirTutor(opts: { nodo_id?: number; mundo_id?: number; intento_ids?: string[]; nueva?: boolean }) {
     return this.send<SesionTutor>('POST', '/tutor/sesiones', opts);
   }
-  enviarAlTutor(sesionId: string, texto: string) {
-    return this.send<{ mensajes: MensajeTutor[]; restantes_hoy: number }>('POST', `/tutor/sesiones/${sesionId}/mensajes`, { texto });
+  enviarAlTutor(sesionId: string, texto: string, propio = false) {
+    return this.send<{ mensajes: MensajeTutor[]; restantes_hoy: number }>('POST', `/tutor/sesiones/${sesionId}/mensajes`, { texto, propio });
   }
   pedirEjercicio(sesionId: string) {
     return this.send<{ mensajes: MensajeTutor[] }>('POST', `/tutor/sesiones/${sesionId}/ejercicio`);

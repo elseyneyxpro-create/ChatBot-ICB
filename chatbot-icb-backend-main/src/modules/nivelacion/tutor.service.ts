@@ -30,6 +30,16 @@ interface MensajeSesion {
   texto: string;
   at: Date;
   ejercicio_id?: string;
+  /** Mensaje del alumno que es un ejercicio suyo */
+  propio?: boolean;
+}
+
+/** Ejercicio que trajo el alumno + su resolución privada (el alumno nunca la ve). */
+interface EjercicioPropio {
+  id: string;
+  enunciado: string;
+  resolucion: Record<string, unknown> | null;
+  at: Date;
 }
 
 interface Sesion {
@@ -41,6 +51,7 @@ interface Sesion {
   intento_ids: string[];
   mensajes: MensajeSesion[];
   ejercicios: EjercicioSesion[];
+  propios?: EjercicioPropio[];
   created_at: Date;
   updated_at: Date;
 }
@@ -180,15 +191,18 @@ export class TutorService {
       errores_recientes: errores,
       revisar,
       ejercicio: ej ?? null,
+      // El último ejercicio que trajo el alumno, con la resolución que solo ve el tutor
+      propio: s.propios?.length ? { enunciado: s.propios.at(-1)!.enunciado, resolucion: s.propios.at(-1)!.resolucion } : null,
     };
   }
 
   // ── Llamada al agente ─────────────────────────────────────────────────────
 
-  private async pedirAlTutor(u: Usuario, s: Sesion, mensaje: string | null): Promise<string | null> {
+  private async pedirAlTutor(u: Usuario, s: Sesion, mensaje: string | null, propio = false): Promise<string | null> {
     try {
-      const historial = s.mensajes.map((m) => ({ rol: m.rol, texto: m.texto }));
-      const res = await this.ai.post('/niv/tutor', { contexto: await this.contexto(u, s), historial, mensaje });
+      // El agente usa solo los últimos 16; no tiene sentido mandar toda la conversación
+      const historial = s.mensajes.slice(-16).map((m) => ({ rol: m.rol, texto: m.texto, propio: !!m.propio }));
+      const res = await this.ai.post('/niv/tutor', { contexto: await this.contexto(u, s), historial, mensaje, propio });
       if (res?.ok && typeof res.respuesta === 'string' && res.respuesta.trim()) return res.respuesta.trim();
       this.logger.warn(`Tutor sin respuesta: ${res?.error ?? 'vacía'}`);
     } catch (e: any) {
@@ -197,8 +211,11 @@ export class TutorService {
     return null;
   }
 
-  private msg(rol: Rol, texto: string, ejercicio_id?: string): MensajeSesion {
-    return { id: this.mongo.newId(), rol, texto, at: new Date(), ...(ejercicio_id ? { ejercicio_id } : {}) };
+  private msg(rol: Rol, texto: string, ejercicio_id?: string, propio = false): MensajeSesion {
+    return {
+      id: this.mongo.newId(), rol, texto, at: new Date(),
+      ...(ejercicio_id ? { ejercicio_id } : {}), ...(propio ? { propio: true } : {}),
+    };
   }
 
   private async guardar(s: Sesion, nuevos: MensajeSesion[], cambios: Partial<Sesion> = {}) {
@@ -252,7 +269,7 @@ export class TutorService {
   private vistaMensajes(s: Sesion, msgs: MensajeSesion[]) {
     const ej = new Map(s.ejercicios.map((e) => [e.id, e]));
     return msgs.filter((m) => m.rol !== 'evento').map((m) => ({
-      id: m.id, rol: m.rol, texto: m.texto, at: m.at,
+      id: m.id, rol: m.rol, texto: m.texto, at: m.at, propio: !!m.propio,
       ejercicio: m.ejercicio_id && ej.get(m.ejercicio_id) ? this.vistaEjercicio(ej.get(m.ejercicio_id)!) : null,
     }));
   }
@@ -322,10 +339,17 @@ export class TutorService {
     return this.vista(u, await this.sesion(u, id));
   }
 
-  async mensaje(u: Usuario, id: string, texto: string) {
+  async mensaje(u: Usuario, id: string, texto: string, propio = false) {
     const s = await this.sesion(u, id);
     await this.verificarLimite(u.uid);
-    const respuesta = await this.pedirAlTutor(u, s, texto.trim());
+    const limpio = texto.trim();
+    let nuevoPropio: EjercicioPropio | null = null;
+    if (propio) {
+      // El tutor lo resuelve primero en privado para guiar sin equivocarse (el alumno no ve la resolución)
+      nuevoPropio = { id: this.mongo.newId(), enunciado: limpio, resolucion: await this.resolver(s, limpio), at: new Date() };
+      s.propios = [...(s.propios ?? []), nuevoPropio];
+    }
+    const respuesta = await this.pedirAlTutor(u, s, limpio, propio);
     if (!respuesta) {
       throw new HttpException(
         { code: 'TUTOR_NO_DISPONIBLE', message: 'El tutor no pudo responder ahora. Intenta de nuevo en un momento.' },
@@ -333,9 +357,25 @@ export class TutorService {
       );
     }
     await this.contarUso(u.uid);
-    const nuevos = [this.msg('alumno', texto.trim()), this.msg('tutor', respuesta)];
-    await this.guardar(s, nuevos);
+    const nuevos = [this.msg('alumno', limpio, undefined, propio), this.msg('tutor', respuesta)];
+    await this.guardar(s, nuevos, nuevoPropio ? { propios: s.propios } : {});
     return { mensajes: this.vistaMensajes(s, nuevos), restantes_hoy: Math.max(this.limiteDiario - (await this.usados(u.uid)), 0) };
+  }
+
+  /** Resolución privada del ejercicio que trae el alumno. Si falla, el tutor guía igual (sin resolución). */
+  private async resolver(s: Sesion, enunciado: string): Promise<Record<string, unknown> | null> {
+    try {
+      const [nodo, mundo] = await Promise.all([
+        s.nodo_id ? this.pg.queryOne<{ titulo: string }>('SELECT titulo FROM niv_banco.nodo WHERE id = $1', [s.nodo_id]) : Promise.resolve(null),
+        this.pg.queryOne<{ titulo: string }>('SELECT titulo FROM niv_banco.mundo WHERE id = $1', [s.mundo_id]),
+      ]);
+      const res = await this.ai.post('/niv/resolver', { enunciado, contexto: { mundo: mundo?.titulo ?? null, nodo: nodo?.titulo ?? null } });
+      if (res?.ok && res.resolucion) return res.resolucion;
+      this.logger.warn(`Resolver sin resultado: ${res?.error ?? 'vacío'}`);
+    } catch (e: any) {
+      this.logger.warn(`Resolver falló: ${e?.message ?? e}`);
+    }
+    return null;
   }
 
   /** El tutor propone un ejercicio del nodo (generado por IA, no entra al banco). */

@@ -37,7 +37,7 @@ export class TutorController {
   @Post('tutor/sesiones/:id/mensajes')
   @HttpCode(200)
   mensaje(@Req() req: any, @Param('id') id: string, @Body() dto: MensajeTutorDto) {
-    return this.tutor.mensaje(usuario(req), id, dto.texto);
+    return this.tutor.mensaje(usuario(req), id, dto.texto, dto.propio === true);
   }
 
   @Post('tutor/sesiones/:id/ejercicio')

@@ -19,8 +19,12 @@ export class CrearSesionDto {
 }
 
 export class MensajeTutorDto {
-  @IsString() @MinLength(1) @MaxLength(2000)
+  @IsString() @MinLength(1) @MaxLength(3000)
   texto!: string;
+
+  /** true = el texto es un ejercicio que trae el alumno (el tutor lo resuelve en privado y lo guía). */
+  @IsOptional() @IsBoolean()
+  propio?: boolean;
 }
 
 export class RetroalimentacionDto {

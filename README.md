@@ -348,7 +348,7 @@ La migración borra el mapa antiguo y el avance por nodo/test en él; conserva e
 
 - **Banco de los profesores** (`niv_banco.pregunta`): fases y tests usan solo estas preguntas.
 - **Retroalimentación al terminar una fase o un test**: la IA comenta cada pregunta (sobre todo por qué la alternativa elegida está mal) y sugiere qué reforzar. Si hubo errores, la acción principal es **Revisar con el tutor**.
-- **Aprende con el tutor** (reemplaza a "Entrenar con IA"): chat socrático por nodo, **fuera de las fases y tests**. Conoce el mundo, el nodo, la guía del cuaderno, el nivel del alumno (y su ELO cuando exista la columna), sus errores recientes y las preguntas que vino a revisar. No da la respuesta de entrada: pistas escalonadas y método de Polya. Puede proponer ejercicios generados por IA, que **no se guardan en el banco** y quedan como `intento` con `origen = 'generada'` (suman XP y alimentan al analista, no cuentan para avanzar). Conversaciones en Mongo (`niv_tutor`), límite diario `TUTOR_LIMITE_DIARIO` (80 por defecto).
+- **Aprende con el tutor** (reemplaza a "Entrenar con IA"): chat socrático por nodo, **fuera de las fases y tests**. Conoce el mundo, el nodo, la guía del cuaderno, el nivel del alumno (y su ELO cuando exista la columna), sus errores recientes y las preguntas que vino a revisar. Es socrático: no da el resultado ni dicta pasos; pregunta qué entiende el alumno, una pregunta por mensaje, y le pide comprobar sus propias respuestas. Con **Traigo mi ejercicio** el alumno pega un ejercicio suyo (texto o LaTeX): un agente lo resuelve en privado (`/niv/resolver`) para que el tutor guíe sin equivocarse; el alumno nunca ve esa resolución. Puede proponer ejercicios generados por IA, que **no se guardan en el banco** y quedan como `intento` con `origen = 'generada'` (suman XP y alimentan al analista, no cuentan para avanzar). Conversaciones en Mongo (`niv_tutor`), límite diario `TUTOR_LIMITE_DIARIO` (80 por defecto).
 - **Agente analista**: corre después de cada fase/test y cada 5 entrenamientos. Guarda fortalezas, debilidades y recomendación, y **ajusta el nivel** (Principiante / Intermedio / Avanzado).
 - **El alumno nunca elige su nivel**: parte con `whitelist_alumnos.nivel_inicial` (lo definen los profes).
 - Al completar todos los mundos, el backend pone `chatbot_habilitado = true` y la pantalla lo celebra.
@@ -490,7 +490,7 @@ Todo bajo `/api` en producción (Nginx lo quita antes de llegar a NestJS). Todas
 | POST | `/retroalimentacion` | Comentario de la IA por pregunta (`intento_ids` del resultado) |
 | POST | `/tutor/sesiones` | Abre o retoma el tutor (`nodo_id`, o `intento_ids` para revisar) |
 | GET | `/tutor/sesiones/:id` | Conversación |
-| POST | `/tutor/sesiones/:id/mensajes` | Mensaje al tutor |
+| POST | `/tutor/sesiones/:id/mensajes` | Mensaje al tutor (`propio: true` = es un ejercicio que trae el alumno) |
 | POST | `/tutor/sesiones/:id/ejercicio` | El tutor propone un ejercicio |
 | POST | `/tutor/sesiones/:id/ejercicio/:ej/respuesta` · `/solucion` | Responder / ver la solución (solo después de intentarlo) |
 | GET | `/analisis` | Último análisis del agente |

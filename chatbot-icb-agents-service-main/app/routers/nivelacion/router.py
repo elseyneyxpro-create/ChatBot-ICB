@@ -54,12 +54,14 @@ async def analizar(payload: AnalizarIn, background_tasks: BackgroundTasks):
 class Mensaje(BaseModel):
     rol: str          # alumno | tutor | evento
     texto: str
+    propio: bool = False   # el alumno trajo este ejercicio
 
 
 class TutorIn(BaseModel):
     contexto: dict = Field(default_factory=dict)
     historial: list[Mensaje] = Field(default_factory=list)
     mensaje: str | None = None
+    propio: bool = False   # el mensaje es un ejercicio que trae el alumno
 
 
 @router.post("/tutor")
@@ -67,10 +69,27 @@ async def tutor(payload: TutorIn):
     try:
         texto = await asyncio.to_thread(
             service.tutor_responder, payload.contexto, [m.model_dump() for m in payload.historial], payload.mensaje,
+            payload.propio,
         )
         return JSONResponse({"ok": True, "respuesta": texto})
     except Exception as e:
         logger.exception("tutor falló")
+        return JSONResponse({"ok": False, "error": str(e)})
+
+
+class ResolverIn(BaseModel):
+    enunciado: str = Field(min_length=1, max_length=4000)
+    contexto: dict = Field(default_factory=dict)
+
+
+@router.post("/resolver")
+async def resolver(payload: ResolverIn):
+    """Resolución privada de un ejercicio que trae el alumno (la usa el tutor; el alumno no la ve)."""
+    try:
+        r = await asyncio.to_thread(service.resolver_ejercicio, payload.enunciado, payload.contexto)
+        return JSONResponse({"ok": True, "resolucion": r})
+    except Exception as e:
+        logger.exception("resolver falló")
         return JSONResponse({"ok": False, "error": str(e)})
 
 

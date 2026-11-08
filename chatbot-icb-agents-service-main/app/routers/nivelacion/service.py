@@ -17,7 +17,7 @@ from app.core.config import settings
 from app.core.postgres import execute, fetch_all
 from app.routers.nivelacion.prompts import (
     ANALISTA_HUMAN, ANALISTA_SYSTEM, GENERADOR_HUMAN, GENERADOR_SYSTEM,
-    RETRO_HUMAN, RETRO_SYSTEM, TUTOR_INICIO, TUTOR_SYSTEM, VERIFICADOR_SYSTEM,
+    RESOLVER_SYSTEM, RETRO_HUMAN, RETRO_SYSTEM, TUTOR_INICIO, TUTOR_PROPIO, TUTOR_SYSTEM, VERIFICADOR_SYSTEM,
 )
 
 logger = logging.getLogger("icb.niv")
@@ -192,6 +192,8 @@ def analizar_en_background(uid: str) -> None:
 # ── Tutor socrático ─────────────────────────────────────────────────────────
 
 MAX_HISTORIAL_TUTOR = 16
+# Algo de variación en la forma de preguntar (no un guion fijo); la exactitud la cuida la resolución oculta.
+TEMPERATURA_TUTOR = 0.6
 
 
 def _llm_texto(temperature: float) -> ChatOpenAI:
@@ -240,6 +242,24 @@ def contexto_txt(ctx: dict) -> str:
             "Preguntas de su última fase/test que quiere revisar (la correcta es solo para ti: "
             "no la reveles de entrada, guíalo para que la encuentre):\n"
             + "\n".join(f"{i}. {_pregunta_txt(p)}" for i, p in enumerate(ctx["revisar"], 1)))
+    propio = ctx.get("propio")
+    if propio:
+        r = propio.get("resolucion") or {}
+        partes = [f"Ejercicio que trajo el estudiante (el más reciente):\n{propio.get('enunciado')}"]
+        if r.get("claro") is False:
+            partes.append(f"Ojo: el enunciado no se entiende o está incompleto. Falta: {r.get('falta') or '?'}")
+        elif r.get("en_alcance") is False:
+            partes.append(f"Ojo: no es del temario de la nivelación (tema: {r.get('tema') or '?'}).")
+        if r.get("pasos") or r.get("resultado"):
+            partes.append(
+                "Resolución SOLO PARA TI (no la muestres, no copies sus pasos, no digas el resultado):\n"
+                + "\n".join(f"- {x}" for x in r.get("pasos") or [])
+                + f"\nResultado: {r.get('resultado') or '?'}")
+        if r.get("conceptos"):
+            partes.append("Conceptos que necesita: " + "; ".join(map(str, r["conceptos"])))
+        if r.get("errores_tipicos"):
+            partes.append("Errores típicos aquí: " + "; ".join(map(str, r["errores_tipicos"])))
+        lineas.append("\n".join(partes))
     ej = ctx.get("ejercicio")
     if ej:
         estado = ("ya respondió" if ej.get("respuesta") is not None else "todavía no responde")
@@ -250,8 +270,27 @@ def contexto_txt(ctx: dict) -> str:
     return "\n\n".join(lineas)
 
 
-def tutor_responder(contexto: dict, historial: list[dict], mensaje: str | None) -> str:
-    """Siguiente mensaje del tutor. Sin mensaje = la plataforma abre la conversación."""
+def resolver_ejercicio(enunciado: str, contexto: dict) -> dict:
+    """Resuelve en privado un ejercicio que trae el estudiante, para que el tutor lo guíe sin equivocarse."""
+    human = (f"Mundo: {contexto.get('mundo') or '?'} · Nodo: {contexto.get('nodo') or '?'}\n\n"
+             f"Ejercicio del estudiante:\n{enunciado}")
+    r = _invocar_json(RESOLVER_SYSTEM, human, temperature=0)
+    lista = lambda k, n: [str(x).strip() for x in (r.get(k) or []) if str(x).strip()][:n]
+    return {
+        "claro": r.get("claro") is not False,
+        "falta": str(r.get("falta") or "").strip(),
+        "en_alcance": r.get("en_alcance") is not False,
+        "tema": str(r.get("tema") or "").strip(),
+        "conceptos": lista("conceptos", 5),
+        "pasos": lista("pasos", 12),
+        "resultado": str(r.get("resultado") or "").strip(),
+        "errores_tipicos": lista("errores_tipicos", 4),
+    }
+
+
+def tutor_responder(contexto: dict, historial: list[dict], mensaje: str | None, propio: bool = False) -> str:
+    """Siguiente mensaje del tutor. Sin mensaje = la plataforma abre la conversación.
+    propio = el mensaje es un ejercicio que trae el estudiante."""
     msgs = [SystemMessage(content=TUTOR_SYSTEM.format(contexto=contexto_txt(contexto)))]
     for m in historial[-MAX_HISTORIAL_TUTOR:]:
         texto = str(m.get("texto") or "")
@@ -259,10 +298,17 @@ def tutor_responder(contexto: dict, historial: list[dict], mensaje: str | None) 
             msgs.append(AIMessage(content=texto))
         elif m.get("rol") == "evento":
             msgs.append(HumanMessage(content=f"(Aviso de la plataforma, no lo escribió el estudiante) {texto}"))
+        elif m.get("propio"):
+            msgs.append(HumanMessage(content=f"(Ejercicio que trajo el estudiante)\n{texto}"))
         else:
             msgs.append(HumanMessage(content=texto))
-    msgs.append(HumanMessage(content=mensaje if mensaje else TUTOR_INICIO))
-    respuesta = str(_llm_texto(0.4).invoke(msgs).content).strip()
+    if not mensaje:
+        msgs.append(HumanMessage(content=TUTOR_INICIO))
+    elif propio:
+        msgs.append(HumanMessage(content=TUTOR_PROPIO.format(texto=mensaje)))
+    else:
+        msgs.append(HumanMessage(content=mensaje))
+    respuesta = str(_llm_texto(TEMPERATURA_TUTOR).invoke(msgs).content).strip()
     logger.info(f"[NIV] tutor nodo='{contexto.get('nodo')}' ({len(historial)} msgs previos)")
     return respuesta
 
