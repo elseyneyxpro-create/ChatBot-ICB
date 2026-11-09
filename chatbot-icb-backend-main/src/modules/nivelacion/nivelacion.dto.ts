@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsInt, IsString, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsInt, IsString, ValidateNested, IsBoolean } from 'class-validator';
 
 export const NIVELES = ['Principiante', 'Intermedio', 'Avanzado'] as const;
 export type Nivel = (typeof NIVELES)[number];
@@ -24,4 +24,10 @@ export class RespuestasDto {
 export class RespuestaEntrenarDto {
   @IsString()
   respuesta!: string;
+}
+
+/** Modo dev (solo equipo): ver la nivelación con todos los mundos y nodos desbloqueados. */
+export class ModoDevDto {
+  @IsBoolean()
+  desbloquear!: boolean;
 }

@@ -386,7 +386,7 @@ export class AuthCallbackComponent implements OnInit {
       // /inicio (elegir módulo) solo la primera vez del día; después va directo a /app
       // (el guard decide chatbot o nivelación).
       // El staff (profesores) entra directo a su panel.
-      const inicio = this.authService.currentUser()?.rol === 'staff' ? '/profesor' : '/app';
+      const inicio = this.authService.esProfesor() ? '/profesor' : '/app';
       this.router.navigateByUrl(environment.dev?.selectorModulos && this.primeraVezHoy() ? '/inicio' : inicio);
     } else {
       console.error('[AuthCallback] error:', authResult.reason);

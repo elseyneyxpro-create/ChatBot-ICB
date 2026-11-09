@@ -49,9 +49,9 @@
           </span>
         </a>
 
-        <!-- Nivelación (develop: environment.dev.selectorModulos) -->
+        <!-- Nivelación (develop: environment.dev.selectorModulos). Los profesores no la ven. -->
         <a
-          *ngIf="devSelector"
+          *ngIf="devSelector && !esStaff()"
           class="nav-item"
           routerLink="/nivelacion"
           [matTooltip]="sidebarCollapsed ? 'Nivelación' : ''"

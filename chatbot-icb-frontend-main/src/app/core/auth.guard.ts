@@ -17,15 +17,25 @@ export const chatbotGuard: CanActivateFn = async () => {
 
   const user = await auth.ensureSession();
   if (!user) return router.parseUrl('/login');
-  return user.chatbotHabilitado ? true : router.parseUrl('/nivelacion');
+  return user.chatbotHabilitado || auth.esProfesor() ? true : router.parseUrl('/nivelacion');
 };
 
-/** Panel docente: solo staff (whitelist_alumnos.codigo_asignatura = staff/crack). El backend vuelve a validarlo. */
+/** Nivelación: solo alumnos (y dev viendo como alumno). Los profesores van a su panel. */
+export const nivelacionGuard: CanActivateFn = async () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  const user = await auth.ensureSession();
+  if (!user) return router.parseUrl('/login');
+  return auth.esProfesor() ? router.parseUrl('/profesor') : true;
+};
+
+/** Panel docente: profesores (staff) y dev viendo como profesor. El backend vuelve a validarlo. */
 export const staffGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
   const user = await auth.ensureSession();
   if (!user) return router.parseUrl('/login');
-  return user.rol === 'staff' ? true : router.parseUrl('/app');
+  return auth.esProfesor() ? true : router.parseUrl('/app');
 };

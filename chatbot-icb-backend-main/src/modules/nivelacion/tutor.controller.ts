@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { RespuestaEntrenarDto } from './nivelacion.dto';
 import { CrearSesionDto, MensajeTutorDto, RetroalimentacionDto } from './tutor.dto';
 import { TutorService } from './tutor.service';
+import { SoloAlumnosGuard } from './roles.guard';
 
 const usuario = (req: any) => ({ uid: req.user.sub as string, email: req.user.email as string });
 
@@ -11,7 +12,7 @@ const usuario = (req: any) => ({ uid: req.user.sub as string, email: req.user.em
  * Abierto a todos los alumnos logueados, igual que la nivelación (no requiere chatbot habilitado).
  */
 @Controller({ path: 'nivelacion', version: '1' })
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), SoloAlumnosGuard)
 export class TutorController {
   constructor(private readonly tutor: TutorService) {}
 

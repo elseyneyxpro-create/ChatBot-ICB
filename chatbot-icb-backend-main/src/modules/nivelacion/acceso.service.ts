@@ -2,12 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { PostgresService } from '../../database/postgres.service';
 
 /**
- * Valores de whitelist_alumnos.codigo_asignatura que identifican al equipo (profesores y desarrolladores).
+ * Valores de whitelist_alumnos.codigo_asignatura que identifican al equipo.
  * Los alumnos llevan ahí su sección (ej. CBM1101_VC03). Se comparan sin mayúsculas/minúsculas.
+ *   - staff → profesores: panel docente y chat, SIN nivelación
+ *   - crack → equipo de desarrollo: todo, más el selector de vista para demos
  */
-export const CODIGOS_STAFF = ['staff', 'crack'];
+export const CODIGOS_PROFESOR = ['staff'];
+export const CODIGOS_DEV = ['crack'];
+export const CODIGOS_STAFF = [...CODIGOS_PROFESOR, ...CODIGOS_DEV];
 
-export type Rol = 'staff' | 'alumno';
+/** dev = equipo de desarrollo · staff = profesor · alumno */
+export type Rol = 'dev' | 'staff' | 'alumno';
 
 /**
  * Decide si un alumno puede usar el chatbot o solo la nivelación.
@@ -19,27 +24,29 @@ export type Rol = 'staff' | 'alumno';
 export class AccesoService {
   constructor(private readonly pg: PostgresService) {}
 
+  /** Profesores y equipo siempre tienen el chat; los alumnos, según la columna chatbot_habilitado. */
   async chatbotHabilitado(correo: string | undefined | null): Promise<boolean> {
     if (!correo) return false;
-    const row = await this.pg.queryOne<{ chatbot_habilitado: boolean }>(
-      `SELECT chatbot_habilitado FROM whitelist_alumnos
-        WHERE lower(email) = $1 AND activo = true
-        ORDER BY chatbot_habilitado DESC LIMIT 1`,
-      [correo.toLowerCase()],
-    );
-    return row?.chatbot_habilitado === true;
-  }
-
-  /** 'staff' si alguna fila activa de la whitelist con ese correo tiene un código de staff. */
-  async rol(correo: string | undefined | null): Promise<Rol> {
-    if (!correo) return 'alumno';
-    const row = await this.pg.queryOne<{ staff: boolean }>(
-      `SELECT bool_or(lower(trim(coalesce(codigo_asignatura, ''))) = ANY($2)) AS staff
+    const row = await this.pg.queryOne<{ habilitado: boolean }>(
+      `SELECT bool_or(chatbot_habilitado OR lower(trim(coalesce(codigo_asignatura, ''))) = ANY($2)) AS habilitado
          FROM whitelist_alumnos
         WHERE lower(email) = $1 AND activo = true`,
       [correo.toLowerCase(), CODIGOS_STAFF],
     );
-    return row?.staff ? 'staff' : 'alumno';
+    return row?.habilitado === true;
+  }
+
+  /** Rol según las filas activas de la whitelist con ese correo (dev gana a staff). */
+  async rol(correo: string | undefined | null): Promise<Rol> {
+    if (!correo) return 'alumno';
+    const row = await this.pg.queryOne<{ dev: boolean; staff: boolean }>(
+      `SELECT bool_or(lower(trim(coalesce(codigo_asignatura, ''))) = ANY($2)) AS dev,
+              bool_or(lower(trim(coalesce(codigo_asignatura, ''))) = ANY($3)) AS staff
+         FROM whitelist_alumnos
+        WHERE lower(email) = $1 AND activo = true`,
+      [correo.toLowerCase(), CODIGOS_DEV, CODIGOS_PROFESOR],
+    );
+    return row?.dev ? 'dev' : row?.staff ? 'staff' : 'alumno';
   }
 
   /** Se llama cuando el alumno completa todos los mundos de la nivelación. */

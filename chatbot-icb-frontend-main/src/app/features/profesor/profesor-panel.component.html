@@ -2,9 +2,6 @@
   <header class="prof-header">
     <a class="logo" routerLink="/profesor">AXIOMANTE <span>PANEL DOCENTE</span></a>
     <div class="header-right">
-      <a class="hbtn" routerLink="/nivelacion" title="Ver la nivelación como alumno">
-        <mat-icon>route</mat-icon><span>Nivelación</span>
-      </a>
       <a class="hbtn" *ngIf="chatHabilitado()" routerLink="/app/chat" title="Ir al chatbot">
         <mat-icon>chat</mat-icon><span>Chatbot</span>
       </a>

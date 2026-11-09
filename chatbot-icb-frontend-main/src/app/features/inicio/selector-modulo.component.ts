@@ -68,13 +68,14 @@ import { ThemeService } from '../../core/theme.service';
     <button class="tema-btn" type="button" (click)="theme.toggle()" [attr.aria-label]="theme.tema() === 'dark' ? 'Modo claro' : 'Modo oscuro'">
       <mat-icon>{{ theme.tema() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
     </button>
-    <div class="wrap" [class.ancho]="esStaff()">
+    <div class="wrap">
       <div class="saludo">
         <h1>¡Hola<span class="gradient">{{ nombre() ? ', ' + nombre() : '' }}</span>! 👋</h1>
         <p>¿Qué quieres hacer hoy?</p>
       </div>
 
-      <div class="tarjetas" [class.tres]="esStaff()">
+      <!-- Alumno: chatbot + nivelación · Profesor: chatbot + panel docente (sin nivelación) -->
+      <div class="tarjetas">
         <button class="tarjeta chat" [class.bloqueada]="!chatHabilitado()" [disabled]="!chatHabilitado()"
                 [attr.aria-disabled]="!chatHabilitado()" (click)="ir('/app/chat')">
           <span class="candado" *ngIf="!chatHabilitado()"><mat-icon>lock</mat-icon></span>
@@ -85,7 +86,7 @@ import { ThemeService } from '../../core/theme.service';
           <span class="ir" *ngIf="!chatHabilitado()"><mat-icon>lock</mat-icon> Se habilita al completar la nivelación</span>
         </button>
 
-        <button class="tarjeta niv" (click)="ir('/nivelacion')">
+        <button class="tarjeta niv" *ngIf="!esStaff()" (click)="ir('/nivelacion')">
           <span class="icono"><mat-icon>route</mat-icon></span>
           <h2>Nivelación</h2>
           <p class="desc">Recorre los mundos de pre-cálculo, supera los tests y entrena con preguntas generadas por IA.</p>
@@ -100,7 +101,7 @@ import { ThemeService } from '../../core/theme.service';
         </button>
       </div>
 
-      <span class="dev">Selector de módulos · modo develop</span>
+      <span class="dev" *ngIf="!esStaff()">Selector de módulos · modo develop</span>
     </div>
   `,
 })
@@ -110,7 +111,7 @@ export class SelectorModuloComponent {
   theme = inject(ThemeService);
 
   chatHabilitado = computed(() => this.auth.currentUser()?.chatbotHabilitado ?? false);
-  esStaff = computed(() => this.auth.currentUser()?.rol === 'staff');
+  esStaff = this.auth.esProfesor;
   nombre = computed(() => (this.auth.currentUser()?.displayName ?? '').split(' ')[0]);
 
   ir(url: string) {

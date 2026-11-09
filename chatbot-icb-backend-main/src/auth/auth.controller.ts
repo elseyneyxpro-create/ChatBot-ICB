@@ -52,7 +52,7 @@ export class AuthController {
       uid: u.sub, email: u.email, name: u.name ?? null, picture: u.picture ?? null,
       // false → el front solo muestra la nivelación
       chatbot_habilitado: chatbotHabilitado,
-      // 'staff' → ve el panel de profesores (whitelist_alumnos.codigo_asignatura = staff/crack)
+      // whitelist_alumnos.codigo_asignatura: 'staff' (profesor: panel + chat) · 'dev' (crack: todo + selector de vista) · 'alumno'
       rol,
     };
   }

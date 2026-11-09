@@ -30,11 +30,9 @@ import { ThemeService } from '../../core/theme.service';
         <span class="nivel-chip" *ngIf="e.estudiante.nivel" title="Tu nivel lo asignan tus profesores y se ajusta según tus respuestas">
           <mat-icon>insights</mat-icon>{{ e.estudiante.nivel }}
         </span>
-
-        <!-- Panel docente (solo staff) -->
-        <a class="btn-secondary chatbot-btn" *ngIf="esStaff()" routerLink="/profesor" title="Panel docente">
-          <mat-icon>query_stats</mat-icon><span>Panel docente</span>
-        </a>
+        <span class="dev-chip" *ngIf="e.estudiante.dev_desbloqueo" title="Modo dev: todos los mundos y nodos desbloqueados para tu cuenta">
+          <mat-icon>lock_open</mat-icon><span>Modo dev</span>
+        </span>
 
         <!-- Cambio directo al chatbot (sin pasar por /inicio) -->
         <a class="btn-secondary chatbot-btn" *ngIf="e.estudiante.chatbot_habilitado" routerLink="/app/chat" title="Ir al chatbot">
@@ -97,7 +95,6 @@ export class NivLayoutComponent implements OnInit {
     const e = this.estado()?.estudiante;
     return e ? (e.xp_en_nivel / e.xp_por_nivel) * 100 : 0;
   });
-  esStaff = computed(() => this.auth.currentUser()?.rol === 'staff');
   foto = computed(() => this.auth.currentUser()?.photoURL ?? null);
   nombre = computed(() => this.auth.currentUser()?.displayName ?? '');
   correo = computed(() => this.auth.currentUser()?.email ?? '');

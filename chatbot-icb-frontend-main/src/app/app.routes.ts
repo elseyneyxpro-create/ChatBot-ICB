@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, chatbotGuard, staffGuard } from './core/auth.guard';
+import { authGuard, chatbotGuard, staffGuard, nivelacionGuard } from './core/auth.guard';
 import { AuthCallbackComponent } from './features/auth/login/auth-callback.component';
 
 export const routes: Routes = [
@@ -50,7 +50,7 @@ export const routes: Routes = [
   {
     // Nivelación: abierta a todos los alumnos logueados (antes de habilitar el chatbot)
     path: 'nivelacion',
-    canActivate: [authGuard],
+    canActivate: [nivelacionGuard],
     loadComponent: () => import('./features/nivelacion/niv-layout.component').then(m => m.NivLayoutComponent),
     children: [
       { path: '', loadComponent: () => import('./features/nivelacion/niv-mundos.component').then(m => m.NivMundosComponent) },

@@ -25,6 +25,8 @@ export interface EstadoNivelacion {
     xp_por_nivel: number;
     chatbot_habilitado: boolean;
     nivelacion_completa: boolean;
+    /** Modo dev (solo equipo): todo desbloqueado */
+    dev_desbloqueo?: boolean;
   };
   mundos: {
     id: number; orden: number; titulo: string; descripcion: string | null; icono: string | null;
@@ -135,6 +137,10 @@ export class NivelacionService {
   }
 
   mundo(id: number) { return this.get<MundoDetalle>(`/mundos/${id}`); }
+
+  /** Modo dev (solo equipo, para demos): todos los mundos y nodos desbloqueados. */
+  modoDev() { return this.get<{ desbloquear: boolean }>('/dev'); }
+  cambiarModoDev(desbloquear: boolean) { return this.send<{ desbloquear: boolean }>('PUT', '/dev', { desbloquear }); }
 
   preguntasFase(nodoId: number) {
     return this.get<{ nodo: { id: number; titulo: string; mundo_id: number; mundo_titulo: string }; fase: number; repaso: boolean; preguntas: PreguntaPublica[] }>(`/nodos/${nodoId}/fase`);

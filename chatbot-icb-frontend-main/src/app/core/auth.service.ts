@@ -1,4 +1,4 @@
-import { Injectable, signal, inject } from '@angular/core';
+import { Injectable, computed, signal, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -11,9 +11,19 @@ export interface User {
   photoURL: string | null;
   /** false → solo puede ver la nivelación */
   chatbotHabilitado: boolean;
-  /** 'staff' (profesores y equipo) → ve el panel docente */
-  rol: 'staff' | 'alumno';
+  /**
+   * whitelist_alumnos.codigo_asignatura:
+   *   'staff' → profesor: panel docente y chat, sin nivelación
+   *   'dev'   → equipo (crack): todo, más el selector de vista para demos
+   */
+  rol: Rol;
 }
+
+export type Rol = 'dev' | 'staff' | 'alumno';
+/** Cómo ve la app el equipo de desarrollo (selector de vista). */
+export type Vista = 'alumno' | 'profesor';
+
+const CLAVE_VISTA = 'axiomante.vista';
 
 interface ProfileResponse {
   uid: string;
@@ -21,7 +31,7 @@ interface ProfileResponse {
   name: string | null;
   picture: string | null;
   chatbot_habilitado?: boolean;
-  rol?: 'staff' | 'alumno';
+  rol?: Rol;
 }
 
 /**
@@ -36,6 +46,32 @@ export class AuthService {
   /** undefined = todavía no se sabe; null = sin sesión. */
   private _currentUser = signal<User | undefined | null>(undefined);
   public  currentUser  = this._currentUser.asReadonly();
+
+  /** Solo cuenta para el rol dev: cómo quiere ver la app (por defecto, como alumno). */
+  private _vista = signal<Vista>(this.leerVista());
+  public  vista  = this._vista.asReadonly();
+
+  /**
+   * Rol con el que se arma la interfaz. Para dev depende de la vista elegida;
+   * el backend sigue validando con el rol real.
+   */
+  public rolEfectivo = computed<Rol>(() => {
+    const rol = this._currentUser()?.rol ?? 'alumno';
+    if (rol !== 'dev') return rol;
+    return this._vista() === 'profesor' ? 'staff' : 'alumno';
+  });
+  /** Profesor (o dev viendo como profesor): panel docente + chat, sin nivelación. */
+  public esProfesor = computed(() => this.rolEfectivo() === 'staff');
+  public esDev = computed(() => this._currentUser()?.rol === 'dev');
+
+  cambiarVista(v: Vista) {
+    this._vista.set(v);
+    try { localStorage.setItem(CLAVE_VISTA, v); } catch { /* sin almacenamiento: queda en memoria */ }
+  }
+
+  private leerVista(): Vista {
+    try { return localStorage.getItem(CLAVE_VISTA) === 'profesor' ? 'profesor' : 'alumno'; } catch { return 'alumno'; }
+  }
 
   private sessionPromise: Promise<User | null> | null = null;
 
@@ -74,7 +110,7 @@ export class AuthService {
         const user: User = {
           uid: p.uid, email: p.email, displayName: p.name, photoURL: p.picture,
           chatbotHabilitado: p.chatbot_habilitado !== false,
-          rol: p.rol === 'staff' ? 'staff' : 'alumno',
+          rol: p.rol === 'dev' || p.rol === 'staff' ? p.rol : 'alumno',
         };
         this._currentUser.set(user);
         return user;

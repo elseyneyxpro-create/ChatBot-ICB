@@ -78,8 +78,24 @@ export class NivelacionService {
 
   // ── Mapa ─────────────────────────────────────────────────────────────────
 
+  // ── Modo dev (equipo, para demos) ────────────────────────────────────────
+  // Se guarda en Mongo (niv_dev) por cuenta; solo lo puede cambiar el rol dev (DevGuard).
+  private get dev() { return this.mongo.col('niv_dev'); }
+
+  async devDesbloqueo(uid: string): Promise<boolean> {
+    return (await this.dev.findOne({ _id: uid as any }))?.desbloquear === true;
+  }
+
+  async cambiarDevDesbloqueo(uid: string, desbloquear: boolean) {
+    await this.dev.updateOne({ _id: uid as any }, { $set: { desbloquear, updated_at: new Date() } }, { upsert: true });
+    this.logger.log(`Modo dev ${desbloquear ? 'ON' : 'OFF'} para ${uid}`);
+    return { desbloquear };
+  }
+
+  // ── Mapa ─────────────────────────────────────────────────────────────────
+
   async estado(u: Usuario) {
-    const e = await this.estudiante(u);
+    const [e, dev] = await Promise.all([this.estudiante(u), this.devDesbloqueo(u.uid)]);
     const mundos = await this.pg.query(
       `SELECT m.id, m.orden, m.titulo, m.descripcion, m.icono,
               count(n.id)::int AS total_nodos,
@@ -97,7 +113,7 @@ export class NivelacionService {
     let anterioresCompletos = true;
     const lista = mundos.map((m: any) => {
       const completado = m.fase_test >= 2;
-      const r = { ...m, completado, desbloqueado: anterioresCompletos };
+      const r = { ...m, completado, desbloqueado: dev || anterioresCompletos };
       anterioresCompletos = anterioresCompletos && completado;
       return r;
     });
@@ -111,6 +127,8 @@ export class NivelacionService {
         xp_por_nivel: REGLAS.XP_POR_NIVEL,
         chatbot_habilitado: await this.acceso.chatbotHabilitado(u.email),
         nivelacion_completa: lista.length > 0 && lista.every((m) => m.completado),
+        // Modo dev activo: todo desbloqueado (el front muestra un aviso)
+        dev_desbloqueo: dev,
       },
       mundos: lista,
       analisis,
@@ -127,6 +145,7 @@ export class NivelacionService {
 
   async mundo(u: Usuario, mundoId: number) {
     const m = await this.mundoDesbloqueado(u, mundoId);
+    const dev = await this.devDesbloqueo(u.uid);
     const nodos = await this.pg.query(
       `SELECT n.id, n.orden, n.titulo, n.descripcion, COALESCE(pn.fases, 0)::int AS fases
          FROM niv_banco.nodo n
@@ -136,14 +155,15 @@ export class NivelacionService {
     );
     // Nodo actual = el primero no completado; los siguientes quedan bloqueados
     const idxActual = nodos.findIndex((n: any) => n.fases < REGLAS.FASES_POR_NODO);
+    // En modo dev todos los nodos sin completar quedan abiertos
     const lista = nodos.map((n: any, i: number) => ({
       ...n,
-      estado: n.fases >= REGLAS.FASES_POR_NODO ? 'completado' : i === idxActual ? 'actual' : 'bloqueado',
+      estado: n.fases >= REGLAS.FASES_POR_NODO ? 'completado' : dev || i === idxActual ? 'actual' : 'bloqueado',
     }));
     return {
       mundo: { id: m.id, titulo: m.titulo, descripcion: m.descripcion, icono: m.icono, completado: m.completado },
       nodos: lista,
-      test: { fase: m.fase_test, desbloqueado: idxActual === -1 && lista.length > 0 },
+      test: { fase: m.fase_test, desbloqueado: (dev || idxActual === -1) && lista.length > 0 },
       reglas: REGLAS,
     };
   }

@@ -41,7 +41,7 @@ export class ShellComponent implements AfterViewInit {
   topbarHidden = computed(() => !this.ui.topbarVisible());
   currentUser = this.auth.currentUser;
   /** Profesores y equipo: acceso al panel docente */
-  esStaff = computed(() => this.auth.currentUser()?.rol === 'staff');
+  esStaff = this.auth.esProfesor;
 
   isMobile = signal(window.innerWidth <= 960);
   sidenavMode = computed<'side' | 'over'>(() => this.isMobile() ? 'over' : 'side');

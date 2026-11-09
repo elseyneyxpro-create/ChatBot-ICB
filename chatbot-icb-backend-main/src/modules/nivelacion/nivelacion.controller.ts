@@ -1,13 +1,17 @@
-import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { NivelacionService } from './nivelacion.service';
-import { RespuestasDto } from './nivelacion.dto';
+import { ModoDevDto, RespuestasDto } from './nivelacion.dto';
+import { DevGuard, SoloAlumnosGuard } from './roles.guard';
 
 const usuario = (req: any) => ({ uid: req.user.sub as string, email: req.user.email as string });
 
-/** Nivelación: abierta para todos los alumnos logueados (no requiere chatbot habilitado). */
+/**
+ * Nivelación: abierta para todos los alumnos logueados (no requiere chatbot habilitado).
+ * Los profesores (staff) no entran: tienen el panel docente y el chat.
+ */
 @Controller({ path: 'nivelacion', version: '1' })
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), SoloAlumnosGuard)
 export class NivelacionController {
   constructor(private readonly niv: NivelacionService) {}
 
@@ -50,5 +54,18 @@ export class NivelacionController {
   @Get('analisis')
   analisis(@Req() req: any) {
     return this.niv.ultimoAnalisis(req.user.sub);
+  }
+
+  /** Modo dev (equipo, para demos): todos los mundos y nodos desbloqueados para su propia cuenta. */
+  @Get('dev')
+  @UseGuards(DevGuard)
+  async modoDev(@Req() req: any) {
+    return { desbloquear: await this.niv.devDesbloqueo(req.user.sub) };
+  }
+
+  @Put('dev')
+  @UseGuards(DevGuard)
+  cambiarModoDev(@Req() req: any, @Body() dto: ModoDevDto) {
+    return this.niv.cambiarDevDesbloqueo(req.user.sub, dto.desbloquear);
   }
 }

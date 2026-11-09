@@ -406,7 +406,15 @@ Pantalla `/profesor` para ver el avance de los alumnos en la nivelación y desca
 
 Durante la nivelación los alumnos **todavía no tienen sección** (se les asigna al empezar el semestre), así que el panel los agrupa por **carrera** (`whitelist_alumnos.carrera`, texto libre que cargan los profesores junto con el nivel inicial). Los que no tienen carrera aparecen como «Sin carrera». La columna se crea al aplicar `deploy/sql/nivelacion.sql`.
 
-**Quién entra.** El rol sale de `whitelist_alumnos.codigo_asignatura`: el equipo lleva `STAFF`, `Staff` o `crack` (los alumnos llevan su sección o nada) (se compara sin mayúsculas). Esos usuarios ven el panel; un alumno que intente entrar es devuelto al chatbot y el backend responde `403`.
+**Quién entra.** El rol sale de `whitelist_alumnos.codigo_asignatura` (se compara sin mayúsculas; los alumnos llevan su sección o nada):
+
+| Código | Rol | Ve |
+| --- | --- | --- |
+| `STAFF` / `Staff` | `staff` (profesor) | Panel docente y chat. **No entra a la nivelación** (el front lo manda al panel y la API responde `403 SOLO_ALUMNOS`). |
+| `crack` | `dev` (equipo) | Todo, más el **selector de vista** (botón abajo a la izquierda) para demos. |
+| otro / vacío | `alumno` | Nivelación; el chat cuando lo tiene habilitado. Al panel: `403`. |
+
+**Selector de vista (solo `dev`).** Permite ver la app *como alumno* o *como profesor* (es solo interfaz: la API valida con el rol real) y activar **Todo desbloqueado**: todos los mundos, nodos y tests abiertos para tu propia cuenta (`PUT /v1/nivelacion/dev`, se guarda en Mongo `niv_dev`; en la nivelación aparece el aviso «Modo dev»).
 
 ```sql
 -- Dar acceso al panel a un profesor
