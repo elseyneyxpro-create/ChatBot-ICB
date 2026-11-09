@@ -3,8 +3,10 @@
 -- (5 mundos, 26 nodos). Correr UNA vez en una base que ya tenga el mapa antiguo,
 -- y después volver a aplicar nivelacion.sql, que carga el mapa nuevo:
 --
---   docker compose exec -T postgres psql -U icb_user -d icb_chatbot < sql/migrar_mundos_cuaderno.sql
---   docker compose exec -T postgres psql -U icb_user -d icb_chatbot < sql/nivelacion.sql
+--   docker compose cp sql/migrar_mundos_cuaderno.sql postgres:/tmp/migrar.sql
+--   docker compose exec postgres psql -U icb_user -d icb_chatbot -f /tmp/migrar.sql
+--   (y después nivelacion.sql de la misma forma; ver su encabezado)
+-- NO usar "Get-Content ... | psql" en PowerShell: cambia la codificación y rompe las tildes.
 --
 -- Qué borra (solo si encuentra los 4 mundos antiguos):
 --   - los mundos y nodos antiguos,
@@ -14,6 +16,7 @@
 --   - el historial de respuestas (niv_progreso.intento, queda sin mundo/nodo),
 --   - nivel y XP de cada alumno, los análisis del agente y las preguntas generales.
 -- ============================================================================
+SET client_encoding = 'UTF8';
 BEGIN;
 
 DO $$
@@ -21,7 +24,8 @@ DECLARE
   antiguos int;
 BEGIN
   SELECT count(*) INTO antiguos FROM niv_banco.mundo
-   WHERE titulo IN ('Funciones Lineales', 'Funciones Cuadráticas', 'Conceptos de Geometría', 'Aplicaciones del Mundo Real');
+   -- Con comodines en las tildes: reconoce el mapa antiguo aunque se haya cargado con las tildes dañadas
+   WHERE titulo LIKE ANY (ARRAY['Funciones Lineales', 'Funciones Cuadr%ticas', 'Conceptos de Geometr%a', 'Aplicaciones del Mundo Real']);
   IF antiguos = 0 THEN
     RAISE NOTICE 'No está el mapa antiguo: no se borra nada.';
     RETURN;

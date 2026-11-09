@@ -275,10 +275,12 @@ flowchart TD
    python migracion/02_firestore_a_mongo.py --cred firebase-credentials.json \
      --mongo "mongodb://USER:PASS@localhost:27017/?authSource=admin"
    ```
-7. **Nivelación:**
+7. **Nivelación** (psql lee el archivo directo; así no se rompen las tildes, también en Windows):
    ```bash
-   docker compose exec -T postgres psql -U icb_user -d icb_chatbot < sql/nivelacion.sql
+   docker compose cp sql/nivelacion.sql postgres:/tmp/nivelacion.sql
+   docker compose exec postgres psql -U icb_user -d icb_chatbot -f /tmp/nivelacion.sql
    ```
+   No uses `Get-Content sql/nivelacion.sql | docker compose exec ...` en PowerShell: cambia la codificación y las tildes quedan como `?` o `Ã¡`. Si ya pasó, vuelve a cargarlo con los comandos de arriba: el script repara los textos dañados de mundos, nodos, preguntas de ejemplo y del historial de respuestas (sin pisar lo que los profesores hayan editado), y se detiene solo si el archivo llega dañado.
 8. `docker compose restart backend agents` y entra a `https://DOMINIO`.
 
 ### Comandos del día a día
@@ -333,8 +335,10 @@ flowchart LR
 
 ```bash
 # Base que todavía tiene el mapa antiguo de la maqueta (4 mundos × 10 nodos): correr una vez
-docker compose exec -T postgres psql -U icb_user -d icb_chatbot < sql/migrar_mundos_cuaderno.sql
-docker compose exec -T postgres psql -U icb_user -d icb_chatbot < sql/nivelacion.sql
+docker compose cp sql/migrar_mundos_cuaderno.sql postgres:/tmp/migrar.sql
+docker compose exec postgres psql -U icb_user -d icb_chatbot -f /tmp/migrar.sql
+docker compose cp sql/nivelacion.sql postgres:/tmp/nivelacion.sql
+docker compose exec postgres psql -U icb_user -d icb_chatbot -f /tmp/nivelacion.sql
 ```
 La migración borra el mapa antiguo y el avance por nodo/test en él; conserva el historial de respuestas, nivel, XP y análisis.
 
