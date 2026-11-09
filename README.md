@@ -280,6 +280,7 @@ flowchart TD
    docker compose cp sql/nivelacion.sql postgres:/tmp/nivelacion.sql
    docker compose exec postgres psql -U icb_user -d icb_chatbot -f /tmp/nivelacion.sql
    ```
+   En tu PC (bases de `docker-compose.dev.yml`) agrega `-f docker-compose.dev.yml` después de `docker compose` en ambos comandos.
    No uses `Get-Content sql/nivelacion.sql | docker compose exec ...` en PowerShell: cambia la codificación y las tildes quedan como `?` o `Ã¡`. Si ya pasó, vuelve a cargarlo con los comandos de arriba: el script repara los textos dañados de mundos, nodos, preguntas de ejemplo y del historial de respuestas (sin pisar lo que los profesores hayan editado), y se detiene solo si el archivo llega dañado.
 8. `docker compose restart backend agents` y entra a `https://DOMINIO`.
 
