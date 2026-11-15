@@ -37,6 +37,7 @@ import { ThemeService } from '../../core/theme.service';
     }
     .tarjeta:nth-child(2) { animation-delay: 0.1s; }
     .tarjeta:hover:not(.bloqueada) { transform: translateY(-6px); box-shadow: var(--shadow), var(--glow); }
+    .tarjeta:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
     .chat { background: linear-gradient(145deg, #4338ca, #7c3aed); }
     .niv { background: linear-gradient(145deg, #a21caf, #db2777); }
     .docente { background: linear-gradient(145deg, #0f766e, #2563eb); }
@@ -65,7 +66,7 @@ import { ThemeService } from '../../core/theme.service';
     @media (max-width: 680px) { .tarjetas, .tarjetas.tres { grid-template-columns: 1fr; } .saludo h1 { font-size: 1.6rem; } }
   `],
   template: `
-    <button class="tema-btn" type="button" (click)="theme.toggle()" [attr.aria-label]="theme.tema() === 'dark' ? 'Modo claro' : 'Modo oscuro'">
+    <button class="tema-btn" type="button" (click)="theme.toggle()" [attr.aria-label]="theme.tema() === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'">
       <mat-icon>{{ theme.tema() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
     </button>
     <div class="wrap">
@@ -78,7 +79,7 @@ import { ThemeService } from '../../core/theme.service';
       <div class="tarjetas">
         <button class="tarjeta chat" [class.bloqueada]="!chatHabilitado()" [disabled]="!chatHabilitado()"
                 [attr.aria-disabled]="!chatHabilitado()" (click)="ir('/app/chat')">
-          <span class="candado" *ngIf="!chatHabilitado()"><mat-icon>lock</mat-icon></span>
+          <span class="candado" *ngIf="!chatHabilitado()" aria-hidden="true"><mat-icon>lock</mat-icon></span>
           <span class="icono"><mat-icon>{{ chatHabilitado() ? 'chat' : 'speaker_notes_off' }}</mat-icon></span>
           <h2>Chatbot Axiomante</h2>
           <p class="desc">Tu tutor de Cálculo con IA: haz preguntas, recibe videos y ejercicios de refuerzo.</p>

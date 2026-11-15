@@ -177,6 +177,7 @@
 .panel-list {
   max-height: min(320px, 50vh);
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px;
   display: flex;
   flex-direction: column;

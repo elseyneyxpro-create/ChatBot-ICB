@@ -6,11 +6,11 @@
     </mat-card-header>
 
     <mat-card-content>
-      <div *ngIf="successMessage()" class="message-banner success">
+      <div *ngIf="successMessage()" class="message-banner success" role="status">
         <mat-icon>check_circle</mat-icon>
         <span>{{ successMessage() }}</span>
       </div>
-      <div *ngIf="errorMessage()" class="message-banner error">
+      <div *ngIf="errorMessage()" class="message-banner error" role="alert">
         <mat-icon>warning</mat-icon>
         <span>{{ errorMessage() }}</span>
       </div>
@@ -19,17 +19,17 @@
         <div class="name-fields">
           <mat-form-field appearance="outline">
             <mat-label>Nombres</mat-label>
-            <input matInput formControlName="first_name" required>
+            <input matInput formControlName="first_name" name="given-name" autocomplete="given-name" required>
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Apellidos</mat-label>
-            <input matInput formControlName="last_name" required>
+            <input matInput formControlName="last_name" name="family-name" autocomplete="family-name" required>
           </mat-form-field>
         </div>
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Email UDP</mat-label>
-          <input matInput formControlName="email" type="email" placeholder="tu@mail.udp.cl" required>
+          <input matInput formControlName="email" type="email" name="email" autocomplete="email" spellcheck="false" placeholder="tu@mail.udp.cl" required>
           <mat-error *ngIf="form.get('email')?.hasError('email')">
             Por favor, ingresa un correo válido.
           </mat-error>
@@ -37,8 +37,9 @@
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Contraseña</mat-label>
-          <input matInput formControlName="password" [type]="hidePassword() ? 'password' : 'text'" required>
-          <button mat-icon-button matSuffix type="button" (click)="hidePassword.set(!hidePassword())">
+          <input matInput formControlName="password" [type]="hidePassword() ? 'password' : 'text'" name="new-password" autocomplete="new-password" required>
+          <button mat-icon-button matSuffix type="button" (click)="hidePassword.set(!hidePassword())"
+                  [attr.aria-label]="hidePassword() ? 'Mostrar contraseña' : 'Ocultar contraseña'" [attr.aria-pressed]="!hidePassword()">
             <mat-icon>{{ hidePassword() ? 'visibility' : 'visibility_off' }}</mat-icon>
           </button>
           <mat-error *ngIf="form.get('password')?.hasError('minlength')">
@@ -48,8 +49,9 @@
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Confirmar Contraseña</mat-label>
-          <input matInput formControlName="confirmPassword" [type]="hideConfirmPassword() ? 'password' : 'text'" required>
-          <button mat-icon-button matSuffix type="button" (click)="hideConfirmPassword.set(!hideConfirmPassword())">
+          <input matInput formControlName="confirmPassword" [type]="hideConfirmPassword() ? 'password' : 'text'" name="confirm-password" autocomplete="new-password" required>
+          <button mat-icon-button matSuffix type="button" (click)="hideConfirmPassword.set(!hideConfirmPassword())"
+                  [attr.aria-label]="hideConfirmPassword() ? 'Mostrar contraseña' : 'Ocultar contraseña'" [attr.aria-pressed]="!hideConfirmPassword()">
             <mat-icon>{{ hideConfirmPassword() ? 'visibility' : 'visibility_off' }}</mat-icon>
           </button>
           <mat-error *ngIf="form.hasError('passwordMismatch')">

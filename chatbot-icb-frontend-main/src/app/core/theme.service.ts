@@ -16,6 +16,8 @@ export class ThemeService {
     effect(() => {
       const t = this.tema();
       document.documentElement.setAttribute('data-theme', t);
+      // Color de la barra del navegador en celular = fondo de la app
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'dark' ? '#0f1115' : '#f5f3fb');
       try { localStorage.setItem(KEY, t); } catch { /* modo privado: no pasa nada */ }
     });
   }

@@ -15,6 +15,7 @@ import { ThemeService } from '../../core/theme.service';
   styleUrls: ['./niv-theme.scss', './niv-layout.component.scss'],
   template: `
   <div class="niv-root">
+    <a class="saltar-contenido" href="#contenido" (click)="$event.preventDefault(); contenido.focus()">Saltar al contenido</a>
     <header class="niv-header">
       <a class="logo" routerLink="/nivelacion">AXIOMANTE <span>NIVELACIÓN</span></a>
 
@@ -24,7 +25,7 @@ import { ThemeService } from '../../core/theme.service';
             <span>Nivel {{ e.estudiante.nivel_xp }}</span>
             <span class="muted">{{ e.estudiante.xp_en_nivel }}/{{ e.estudiante.xp_por_nivel }} XP</span>
           </div>
-          <div class="xp-bar"><div [style.width.%]="progresoXp()"></div></div>
+          <div class="xp-bar" aria-hidden="true"><div [style.width.%]="progresoXp()"></div></div>
         </div>
 
         <span class="nivel-chip" *ngIf="e.estudiante.nivel" title="Tu nivel lo asignan tus profesores y se ajusta según tus respuestas">
@@ -44,15 +45,16 @@ import { ThemeService } from '../../core/theme.service';
         </span>
 
         <button class="btn-secondary chatbot-btn tema-btn" type="button" (click)="theme.toggle()"
-                [title]="theme.tema() === 'dark' ? 'Modo claro' : 'Modo oscuro'">
+                [title]="theme.tema() === 'dark' ? 'Modo claro' : 'Modo oscuro'"
+                [attr.aria-label]="theme.tema() === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'">
           <mat-icon>{{ theme.tema() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
         </button>
 
         <!-- Cuenta: el avatar abre un menú; cerrar sesión ya no es un clic accidental -->
         <div class="cuenta">
-          <button class="avatar" type="button" (click)="menu.set(!menu())" title="Tu cuenta"
+          <button class="avatar" type="button" (click)="menu.set(!menu())" title="Tu cuenta" aria-label="Tu cuenta"
                   aria-haspopup="menu" [attr.aria-expanded]="menu()">
-            <img *ngIf="foto()" [src]="foto()" alt="" referrerpolicy="no-referrer" />
+            <img *ngIf="foto()" [src]="foto()" alt="" width="40" height="40" referrerpolicy="no-referrer" />
             <span *ngIf="!foto()">{{ inicial() }}</span>
           </button>
           <div class="menu-cuenta" *ngIf="menu()" role="menu">
@@ -68,9 +70,9 @@ import { ThemeService } from '../../core/theme.service';
       </div>
     </header>
 
-    <main class="niv-main">
-      <div class="page" *ngIf="cargando()"><p class="muted">Cargando tu nivelación…</p></div>
-      <div class="page" *ngIf="error()"><div class="error-box">{{ error() }}</div></div>
+    <main class="niv-main" id="contenido" #contenido tabindex="-1">
+      <div class="page" *ngIf="cargando()" role="status"><p class="muted">Cargando tu nivelación…</p></div>
+      <div class="page" *ngIf="error()"><div class="error-box" role="alert">{{ error() }}</div></div>
 
       <router-outlet *ngIf="!cargando() && !error()"></router-outlet>
     </main>

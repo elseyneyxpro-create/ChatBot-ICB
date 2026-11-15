@@ -1,3 +1,4 @@
+<a class="saltar-contenido" href="#contenido" (click)="$event.preventDefault(); contenido.focus()">Saltar al contenido</a>
 <mat-sidenav-container class="app-shell" (click)="onContainerClick()">
   <mat-sidenav
     #sidenav
@@ -24,6 +25,8 @@
         *ngIf="!isMobile()"
         (click)="toggleSidenav()"
         [matTooltip]="sidebarCollapsed ? 'Expandir menú' : 'Contraer menú'"
+        [attr.aria-label]="sidebarCollapsed ? 'Expandir menú' : 'Contraer menú'"
+        [attr.aria-expanded]="!sidebarCollapsed"
         matTooltipPosition="right"
       >
         <mat-icon>{{ sidebarCollapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
@@ -39,6 +42,7 @@
           routerLinkActive="active"
           [routerLinkActiveOptions]="{ exact: true }"
           [matTooltip]="sidebarCollapsed ? 'Chatbot' : ''"
+          [attr.aria-label]="sidebarCollapsed ? 'Chatbot' : null"
           matTooltipPosition="right"
           (click)="closeSidenavOnMobile()"
         >
@@ -55,6 +59,7 @@
           class="nav-item"
           routerLink="/nivelacion"
           [matTooltip]="sidebarCollapsed ? 'Nivelación' : ''"
+          [attr.aria-label]="sidebarCollapsed ? 'Nivelación' : null"
           matTooltipPosition="right"
           (click)="closeSidenavOnMobile()"
         >
@@ -71,6 +76,7 @@
           class="nav-item"
           routerLink="/profesor"
           [matTooltip]="sidebarCollapsed ? 'Panel docente' : ''"
+          [attr.aria-label]="sidebarCollapsed ? 'Panel docente' : null"
           matTooltipPosition="right"
           (click)="closeSidenavOnMobile()"
         >
@@ -88,6 +94,7 @@
           routerLinkActive="active"
           [routerLinkActiveOptions]="{ exact: true }"
           [matTooltip]="sidebarCollapsed ? 'Leaderboard' : ''"
+          [attr.aria-label]="sidebarCollapsed ? 'Leaderboard' : null"
           matTooltipPosition="right"
           (click)="closeSidenavOnMobile()"
         >
@@ -105,6 +112,7 @@
           routerLinkActive="active"
           [routerLinkActiveOptions]="{ exact: true }"
           [matTooltip]="sidebarCollapsed ? 'Biblioteca de videos' : ''"
+          [attr.aria-label]="sidebarCollapsed ? 'Biblioteca de videos' : null"
           matTooltipPosition="right"
           (click)="closeSidenavOnMobile()"
         >
@@ -124,11 +132,12 @@
           routerLinkActive="active"
           [routerLinkActiveOptions]="{ exact: true }"
           [matTooltip]="sidebarCollapsed ? 'Perfil' : ''"
+          [attr.aria-label]="sidebarCollapsed ? 'Perfil' : null"
           matTooltipPosition="right"
           (click)="closeSidenavOnMobile()"
         >
           <ng-container *ngIf="userPicture(); else initialsAvatar">
-            <img class="profile-avatar-img" [src]="userPicture()!" [alt]="displayName()" referrerpolicy="no-referrer" />
+            <img class="profile-avatar-img" [src]="userPicture()!" [alt]="displayName()" width="40" height="40" referrerpolicy="no-referrer" />
           </ng-container>
           <ng-template #initialsAvatar>
             <span class="profile-avatar">{{ userInitials() }}</span>
@@ -178,7 +187,7 @@
     </button>
 
     <header class="topbar" [class.topbar--hidden]="topbarHidden()">
-      <button mat-icon-button (click)="$event.stopPropagation(); toggleSidenav()" class="only-mobile" type="button" aria-label="Menú">
+      <button mat-icon-button (click)="$event.stopPropagation(); toggleSidenav()" class="only-mobile" type="button" aria-label="Abrir menú">
         <mat-icon>menu</mat-icon>
       </button>
       <span class="topbar-title">
@@ -202,7 +211,7 @@
       </button>
     </header>
 
-    <main class="content" [class.content--expanded]="topbarHidden()">
+    <main class="content" id="contenido" #contenido tabindex="-1" [class.content--expanded]="topbarHidden()">
       <router-outlet></router-outlet>
     </main>
   </mat-sidenav-content>

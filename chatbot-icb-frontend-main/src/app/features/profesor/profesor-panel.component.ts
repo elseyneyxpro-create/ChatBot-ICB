@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -166,6 +166,12 @@ export class ProfesorPanelComponent implements OnInit {
     this.orden.set({ col, dir: o.col === col ? (o.dir === 1 ? -1 : 1) : inicial });
   }
 
+  /** Para lectores de pantalla: qué columna ordena la tabla y en qué sentido */
+  ariaOrden(col: ColOrden): 'ascending' | 'descending' | null {
+    const o = this.orden();
+    return o.col !== col ? null : o.dir === 1 ? 'ascending' : 'descending';
+  }
+
   flecha(col: ColOrden) {
     const o = this.orden();
     return o.col !== col ? 'unfold_more' : o.dir === 1 ? 'arrow_upward' : 'arrow_downward';
@@ -183,8 +189,16 @@ export class ProfesorPanelComponent implements OnInit {
     }
   }
 
+  /** Elemento que tenía el foco antes de abrir la ficha (se le devuelve al cerrarla) */
+  private focoPrevio: HTMLElement | null = null;
+
+  /** Botón "Cerrar" de la ficha: recibe el foco al abrirla (teclado y lectores de pantalla) */
+  @ViewChild('cerrarFichaBtn') private cerrarFichaBtn?: ElementRef<HTMLButtonElement>;
+
   async abrirFicha(a: AlumnoReporte) {
+    if (!this.seleccionado()) this.focoPrevio = document.activeElement as HTMLElement | null;
     this.seleccionado.set(a);
+    setTimeout(() => this.cerrarFichaBtn?.nativeElement.focus());
     this.detalle.set(null);
     this.errorDetalle.set(null);
     if (!a.uid) return;
@@ -201,8 +215,10 @@ export class ProfesorPanelComponent implements OnInit {
 
   @HostListener('document:keydown.escape')
   cerrarFicha() {
+    const abierta = !!this.seleccionado();
     this.seleccionado.set(null);
     this.detalle.set(null);
+    if (abierta) { this.focoPrevio?.focus?.(); this.focoPrevio = null; }
   }
 
   verAlumno(correo: string) {

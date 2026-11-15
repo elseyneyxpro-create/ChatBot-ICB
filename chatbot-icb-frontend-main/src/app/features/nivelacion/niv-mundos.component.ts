@@ -30,10 +30,11 @@ import { NivelacionService } from './nivelacion.service';
 
         <div *ngFor="let p of puntos(); let i = index" class="mundo aparecer"
              [style.left.px]="p.x" [style.top.px]="p.y" [style.animation-delay.ms]="i * 120">
-          <div class="jugador" *ngIf="esActual(p.m)" title="Estás aquí"><mat-icon>smart_toy</mat-icon></div>
+          <div class="jugador" *ngIf="esActual(p.m)" title="Estás aquí" aria-hidden="true"><mat-icon>smart_toy</mat-icon></div>
           <button class="circulo"
                   [class.completado]="p.m.completado" [class.actual]="esActual(p.m)" [class.bloqueado]="!p.m.desbloqueado"
-                  [disabled]="!p.m.desbloqueado" (click)="abrir(p.m.id)">
+                  [disabled]="!p.m.desbloqueado" (click)="abrir(p.m.id)"
+                  [attr.aria-label]="'Mundo ' + p.m.orden + ': ' + p.m.titulo + (p.m.completado ? ', completado' : !p.m.desbloqueado ? ', bloqueado' : esActual(p.m) ? ', estás aquí' : '')">
             <mat-icon>{{ p.m.completado ? 'check_circle' : !p.m.desbloqueado ? 'lock' : (p.m.icono || 'public') }}</mat-icon>
           </button>
           <div class="etiqueta" [class.actual]="esActual(p.m)">
@@ -48,7 +49,7 @@ import { NivelacionService } from './nivelacion.service';
              [style.top.px]="puntos().at(-1)?.y ?? 0">
           <mat-icon>emoji_events</mat-icon><span>Meta</span>
         </div>
-        <div class="suelo"></div>
+        <div class="suelo" aria-hidden="true"></div>
       </div>
     </div>
     <p class="muted pista" *ngIf="e.mundos.length > 3"><mat-icon>swipe</mat-icon> Desliza hacia el lado para ver todos los mundos</p>

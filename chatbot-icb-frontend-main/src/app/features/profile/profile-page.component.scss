@@ -284,3 +284,6 @@
 @media (max-width: 400px) {
   .identity-stats { grid-template-columns: 1fr; }
 }
+
+// Cifras alineadas (todos los dígitos del mismo ancho)
+.stat-value--big, .topic-pct, .row-stats { font-variant-numeric: tabular-nums; }

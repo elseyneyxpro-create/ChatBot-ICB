@@ -1,7 +1,7 @@
 <div class="profile-page">
 
-  <div *ngIf="loading()" class="loading-state">
-    <p>Cargando tu perfil...</p>
+  <div *ngIf="loading()" class="loading-state" role="status">
+    <p>Cargando tu perfil…</p>
   </div>
 
   <ng-container *ngIf="!loading()">
@@ -10,7 +10,7 @@
     <section class="identity-section">
       <div class="identity-avatar-wrap">
         <ng-container *ngIf="photoURL() && !avatarFailed(); else initialsAvatar">
-          <img class="identity-avatar" [src]="photoURL()!" [alt]="displayName()"
+          <img class="identity-avatar" [src]="photoURL()!" [alt]="displayName()" width="96" height="96"
                referrerpolicy="no-referrer" (error)="onAvatarError()" />
         </ng-container>
         <ng-template #initialsAvatar>
@@ -121,7 +121,7 @@
                 {{ t.porcentaje }}%
               </span>
             </div>
-            <div class="topic-bar"><div [style.width.%]="t.porcentaje"></div></div>
+            <div class="topic-bar" aria-hidden="true"><div [style.width.%]="t.porcentaje"></div></div>
             <div class="topic-row">
               <span class="row-label">Concepto</span>
               <span class="row-stats"><span class="ok">{{ t.concepto_aciertos }}</span> / <span class="bad">{{ t.concepto_errores }}</span></span>

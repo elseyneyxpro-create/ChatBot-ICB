@@ -22,7 +22,7 @@ interface Sugerencia { texto: string; accion?: 'ejercicio' | 'prellenar' | 'prop
   <div class="page tutor-page">
     <div class="tutor-wrap">
       <header class="t-head glass-panel">
-        <button class="btn-secondary icono" (click)="volver()" title="Volver al mapa"><mat-icon>arrow_back</mat-icon></button>
+        <button class="btn-secondary icono" (click)="volver()" title="Volver al mapa" aria-label="Volver al mapa"><mat-icon>arrow_back</mat-icon></button>
         <div class="t-avatar"><mat-icon>school</mat-icon></div>
         <div class="t-tit">
           <span class="t-kicker">Aprende con el tutor</span>
@@ -31,17 +31,17 @@ interface Sugerencia { texto: string; accion?: 'ejercicio' | 'prellenar' | 'prop
             {{ s.mundo?.titulo }} · {{ s.revisando ? 'Revisando ' + s.revisando + (s.revisando === 1 ? ' pregunta' : ' preguntas') : 'Práctica libre' }}
           </small>
         </div>
-        <button class="btn-secondary icono" *ngIf="sesion()?.nodo" (click)="nueva()" [disabled]="ocupado()" title="Nueva conversación">
+        <button class="btn-secondary icono" *ngIf="sesion()?.nodo" (click)="nueva()" [disabled]="ocupado()" title="Nueva conversación" aria-label="Nueva conversación">
           <mat-icon>add_comment</mat-icon>
         </button>
       </header>
 
-      <div class="t-chat glass-panel" #chat>
-        <div class="t-cargando" *ngIf="!sesion() && !error()">
-          <div class="dots"><span></span><span></span><span></span></div>
+      <div class="t-chat glass-panel" #chat role="log" aria-label="Conversación con el tutor">
+        <div class="t-cargando" *ngIf="!sesion() && !error()" role="status">
+          <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
           <p class="muted">Preparando a tu tutor…</p>
         </div>
-        <div class="error-box" *ngIf="error() as e">{{ e }}
+        <div class="error-box" *ngIf="error() as e" role="alert">{{ e }}
           <button class="btn-secondary" (click)="volver()">Volver al mapa</button></div>
 
         <ng-container *ngFor="let m of mensajes(); trackBy: porId">
@@ -59,6 +59,7 @@ interface Sugerencia { texto: string; accion?: 'ejercicio' | 'prellenar' | 'prop
                 <div class="opciones">
                   <button *ngFor="let op of ej.alternativas; let i = index" class="opcion"
                           [class.sel]="ej.respuesta === null && !ej.vencido && eleccion()[ej.id] === op"
+                          [attr.aria-pressed]="ej.respuesta === null && !ej.vencido ? eleccion()[ej.id] === op : null"
                           [class.ok]="op === ej.correcta"
                           [class.bad]="ej.respuesta === op && ej.es_correcto === false"
                           [disabled]="ej.respuesta !== null || ej.vencido || ocupado()"
@@ -87,7 +88,7 @@ interface Sugerencia { texto: string; accion?: 'ejercicio' | 'prellenar' | 'prop
 
         <div class="msg tutor" *ngIf="pensando()">
           <div class="m-avatar"><mat-icon>school</mat-icon></div>
-          <div class="burbuja escribiendo"><span></span><span></span><span></span></div>
+          <div class="burbuja escribiendo" role="status" aria-label="El tutor está escribiendo"><span></span><span></span><span></span></div>
         </div>
       </div>
 
@@ -101,21 +102,22 @@ interface Sugerencia { texto: string; accion?: 'ejercicio' | 'prellenar' | 'prop
         <div class="modo-propio" *ngIf="modoPropio()">
           <mat-icon>assignment</mat-icon>
           <span><strong>Tu ejercicio.</strong> Pégalo o escríbelo; las fórmulas van entre $…$.<span class="largo"> El tutor no te dará el resultado: te ayudará a llegar.</span></span>
-          <button type="button" class="cerrar" (click)="modoPropio.set(false)" title="Cancelar"><mat-icon>close</mat-icon></button>
+          <button type="button" class="cerrar" (click)="modoPropio.set(false)" title="Cancelar" aria-label="Cancelar mi ejercicio"><mat-icon>close</mat-icon></button>
         </div>
         <div class="vista-previa" *ngIf="tieneFormula(borrador)">
           <span class="muted">Vista previa</span>
           <div [innerHTML]="latex(borrador) | katexRender"></div>
         </div>
         <div class="caja" [class.deshabilitada]="sinCupo()" [class.propio]="modoPropio()">
-          <textarea #campo rows="1" [(ngModel)]="borrador" [disabled]="sinCupo()"
+          <textarea #campo rows="1" [(ngModel)]="borrador" [disabled]="sinCupo()" name="mensaje-tutor" autocomplete="off"
+                    [attr.aria-label]="modoPropio() ? 'Tu ejercicio' : 'Mensaje para el tutor'"
                     [placeholder]="modoPropio() ? 'Ej.: Resuelve $\\\\frac{x+1}{2} = 3$' : 'Escribe tu duda o tu desarrollo… (usa $x^2$ para fórmulas)'"
                     (keydown.enter)="enter($event)" (input)="ajustar()"></textarea>
-          <button class="enviar" [disabled]="!borrador.trim() || ocupado() || sinCupo()" (click)="enviar()" title="Enviar">
+          <button class="enviar" [disabled]="!borrador.trim() || ocupado() || sinCupo()" (click)="enviar()" title="Enviar" aria-label="Enviar mensaje">
             <mat-icon>send</mat-icon>
           </button>
         </div>
-        <div class="t-pie muted">
+        <div class="t-pie muted" aria-live="polite">
           <span *ngIf="aviso() as a" class="aviso">{{ a }}</span>
           <span *ngIf="!aviso()"><span class="largo">El tutor no te da la respuesta: te ayuda a encontrarla. </span>Te quedan {{ restantes() }} mensajes hoy.</span>
         </div>

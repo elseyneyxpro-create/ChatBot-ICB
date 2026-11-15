@@ -221,7 +221,7 @@ const RESPONSES = [
       font-weight: 600;
       color: var(--text);
       cursor: pointer;
-      transition: all 0.18s ease;
+      transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
       box-shadow: 0 2px 10px rgba(139, 92, 246, 0.12);
     }
 
@@ -270,7 +270,7 @@ const RESPONSES = [
     <div class="scene">
 
       <!-- Robot Axiomante -->
-      <div class="robot">
+      <div class="robot" aria-hidden="true">
         <div class="robot-head">
           <div class="robot-antenna"></div>
           <div class="robot-eyes">
@@ -291,7 +291,7 @@ const RESPONSES = [
       <!-- Burbuja de diálogo: Axiomante se despide primero -->
       <div class="bubble">
         <div class="bubble-name">Axiomante</div>
-        <div class="bubble-text">
+        <div class="bubble-text" aria-live="polite">
           @if (selectedCard()) {
             ¡Que te vaya súper bien! Fue un placer 🚀
           } @else {
@@ -314,7 +314,7 @@ const RESPONSES = [
       } @else {
         <div class="leaving">
           <span>Cerrando sesión</span>
-          <div class="dots">
+          <div class="dots" aria-hidden="true">
             <span></span><span></span><span></span>
           </div>
         </div>

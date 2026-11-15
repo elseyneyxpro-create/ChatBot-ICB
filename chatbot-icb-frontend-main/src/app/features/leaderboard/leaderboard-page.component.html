@@ -9,16 +9,16 @@
   </header>
 
   <!-- Tabs -->
-  <div class="lb-tabs">
-    <button class="lb-tab" [class.active]="vista() === 'aciertos'" (click)="setVista('aciertos')">
+  <div class="lb-tabs" role="group" aria-label="Ordenar el ranking por">
+    <button class="lb-tab" [class.active]="vista() === 'aciertos'" [attr.aria-pressed]="vista() === 'aciertos'" (click)="setVista('aciertos')">
       <mat-icon>verified</mat-icon>
       <span>Aciertos</span>
     </button>
-    <button class="lb-tab" [class.active]="vista() === 'uso'" (click)="setVista('uso')">
+    <button class="lb-tab" [class.active]="vista() === 'uso'" [attr.aria-pressed]="vista() === 'uso'" (click)="setVista('uso')">
       <mat-icon>trending_up</mat-icon>
       <span>Uso</span>
     </button>
-    <button class="lb-tab" [class.active]="vista() === 'tema'" [disabled]="topTemas().length === 0" (click)="setVista('tema')">
+    <button class="lb-tab" [class.active]="vista() === 'tema'" [attr.aria-pressed]="vista() === 'tema'" [disabled]="topTemas().length === 0" (click)="setVista('tema')">
       <mat-icon>category</mat-icon>
       <span>Por tema</span>
     </button>
@@ -40,14 +40,15 @@
         *ngFor="let t of topTemas()"
         class="tema-chip"
         [class.active]="selectedTema() === t"
+        [attr.aria-pressed]="selectedTema() === t"
         (click)="setTema(t)">
         {{ t }}
       </button>
     </div>
   </div>
 
-  <div *ngIf="loading()" class="loading-state">
-    <p>Cargando ranking...</p>
+  <div *ngIf="loading()" class="loading-state" role="status">
+    <p>Cargando ranking…</p>
   </div>
 
   <!-- Sin datos -->

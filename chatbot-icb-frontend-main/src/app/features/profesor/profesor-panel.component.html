@@ -1,4 +1,5 @@
 <div class="prof-root">
+  <a class="saltar-contenido" href="#contenido" (click)="$event.preventDefault(); contenido.focus()">Saltar al contenido</a>
   <header class="prof-header">
     <a class="logo" routerLink="/profesor">AXIOMANTE <span>PANEL DOCENTE</span></a>
     <div class="header-right">
@@ -6,17 +7,18 @@
         <mat-icon>chat</mat-icon><span>Chatbot</span>
       </a>
       <button class="hbtn icono" type="button" (click)="theme.toggle()"
-              [title]="theme.tema() === 'dark' ? 'Modo claro' : 'Modo oscuro'">
+              [title]="theme.tema() === 'dark' ? 'Modo claro' : 'Modo oscuro'"
+              [attr.aria-label]="theme.tema() === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'">
         <mat-icon>{{ theme.tema() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
       </button>
-      <button class="avatar" type="button" (click)="salir()" title="Cerrar sesión">
-        <img *ngIf="foto()" [src]="foto()" alt="" referrerpolicy="no-referrer" />
+      <button class="avatar" type="button" (click)="salir()" title="Cerrar sesión" aria-label="Cerrar sesión">
+        <img *ngIf="foto()" [src]="foto()" alt="" width="40" height="40" referrerpolicy="no-referrer" />
         <span *ngIf="!foto()">{{ inicial() }}</span>
       </button>
     </div>
   </header>
 
-  <main class="prof-main">
+  <main class="prof-main" id="contenido" #contenido tabindex="-1">
     <!-- Título y controles -->
     <section class="cabecera">
       <div>
@@ -34,21 +36,21 @@
           </select>
         </label>
         <button class="btn" type="button" (click)="cargar()" [disabled]="cargando()" title="Actualizar datos">
-          <mat-icon [class.gira]="cargando()">refresh</mat-icon><span>Actualizar</span>
+          <mat-icon [class.gira]="cargando()">refresh</mat-icon><span>{{ cargando() ? 'Actualizando…' : 'Actualizar' }}</span>
         </button>
         <button class="btn primario" type="button" (click)="descargar()" [disabled]="descargando() || !reporte()">
           <mat-icon>download</mat-icon><span>{{ descargando() ? 'Generando…' : 'Descargar Excel' }}</span>
         </button>
       </div>
     </section>
-    <div class="aviso error" *ngIf="errorDescarga()">{{ errorDescarga() }}</div>
+    <div class="aviso error" *ngIf="errorDescarga()" role="alert">{{ errorDescarga() }}</div>
 
-    <div class="aviso error" *ngIf="error()">
+    <div class="aviso error" *ngIf="error()" role="alert">
       {{ error() }}
       <button class="btn" type="button" (click)="cargar()">Reintentar</button>
     </div>
-    <div class="cargando" *ngIf="cargando() && !reporte()">
-      <div class="dots"><span></span><span></span><span></span></div>
+    <div class="cargando" *ngIf="cargando() && !reporte()" role="status">
+      <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
       <p class="muted">Calculando el reporte…</p>
     </div>
 
@@ -111,12 +113,13 @@
         <div class="filtros">
           <label class="buscar">
             <mat-icon>search</mat-icon>
-            <input type="search" placeholder="Buscar por nombre o correo" [ngModel]="busqueda()"
+            <input type="search" placeholder="Buscar por nombre o correo…" aria-label="Buscar alumno por nombre o correo"
+                   name="buscar-alumno" autocomplete="off" spellcheck="false" [ngModel]="busqueda()"
                    (ngModelChange)="busqueda.set($event)" />
           </label>
-          <div class="chips">
+          <div class="chips" role="group" aria-label="Filtrar por estado">
             <button *ngFor="let f of filtros" type="button" class="chip" [class.activa]="filtroEstado() === f.id"
-                    (click)="filtroEstado.set(f.id)">
+                    [attr.aria-pressed]="filtroEstado() === f.id" (click)="filtroEstado.set(f.id)">
               {{ f.label }} <em>{{ conteoEstado()[f.id] }}</em>
             </button>
           </div>
@@ -126,14 +129,14 @@
           <table class="tabla alumnos">
             <thead>
               <tr>
-                <th><button type="button" (click)="ordenar('nombre')">Alumno <mat-icon>{{ flecha('nombre') }}</mat-icon></button></th>
-                <th><button type="button" (click)="ordenar('carrera')">Carrera <mat-icon>{{ flecha('carrera') }}</mat-icon></button></th>
-                <th><button type="button" (click)="ordenar('estado')">Estado <mat-icon>{{ flecha('estado') }}</mat-icon></button></th>
-                <th class="w-avance"><button type="button" (click)="ordenar('progreso')">Avance <mat-icon>{{ flecha('progreso') }}</mat-icon></button></th>
+                <th [attr.aria-sort]="ariaOrden('nombre')"><button type="button" (click)="ordenar('nombre')">Alumno <mat-icon>{{ flecha('nombre') }}</mat-icon></button></th>
+                <th [attr.aria-sort]="ariaOrden('carrera')"><button type="button" (click)="ordenar('carrera')">Carrera <mat-icon>{{ flecha('carrera') }}</mat-icon></button></th>
+                <th [attr.aria-sort]="ariaOrden('estado')"><button type="button" (click)="ordenar('estado')">Estado <mat-icon>{{ flecha('estado') }}</mat-icon></button></th>
+                <th [attr.aria-sort]="ariaOrden('progreso')" class="w-avance"><button type="button" (click)="ordenar('progreso')">Avance <mat-icon>{{ flecha('progreso') }}</mat-icon></button></th>
                 <th>Dónde va</th>
-                <th class="num"><button type="button" (click)="ordenar('acierto')">Acierto <mat-icon>{{ flecha('acierto') }}</mat-icon></button></th>
-                <th><button type="button" (click)="ordenar('ultima')">Última actividad <mat-icon>{{ flecha('ultima') }}</mat-icon></button></th>
-                <th class="num"><button type="button" (click)="ordenar('alertas')"><mat-icon class="solo">warning_amber</mat-icon><mat-icon>{{ flecha('alertas') }}</mat-icon></button></th>
+                <th [attr.aria-sort]="ariaOrden('acierto')" class="num"><button type="button" (click)="ordenar('acierto')">Acierto <mat-icon>{{ flecha('acierto') }}</mat-icon></button></th>
+                <th [attr.aria-sort]="ariaOrden('ultima')"><button type="button" (click)="ordenar('ultima')">Última actividad <mat-icon>{{ flecha('ultima') }}</mat-icon></button></th>
+                <th [attr.aria-sort]="ariaOrden('alertas')" class="num"><button type="button" (click)="ordenar('alertas')" aria-label="Alertas"><mat-icon class="solo">warning_amber</mat-icon><mat-icon>{{ flecha('alertas') }}</mat-icon></button></th>
               </tr>
             </thead>
             <tbody>
@@ -146,7 +149,7 @@
                 <td><span class="tag carrera">{{ a.carrera || 'Sin carrera' }}</span></td>
                 <td><span class="estado" [attr.data-estado]="a.estado">{{ a.estado }}</span></td>
                 <td class="w-avance">
-                  <div class="barra"><div [style.width.%]="a.progreso"></div></div>
+                  <div class="barra" aria-hidden="true"><div [style.width.%]="a.progreso"></div></div>
                   <div class="sub" *ngIf="a.uid">{{ a.progreso | number:'1.0-0' }} % · {{ a.mundos_completados }}/{{ a.total_mundos }} mundos</div>
                   <div class="sub" *ngIf="!a.uid">No ha entrado</div>
                 </td>
@@ -188,14 +191,15 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let s of r.por_carrera" class="clic" (click)="cambiarCarrera(s.carrera)" title="Ver solo esta carrera">
+              <tr *ngFor="let s of r.por_carrera" class="clic" (click)="cambiarCarrera(s.carrera)" title="Ver solo esta carrera"
+                  tabindex="0" (keydown.enter)="cambiarCarrera(s.carrera)">
                 <td><span class="tag carrera">{{ s.carrera }}</span></td>
                 <td class="num">{{ s.alumnos }}</td>
                 <td class="num">{{ s.ingresaron }}</td>
                 <td class="num">{{ s.completaron }}</td>
                 <td class="num">{{ s.sin_ingresar }}</td>
                 <td class="w-avance">
-                  <div class="barra"><div [style.width.%]="s.progreso_promedio"></div></div>
+                  <div class="barra" aria-hidden="true"><div [style.width.%]="s.progreso_promedio"></div></div>
                   <div class="sub">{{ s.progreso_promedio | number:'1.0-0' }} %</div>
                 </td>
                 <td class="num"><span class="pct" [attr.data-nivel]="nivelAcierto(s.acierto)">{{ pct(s.acierto) }}</span></td>
@@ -233,7 +237,7 @@
                 <tr *ngFor="let n of m.nodos">
                   <td><span class="orden">{{ n.orden }}</span>{{ n.nodo }}</td>
                   <td class="w-avance">
-                    <div class="barra acierto" [attr.data-nivel]="nivelAcierto(n.acierto)"><div [style.width.%]="n.acierto ?? 0"></div></div>
+                    <div aria-hidden="true" class="barra acierto" [attr.data-nivel]="nivelAcierto(n.acierto)"><div [style.width.%]="n.acierto ?? 0"></div></div>
                     <div class="sub">{{ pct(n.acierto) }} · {{ n.respuestas }} resp.</div>
                   </td>
                   <td class="num">{{ n.alumnos_intentaron }}</td>
@@ -313,13 +317,13 @@
 
   <!-- Ficha del alumno -->
   <div class="velo" *ngIf="seleccionado()" (click)="cerrarFicha()"></div>
-  <aside class="ficha" *ngIf="seleccionado() as a" role="dialog" aria-label="Ficha del alumno" (keydown.escape)="cerrarFicha()">
+  <aside class="ficha" *ngIf="seleccionado() as a" role="dialog" aria-modal="true" aria-label="Ficha del alumno">
     <header>
       <div>
         <h2>{{ a.nombre }}</h2>
         <p class="sub">{{ a.correo }} · {{ a.carrera || 'Sin carrera' }}</p>
       </div>
-      <button class="hbtn icono" type="button" (click)="cerrarFicha()" title="Cerrar"><mat-icon>close</mat-icon></button>
+      <button class="hbtn icono" type="button" #cerrarFichaBtn (click)="cerrarFicha()" title="Cerrar" aria-label="Cerrar ficha"><mat-icon>close</mat-icon></button>
     </header>
 
     <div class="ficha-body">
@@ -347,7 +351,7 @@
           <span>{{ tituloMundo(m.mundo_id) }}</span>
           <span class="sub">{{ m.nodos_completados }}/{{ m.total_nodos }} nodos</span>
         </div>
-        <div class="barra" [class.lista]="m.completado"><div [style.width.%]="m.total_nodos ? m.nodos_completados * 100 / m.total_nodos : 0"></div></div>
+        <div aria-hidden="true" class="barra" [class.lista]="m.completado"><div [style.width.%]="m.total_nodos ? m.nodos_completados * 100 / m.total_nodos : 0"></div></div>
         <div class="sub test" [class.ok]="m.completado">{{ textoTest(m) }}</div>
       </div>
 
@@ -376,8 +380,8 @@
 
       <h3>Últimas respuestas</h3>
       <p class="muted" *ngIf="!a.uid">Este alumno todavía no entra a la nivelación.</p>
-      <p class="muted" *ngIf="cargandoDetalle()">Cargando…</p>
-      <p class="aviso error" *ngIf="errorDetalle()">{{ errorDetalle() }}</p>
+      <p class="muted" *ngIf="cargandoDetalle()" role="status">Cargando…</p>
+      <p class="aviso error" *ngIf="errorDetalle()" role="alert">{{ errorDetalle() }}</p>
       <ng-container *ngIf="detalle() as d">
         <p class="muted" *ngIf="!d.ultimas_respuestas.length">Sin respuestas todavía.</p>
         <div class="resp-item" *ngFor="let x of d.ultimas_respuestas" [class.bien]="x.es_correcto">

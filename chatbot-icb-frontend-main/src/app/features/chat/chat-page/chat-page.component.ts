@@ -190,6 +190,13 @@ export class ChatPageComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Enter o Espacio sobre un chat de la lista (navegación con teclado). Ignora las teclas dentro de sus botones o del campo de renombrar. */
+  teclaChat(ev: Event, chat: ChatNr) {
+    if (ev.target !== ev.currentTarget || this.renamingChatId() === chat.id) return;
+    ev.preventDefault();
+    this.selectChat(chat);
+  }
+
   async selectChat(chat: ChatNr) {
     if (this.activeChatId() === chat.id) { this.showMobileChats.set(false); return; }
     this._stopReinforcementListener();

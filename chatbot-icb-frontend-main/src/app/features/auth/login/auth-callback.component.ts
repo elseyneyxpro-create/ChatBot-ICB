@@ -256,7 +256,7 @@ const GREETINGS = [
       font-weight: 600;
       color: var(--text);
       cursor: pointer;
-      transition: all 0.18s ease;
+      transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
       box-shadow: 0 2px 10px rgba(139, 92, 246, 0.12);
     }
 
@@ -278,7 +278,7 @@ const GREETINGS = [
     <div class="scene">
 
       <!-- Robot Axiomante -->
-      <div class="robot">
+      <div class="robot" aria-hidden="true">
         <div class="robot-head">
           <div class="robot-antenna"></div>
           <div class="robot-eyes">
@@ -299,9 +299,9 @@ const GREETINGS = [
       <!-- Burbuja de diálogo -->
       <div class="bubble">
         <div class="bubble-name">Axiomante</div>
-        <div class="bubble-text">
+        <div class="bubble-text" aria-live="polite">
           @if (selectedCard()) {
-            ¡Perfecto! Preparando tu espacio... 🚀
+            ¡Perfecto! Preparando tu espacio… 🚀
           } @else {
             ¡Hola! ¿Cómo estás el día de hoy?<br>
             Espero que tengas energías para seguir<br>
@@ -313,7 +313,7 @@ const GREETINGS = [
       <!-- Loading -->
       <div class="loader">
         <span>Iniciando sesión</span>
-        <div class="dots">
+        <div class="dots" aria-hidden="true">
           <span></span><span></span><span></span>
         </div>
       </div>

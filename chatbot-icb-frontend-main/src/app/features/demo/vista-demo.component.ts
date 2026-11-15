@@ -24,11 +24,11 @@ import { NivelacionService } from '../nivelacion/nivelacion.service';
           <small>Solo equipo de desarrollo</small>
         </div>
         <div class="opciones">
-          <button type="button" class="op" [class.sel]="auth.vista() === 'alumno'" (click)="elegir('alumno')">
+          <button type="button" class="op" [class.sel]="auth.vista() === 'alumno'" [attr.aria-pressed]="auth.vista() === 'alumno'" (click)="elegir('alumno')">
             <mat-icon>person</mat-icon>
             <span><strong>Alumno</strong><small>Nivelación, tutor y chat</small></span>
           </button>
-          <button type="button" class="op" [class.sel]="auth.vista() === 'profesor'" (click)="elegir('profesor')">
+          <button type="button" class="op" [class.sel]="auth.vista() === 'profesor'" [attr.aria-pressed]="auth.vista() === 'profesor'" (click)="elegir('profesor')">
             <mat-icon>co_present</mat-icon>
             <span><strong>Profesor</strong><small>Panel docente y chat, sin nivelación</small></span>
           </button>
@@ -39,7 +39,7 @@ import { NivelacionService } from '../nivelacion/nivelacion.service';
                   [attr.aria-checked]="desbloqueo()" [disabled]="auth.vista() !== 'alumno' || guardando()"
                   (click)="alternarDesbloqueo()"><span></span></button>
         </label>
-        <p class="error" *ngIf="error()">{{ error() }}</p>
+        <p class="error" *ngIf="error()" role="alert">{{ error() }}</p>
       </div>
       <button type="button" class="pill" [class.modo-dev]="desbloqueo() && auth.vista() === 'alumno'"
               (click)="abierto.set(!abierto())" [attr.aria-expanded]="abierto()" [title]="etiqueta() + ' · cambiar vista'">
@@ -62,6 +62,9 @@ import { NivelacionService } from '../nivelacion/nivelacion.service';
     .pill { padding: 0 9px; gap: 0; }
     .vd:hover .pill, .pill[aria-expanded="true"] { padding: 0 14px 0 11px; gap: 6px; }
     .vd:hover .pill .txt, .pill[aria-expanded="true"] .txt { max-width: 240px; }
+    /* Con teclado también se despliega el texto */
+    .vd:focus-within .pill { padding: 0 14px 0 11px; gap: 6px; opacity: 1; }
+    .vd:focus-within .pill .txt { max-width: 240px; }
     .pill.modo-dev { background: rgba(120, 53, 15, 0.92); }
     .panel {
       width: min(320px, calc(100vw - 32px)); padding: 14px; border-radius: 16px; display: flex; flex-direction: column; gap: 12px;

@@ -12,7 +12,7 @@ import { MundoDetalle, NivelacionService, NodoMapa } from './nivelacion.service'
   styleUrls: ['./niv-mundo.component.scss'],
   template: `
   <div class="page">
-    <div class="error-box" *ngIf="error()">{{ error() }}</div>
+    <div class="error-box" *ngIf="error()" role="alert">{{ error() }}</div>
 
     <ng-container *ngIf="data() as d">
       <div class="cabecera">
@@ -36,11 +36,13 @@ import { MundoDetalle, NivelacionService, NodoMapa } from './nivelacion.service'
 
           <div *ngFor="let p of puntos(); let i = index" class="nodo aparecer"
                [style.left.px]="p.x" [style.top.px]="p.y" [style.animation-delay.ms]="i * 40">
-            <div class="jugador" *ngIf="p.n.estado === 'actual'" title="Estás aquí"><mat-icon>smart_toy</mat-icon></div>
+            <div class="jugador" *ngIf="p.n.estado === 'actual'" title="Estás aquí" aria-hidden="true"><mat-icon>smart_toy</mat-icon></div>
             <button class="anillo" [class.bloqueado]="p.n.estado === 'bloqueado'" [class.actual]="p.n.estado === 'actual'"
                     [class.sel]="sel()?.id === p.n.id"
                     [style.background]="p.n.estado === 'bloqueado' ? null : anillo(p.n, d.reglas.FASES_POR_NODO)"
-                    [disabled]="p.n.estado === 'bloqueado'" (click)="seleccionar(p.n)">
+                    [disabled]="p.n.estado === 'bloqueado'" (click)="seleccionar(p.n)"
+                    [attr.aria-pressed]="sel()?.id === p.n.id"
+                    [attr.aria-label]="'Nodo ' + p.n.orden + ': ' + p.n.titulo + (p.n.estado === 'completado' ? ', completado' : p.n.estado === 'actual' ? ', estás aquí' : p.n.estado === 'bloqueado' ? ', bloqueado' : '')">
               <span class="centro" [class.completado]="p.n.estado === 'completado'" [class.actual]="p.n.estado === 'actual'">
                 <mat-icon>{{ p.n.estado === 'completado' ? 'check' : p.n.estado === 'actual' ? 'star' : 'lock' }}</mat-icon>
               </span>
@@ -53,7 +55,8 @@ import { MundoDetalle, NivelacionService, NodoMapa } from './nivelacion.service'
           <!-- Test final: el "castillo" al final del camino -->
           <div class="nodo test aparecer" [style.left.px]="xTest()" [style.top.px]="yTest()">
             <button class="test-btn" [class.bloqueado]="!d.test.desbloqueado" [class.hecho]="d.test.fase >= 2"
-                    [disabled]="!d.test.desbloqueado || d.test.fase >= 2" (click)="irTest()">
+                    [disabled]="!d.test.desbloqueado || d.test.fase >= 2" (click)="irTest()"
+                    [attr.aria-label]="'Test del mundo' + (d.test.fase >= 2 ? ', aprobado' : !d.test.desbloqueado ? ', bloqueado' : '')">
               <mat-icon>{{ d.test.fase >= 2 ? 'workspace_premium' : d.test.desbloqueado ? 'emoji_events' : 'lock' }}</mat-icon>
             </button>
             <div class="nodo-label test-label">
@@ -61,7 +64,7 @@ import { MundoDetalle, NivelacionService, NodoMapa } from './nivelacion.service'
               <small>{{ d.test.fase >= 2 ? '¡Mundo dominado!' : d.test.desbloqueado ? 'Fase ' + (d.test.fase + 1) + ' de 2' : 'Completa los nodos' }}</small>
             </div>
           </div>
-          <div class="suelo"></div>
+          <div class="suelo" aria-hidden="true"></div>
         </div>
       </div>
 
@@ -70,7 +73,7 @@ import { MundoDetalle, NivelacionService, NodoMapa } from './nivelacion.service'
         <div class="panel-info">
           <span class="muted">Nodo {{ n.orden }}</span>
           <h3>{{ n.titulo }}</h3>
-          <div class="fases-bar">
+          <div class="fases-bar" aria-hidden="true">
             <span *ngFor="let f of fasesArr(d.reglas.FASES_POR_NODO); let i = index" [class.ok]="i < n.fases"></span>
           </div>
           <span class="muted small">{{ n.estado === 'completado' ? 'Nodo completado' : 'Fase ' + (n.fases + 1) + ' de ' + d.reglas.FASES_POR_NODO }}</span>

@@ -5,24 +5,25 @@
 
     <mat-form-field appearance="outline" class="search">
       <mat-label>Buscar</mat-label>
-      <input matInput placeholder="Derivadas, límites, matrices..."
+      <input matInput placeholder="Derivadas, límites, matrices…" name="buscar-video" autocomplete="off"
              [value]="query()" (input)="updateQuery($event)" />
       <mat-icon matSuffix>search</mat-icon>
     </mat-form-field>
 
     <!-- Botón filtros + panel -->
     <div class="filter-wrap">
-      <button class="filter-btn" [class.active]="isFiltered()" (click)="togglePanel()">
+      <button class="filter-btn" type="button" [class.active]="isFiltered()" (click)="togglePanel()"
+              [attr.aria-expanded]="panelOpen()" aria-haspopup="dialog">
         <mat-icon>tune</mat-icon>
         <span>Filtros</span>
-        <span class="filter-dot" *ngIf="isFiltered()"></span>
+        <span class="filter-dot" *ngIf="isFiltered()" aria-hidden="true"></span>
         <mat-icon class="chevron" [class.open]="panelOpen()">expand_more</mat-icon>
       </button>
 
       <!-- Badge tema activo -->
       <div class="active-tag" *ngIf="isFiltered()">
         <span>{{ selectedTema() }}</span>
-        <button class="clear-btn" (click)="selectTema('Todos')">
+        <button class="clear-btn" type="button" (click)="selectTema('Todos')" [attr.aria-label]="'Quitar filtro ' + selectedTema()">
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -33,50 +34,50 @@
           <p class="panel-title">Tema <span class="panel-total">{{ temas().length }}</span></p>
           <div class="panel-search">
             <mat-icon>search</mat-icon>
-            <input type="text" placeholder="Buscar tema…" [value]="temaQuery()" (input)="updateTemaQuery($event)" autofocus />
+            <input type="text" placeholder="Buscar tema…" aria-label="Buscar tema" name="buscar-tema" autocomplete="off" [value]="temaQuery()" (input)="updateTemaQuery($event)" autofocus />
           </div>
         </div>
 
         <!-- Lista con scroll propio: el panel ya no crece con la cantidad de temas -->
         <div class="panel-list">
-          <button class="panel-item" [class.selected]="selectedTema() === 'Todos'"
+          <button class="panel-item" [class.selected]="selectedTema() === 'Todos'" [attr.aria-pressed]="selectedTema() === 'Todos'"
                   *ngIf="!temaQuery()" (click)="selectTema('Todos')">
             <span class="item-name">Todos los temas</span>
             <span class="item-count">{{ allVideos().length }}</span>
           </button>
           <button class="panel-item" *ngFor="let t of temasFiltrados()"
-                  [class.selected]="selectedTema() === t" (click)="selectTema(t)">
+                  [class.selected]="selectedTema() === t" [attr.aria-pressed]="selectedTema() === t" (click)="selectTema(t)">
             <span class="item-name">{{ t }}</span>
             <span class="item-count">{{ conteoTema().get(t) ?? 0 }}</span>
           </button>
-          <p class="panel-empty" *ngIf="temasFiltrados().length === 0">Ningún tema coincide con "{{ temaQuery() }}".</p>
+          <p class="panel-empty" *ngIf="temasFiltrados().length === 0">Ningún tema coincide con “{{ temaQuery() }}”.</p>
         </div>
       </div>
     </div>
 
     <!-- Contador de resultados -->
-    <span class="result-count" *ngIf="!loading()">
+    <span class="result-count" *ngIf="!loading()" aria-live="polite">
       {{ filtered().length }} video{{ filtered().length !== 1 ? 's' : '' }}
     </span>
 
   </header>
 
   <!-- Loading -->
-  <div *ngIf="loading()" class="state-center">
+  <div *ngIf="loading()" class="state-center" role="status">
     <mat-spinner [diameter]="36"></mat-spinner>
-    <p>Cargando videos...</p>
+    <p>Cargando videos…</p>
   </div>
 
   <!-- Error -->
   <div *ngIf="error() && !loading()" class="state-center error-state">
     <mat-icon>wifi_off</mat-icon>
-    <p>No se pudo conectar con el servidor.</p>
+    <p>No se pudo conectar con el servidor. Revisa tu conexión y recarga la página.</p>
   </div>
 
   <!-- Sin resultados -->
   <div *ngIf="!loading() && !error() && filtered().length === 0" class="state-center">
     <mat-icon>videocam_off</mat-icon>
-    <p>No hay videos para este filtro.</p>
+    <p>No hay videos para este filtro. Prueba con otro tema o borra la búsqueda.</p>
   </div>
 
   <!-- Grid de videos -->
@@ -84,8 +85,8 @@
     <div class="vid-card" *ngFor="let v of filtered()">
       <ng-container *ngIf="getYouTubeId(v.url) as ytId; else plainLink">
         <a [href]="v.url" target="_blank" rel="noopener" class="thumb-link">
-          <img [src]="'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg'" class="thumb" alt="Video" />
-          <div class="play-overlay"><mat-icon>play_circle_filled</mat-icon></div>
+          <img [src]="'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg'" class="thumb" [alt]="'Video: ' + v.tema" loading="lazy" />
+          <div class="play-overlay" aria-hidden="true"><mat-icon>play_circle_filled</mat-icon></div>
         </a>
       </ng-container>
       <ng-template #plainLink>

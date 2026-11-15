@@ -17,7 +17,7 @@ import { AuthService } from '../../core/auth.service';
   styleUrls: ['./niv-evaluacion.component.scss'],
   template: `
   <div class="page" [class.test]="modo === 'test'">
-    <div class="error-box" *ngIf="error()">{{ error() }}
+    <div class="error-box" *ngIf="error()" role="alert">{{ error() }}
       <button class="btn-secondary" (click)="volverMapa()">Volver al mapa</button></div>
 
     <!-- Preguntas -->
@@ -30,6 +30,7 @@ import { AuthService } from '../../core/auth.service';
       <h2 [innerHTML]="q.enunciado | katexRender"></h2>
       <div class="opciones">
         <button *ngFor="let op of q.alternativas; let i = index" class="opcion" [class.sel]="seleccion() === op"
+                [attr.aria-pressed]="seleccion() === op"
                 (click)="seleccion.set(op)">
           <span class="letra">{{ letra(i) }}</span><span [innerHTML]="latex(op) | katexRender"></span>
         </button>
@@ -41,8 +42,8 @@ import { AuthService } from '../../core/auth.service';
     </div>
 
     <!-- IA evaluando -->
-    <div class="evaluando aparecer" *ngIf="evaluando()">
-      <div class="cerebro"><mat-icon>psychology</mat-icon></div>
+    <div class="evaluando aparecer" *ngIf="evaluando()" role="status">
+      <div class="cerebro" aria-hidden="true"><mat-icon>psychology</mat-icon></div>
       <h2 class="gradient-text">Evaluando tus respuestas…</h2>
     </div>
 
@@ -83,8 +84,8 @@ import { AuthService } from '../../core/auth.service';
           <span class="chip ia"><mat-icon>auto_awesome</mat-icon> IA</span>
         </div>
 
-        <div class="retro-cargando" *ngIf="cargandoRetro()">
-          <div class="dots"><span></span><span></span><span></span></div>
+        <div class="retro-cargando" *ngIf="cargandoRetro()" role="status">
+          <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
           Analizando tus respuestas para explicarte qué pasó en cada una…
         </div>
         <p class="retro-resumen" *ngIf="retro()?.resumen as res" [innerHTML]="res | katexRender"></p>

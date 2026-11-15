@@ -156,6 +156,9 @@
 
   @media (hover: none) { &:hover { background: transparent; } }
 
+  // Con teclado: al llegar al chat se muestran sus botones (renombrar / eliminar)
+  &:focus-visible .chat-actions, &:has(:focus-visible) .chat-actions { display: flex; }
+
   &.active {
     background: var(--accent-soft);
     border-color: var(--accent-soft-2);

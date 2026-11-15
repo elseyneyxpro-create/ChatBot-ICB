@@ -78,7 +78,7 @@
   font: 600 0.9rem var(--font);
   border-radius: 10px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
 
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
   &:hover:not(.active):not(:disabled) { color: var(--text); background: var(--accent-soft); }
@@ -121,7 +121,7 @@
   color: var(--text-2);
   font: 600 0.83rem var(--font);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
   &:hover { border-color: var(--accent); color: var(--accent); }
   &.active { background: var(--accent-gradient); border-color: transparent; color: #fff; }
 }
@@ -276,3 +276,6 @@
   .rank-badge .rank-num { font-size: 2.6rem; }
   .lb-tab { padding: 0.5rem 0.75rem; }
 }
+
+// Cifras alineadas (todas los dígitos del mismo ancho)
+.rank-num, .top-pct, .highlight-val, .my-total, .my-stat .num { font-variant-numeric: tabular-nums; }

@@ -14,12 +14,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
     <mat-dialog-content>
       <mat-form-field appearance="outline" style="width:100%">
         <mat-label>Nombre del chat</mat-label>
-        <input matInput [(ngModel)]="nombre" placeholder="Ej: Dudas derivadas" (keydown.enter)="confirm()" />
+        <input matInput [(ngModel)]="nombre" name="nombre-chat" autocomplete="off" placeholder="Ej.: Dudas de derivadas…" (keydown.enter)="confirm()" />
       </mat-form-field>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Cancelar</button>
-      <button mat-flat-button color="primary" [disabled]="!nombre.trim()" (click)="confirm()">Crear</button>
+      <button mat-flat-button color="primary" [disabled]="!nombre.trim()" (click)="confirm()">Crear chat</button>
     </mat-dialog-actions>
   `,
 })

@@ -60,7 +60,7 @@ html[data-theme='dark'] {
 
   --text: #1e1b2e;
   --text-2: #4c4766;
-  --text-3: #8a85a3;
+  --text-3: #6b6685;                        // gris legible: contraste ≥ 4.5:1 sobre blanco y fondos claros
 
   --success: #059669;
   --success-soft: rgba(5, 150, 105, 0.10);
@@ -202,6 +202,40 @@ app-root {
 .mat-mdc-tooltip .mdc-tooltip__surface {
   font-family: var(--font);
   background: #1e1b2e;
+}
+
+// ─── Accesibilidad e interacción (pautas de interfaz web) ──────────────────
+// Foco visible solo al navegar con teclado (no aparece al hacer clic)
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+// Enlace "Saltar al contenido": invisible hasta que se llega con Tab
+.saltar-contenido {
+  position: fixed; top: 8px; left: 8px; z-index: 2000; padding: 10px 16px; border-radius: 10px;
+  background: var(--bg-elev); color: var(--text); border: 2px solid var(--accent); font: 600 0.95rem var(--font);
+  text-decoration: none; transform: translateY(-160%);
+  &:focus, &:focus-visible { transform: none; }
+}
+// El contenedor que recibe el foco del salto no necesita anillo
+[tabindex='-1']:focus { outline: none; }
+
+// Toques en celular: sin el retraso del doble toque y con un resaltado del color de la app
+html { -webkit-tap-highlight-color: var(--accent-soft); }
+a, button, [role='button'], input, select, textarea, label { touch-action: manipulation; }
+
+// Títulos sin palabras sueltas en la última línea
+h1, h2, h3 { text-wrap: balance; }
+
+// Selects nativos legibles en modo oscuro de Windows
+select option { background-color: var(--bg-elev); color: var(--text); }
+
+// Respeta "reducir movimiento" del sistema operativo
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
