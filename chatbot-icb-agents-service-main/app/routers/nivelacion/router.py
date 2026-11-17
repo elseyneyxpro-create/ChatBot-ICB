@@ -78,14 +78,14 @@ class TutorIn(BaseModel):
 
 @router.post("/tutor")
 async def tutor(payload: TutorIn):
-    """Siguiente turno del tutor socrático: {mensaje, opciones, esperada}."""
+    """Siguiente turno del tutor socrático: {mensaje, opciones, esperada, terminado}."""
     try:
         turno = await asyncio.to_thread(
             service.tutor_responder, payload.contexto, [m.model_dump() for m in payload.historial],
             payload.mensaje.model_dump() if payload.mensaje else None,
         )
         return JSONResponse({"ok": True, "respuesta": turno["mensaje"], "opciones": turno["opciones"],
-                             "esperada": turno["esperada"]})
+                             "esperada": turno["esperada"], "terminado": turno.get("terminado", False)})
     except Exception as e:
         logger.exception("tutor falló")
         return JSONResponse({"ok": False, "error": str(e)})

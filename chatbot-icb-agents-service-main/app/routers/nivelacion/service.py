@@ -318,6 +318,9 @@ def _validar_turno(r: dict, sin_opciones: bool) -> dict:
     mensaje = str(r.get("mensaje") or "").strip()
     if not mensaje:
         raise ValueError("el tutor no devolvió mensaje")
+    # Cierre: el estudiante llegó a la respuesta de lo que vino a revisar → la conversación termina
+    if r.get("terminado") is True:
+        return {"mensaje": mensaje, "opciones": [], "esperada": None, "terminado": True}
     opciones: list[str] = []
     for o in r.get("opciones") or []:
         t = latex_suelto(str(o).strip())
@@ -327,7 +330,7 @@ def _validar_turno(r: dict, sin_opciones: bool) -> dict:
     esperada = r.get("esperada")
     esperada = esperada if isinstance(esperada, int) and 0 <= esperada < len(opciones) else None
     if sin_opciones:
-        return {"mensaje": mensaje, "opciones": [], "esperada": None}
+        return {"mensaje": mensaje, "opciones": [], "esperada": None, "terminado": False}
     if len(opciones) < 2:
         raise ValueError("el tutor no devolvió alternativas suficientes")
     # Se barajan para que la esperada no quede siempre en el mismo lugar
@@ -337,11 +340,12 @@ def _validar_turno(r: dict, sin_opciones: bool) -> dict:
         "mensaje": mensaje,
         "opciones": [opciones[i] for i in orden],
         "esperada": orden.index(esperada) if esperada is not None else None,
+        "terminado": False,
     }
 
 
 def tutor_responder(contexto: dict, historial: list[dict], mensaje: dict | None) -> dict:
-    """Siguiente turno del tutor: {mensaje, opciones, esperada}. El estudiante solo responde eligiendo una
+    """Siguiente turno del tutor: {mensaje, opciones, esperada, terminado}. El estudiante solo responde eligiendo una
     alternativa o con los botones «No entiendo» / «Dame una pista».
     mensaje = lo que hizo el alumno ({texto, ayuda, eleccion_esperada}); None = la plataforma abre la conversación."""
     msgs = [SystemMessage(content=TUTOR_SYSTEM.format(contexto=contexto_txt(contexto)))]

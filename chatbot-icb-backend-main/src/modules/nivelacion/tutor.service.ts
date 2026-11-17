@@ -41,8 +41,8 @@ interface MensajeSesion {
   eleccion_esperada?: boolean | null;
 }
 
-/** Turno del tutor que devuelve el agente. */
-interface TurnoTutor { texto: string; opciones: string[]; esperada: number | null }
+/** Turno del tutor que devuelve el agente. terminado = el alumno llegó a la respuesta: la conversación se cierra. */
+interface TurnoTutor { texto: string; opciones: string[]; esperada: number | null; terminado: boolean }
 /** Lo que hizo el alumno, para el agente (no escribe: elige una alternativa o toca un botón). */
 interface AccionAlumno { texto: string; ayuda?: Ayuda; eleccion_esperada?: boolean | null; evento?: boolean }
 
@@ -55,6 +55,8 @@ interface Sesion {
   intento_ids: string[];
   /** Ids de los intentos ordenados: identifica la conversación sobre esas preguntas (para retomarla) */
   clave?: string;
+  /** El tutor cerró la conversación (el alumno llegó a la respuesta): ya no se puede seguir */
+  cerrada?: boolean;
   mensajes: MensajeSesion[];
   ejercicios: EjercicioSesion[];
   created_at: Date;
@@ -140,6 +142,12 @@ export class TutorService {
   }
 
   private verificarTope(s: Sesion) {
+    if (s.cerrada) {
+      throw new HttpException(
+        { code: 'TUTOR_CERRADA', message: 'Esta conversación ya terminó: llegaste a la respuesta.' },
+        HttpStatus.CONFLICT,
+      );
+    }
     if (this.turnos(s) >= this.topeConversacion) {
       throw new HttpException(
         { code: 'TUTOR_TOPE_CONVERSACION',
@@ -234,7 +242,7 @@ export class TutorService {
       if (res?.ok && typeof res.respuesta === 'string' && res.respuesta.trim()) {
         const opciones = Array.isArray(res.opciones) ? res.opciones.map(String).filter(Boolean).slice(0, 4) : [];
         const esperada = Number.isInteger(res.esperada) && res.esperada >= 0 && res.esperada < opciones.length ? res.esperada : null;
-        return { texto: res.respuesta.trim(), opciones, esperada };
+        return { texto: res.respuesta.trim(), opciones: res.terminado === true ? [] : opciones, esperada, terminado: res.terminado === true };
       }
       this.logger.warn(`Tutor sin respuesta: ${res?.error ?? 'vacía'}`);
     } catch (e: any) {
@@ -336,6 +344,7 @@ export class TutorService {
       mensajes: this.vistaMensajes(s, s.mensajes),
       restantes_hoy: Math.max(this.limiteDiario - usados, 0),
       restantes_conversacion: Math.max(this.topeConversacion - this.turnos(s), 0),
+      cerrada: !!s.cerrada,
     };
   }
 
@@ -384,7 +393,7 @@ export class TutorService {
     await this.sesiones.insertOne(s);
     const saludo = await this.pedirAlTutor(u, s, null);
     await this.contarUso(u.uid);
-    await this.guardar(s, [saludo ? this.msgTutor(saludo) : this.msg('tutor', ids.length
+    await this.guardar(s, [saludo ? this.msgTutor({ ...saludo, terminado: false }) : this.msg('tutor', ids.length
       ? '¡Hola! Revisemos juntos lo que te costó. Si no sabes por dónde partir, toca «Dame una pista».'
       : '¡Hola! Revisemos este nodo. Si no sabes por dónde partir, toca «Dame una pista».')]);
     return this.vista(u, s);
@@ -426,11 +435,13 @@ export class TutorService {
     }
     await this.contarUso(u.uid);
     const nuevos = [alumno, this.msgTutor(turno)];
-    await this.guardar(s, nuevos);
+    // Si el alumno llegó a la respuesta, el tutor cierra la conversación (no sigue con temas nuevos)
+    await this.guardar(s, nuevos, turno.terminado ? { cerrada: true } : {});
     return {
       mensajes: this.vistaMensajes(s, nuevos),
       restantes_hoy: Math.max(this.limiteDiario - (await this.usados(u.uid)), 0),
       restantes_conversacion: Math.max(this.topeConversacion - this.turnos(s), 0),
+      cerrada: !!s.cerrada,
     };
   }
 
@@ -490,9 +501,9 @@ export class TutorService {
     const tutor = turno ? this.msgTutor(turno) : this.msg('tutor', r.es_correcto
       ? '¡Correcto! Si quieres, pide otro ejercicio.'
       : 'No es la correcta, pero vamos bien. Toca «Dame una pista» y lo revisamos juntos.');
-    await this.guardar(s, [tutor]);
+    await this.guardar(s, [tutor], turno?.terminado ? { cerrada: true } : {});
     return {
-      es_correcto: r.es_correcto, xp_ganado: r.xp_ganado,
+      es_correcto: r.es_correcto, xp_ganado: r.xp_ganado, cerrada: !!s.cerrada,
       ejercicio: this.vistaEjercicio(ej), mensajes: this.vistaMensajes(s, [tutor]),
     };
   }

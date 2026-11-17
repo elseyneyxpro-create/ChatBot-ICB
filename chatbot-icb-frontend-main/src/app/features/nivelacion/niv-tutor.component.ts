@@ -87,8 +87,21 @@ import { AyudaTutor, EjercicioTutor, MensajeTutor, NivelacionService, SesionTuto
         </div>
       </div>
 
+      <!-- Fin: el alumno llegó a la respuesta y el tutor cerró la conversación -->
+      <div class="t-fin glass-panel" *ngIf="cerrada()" role="status">
+        <mat-icon>task_alt</mat-icon>
+        <div>
+          <strong>¡Listo! Llegaste a la respuesta.</strong>
+          <span>Ahora ponlo en práctica en la fase.</span>
+        </div>
+        <div class="t-fin-botones">
+          <button class="btn-primary" *ngIf="sesion()?.nodo as n" (click)="irFase(n.id)"><mat-icon>play_arrow</mat-icon> Volver a la fase</button>
+          <button class="btn-secondary" (click)="volver()">Volver al mapa</button>
+        </div>
+      </div>
+
       <!-- El alumno no escribe: responde con las alternativas del tutor o con los botones de ayuda -->
-      <div class="t-input" *ngIf="sesion()">
+      <div class="t-input" *ngIf="sesion() && !cerrada()">
         <div class="t-opciones" *ngIf="opcionesActuales() as ops" role="group" aria-label="Alternativas para responder al tutor">
           <button *ngFor="let op of ops; let i = index" type="button" class="opcion"
                   [disabled]="ocupado() || sinCupo()" (click)="elegirOpcion(i, op)">
@@ -130,6 +143,7 @@ export class NivTutorComponent implements OnInit {
   enviando = signal(false);
   restantes = signal(0);
   restantesConv = signal(0);
+  cerrada = signal(false);
   eleccion = signal<Record<string, string>>({});
 
   ocupado = computed(() => this.pensando() || this.enviando());
@@ -171,6 +185,7 @@ export class NivTutorComponent implements OnInit {
       this.mensajes.set(s.mensajes);
       this.restantes.set(s.restantes_hoy);
       this.restantesConv.set(s.restantes_conversacion ?? 0);
+      this.cerrada.set(!!s.cerrada);
       this.bajar();
     } catch (e) {
       this.error.set(NivelacionService.mensajeError(e, 'No se pudo abrir el tutor.'));
@@ -202,6 +217,7 @@ export class NivTutorComponent implements OnInit {
       this.mensajes.update(ms => [...ms.filter(m => m !== temporal), ...res.mensajes]);
       this.restantes.set(res.restantes_hoy);
       this.restantesConv.set(res.restantes_conversacion);
+      this.cerrada.set(!!res.cerrada);
       this.aviso.set(null);
     } catch (e) {
       this.mensajes.set(previos);
@@ -248,6 +264,7 @@ export class NivTutorComponent implements OnInit {
       await new Promise(res => setTimeout(res, 400));
       this.mensajes.update(ms => [...ms, ...r.mensajes]);
       this.restantes.update(n => Math.max(n - 1, 0));
+      this.cerrada.set(!!r.cerrada);
       if (r.xp_ganado) this.niv.cargarEstado().catch(() => {});
     } catch (e: any) {
       // Venció: la tarjeta del ejercicio ya lo explica y vuelve "Dame un ejercicio"
@@ -276,7 +293,10 @@ export class NivTutorComponent implements OnInit {
     this.mensajes.update(ms => ms.map(m => m.ejercicio?.id === id ? { ...m, ejercicio: { ...m.ejercicio, ...cambios } } : m));
   }
 
+  irFase(nodoId: number) { this.router.navigate(['/nivelacion/nodo', nodoId, 'fase']); }
+
   private mostrarError(e: any) {
+    if (e?.status === 409 && e?.error?.code === 'TUTOR_CERRADA') { this.cerrada.set(true); return; }
     if (e?.status === 429) {
       if (e?.error?.code === 'TUTOR_TOPE_CONVERSACION') this.restantesConv.set(0);
       else this.restantes.set(0);

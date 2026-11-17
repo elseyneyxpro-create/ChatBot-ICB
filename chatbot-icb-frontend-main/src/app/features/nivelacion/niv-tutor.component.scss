@@ -93,6 +93,16 @@
   &:hover:not(:disabled) { border-color: var(--accent-primary); background: rgba(139, 92, 246, 0.1); }
   &:disabled { opacity: 0.5; cursor: default; }
 }
+// Cierre de la conversación
+.t-fin {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border: 1px solid var(--success);
+  animation: niv-aparecer 0.3s ease both;
+  > mat-icon { color: var(--success); font-size: 30px; width: 30px; height: 30px; flex: 0 0 auto; }
+  > div:first-of-type { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 2px;
+    span { color: var(--text-secondary); font-size: 0.9rem; } }
+  .t-fin-botones { display: flex; gap: 8px; flex-wrap: wrap; button { display: inline-flex; align-items: center; gap: 6px; } }
+}
+
 // Alternativas para responder al tutor (el alumno no escribe)
 .t-opciones {
   display: flex; flex-direction: column; gap: 8px; max-height: 38vh; overflow-y: auto; overscroll-behavior: contain;
