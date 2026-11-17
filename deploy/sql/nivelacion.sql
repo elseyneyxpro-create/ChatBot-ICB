@@ -159,6 +159,13 @@ CREATE TABLE IF NOT EXISTS niv_progreso.intento (
   created_at   timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS intento_uid_idx ON niv_progreso.intento (uid, created_at DESC);
+-- Fases de nodo con cola (estilo Duolingo): una pregunta fallada vuelve al final de la fase.
+--   n_intento = 1 la primera vez que se responde; 2 y 3 = reintentos de la cola.
+--   El % de acierto se calcula con n_intento = 1; los errores se cuentan con todos.
+--   sesion_id agrupa las respuestas de una misma pasada por la fase.
+ALTER TABLE niv_progreso.intento ADD COLUMN IF NOT EXISTS n_intento smallint NOT NULL DEFAULT 1;
+ALTER TABLE niv_progreso.intento ADD COLUMN IF NOT EXISTS sesion_id text;
+CREATE INDEX IF NOT EXISTS intento_pregunta_idx ON niv_progreso.intento (pregunta_id) WHERE pregunta_id IS NOT NULL;
 
 -- Lo que concluye el agente analista (historial completo).
 CREATE TABLE IF NOT EXISTS niv_progreso.analisis (

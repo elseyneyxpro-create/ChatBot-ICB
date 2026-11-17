@@ -53,8 +53,35 @@ export interface PreguntaPublica { id: number; enunciado: string; alternativas: 
 export interface ResultadoPregunta {
   /** Id del intento: sirve para pedir la retroalimentación y abrir el tutor sobre esta pregunta */
   intento_id: string;
-  pregunta_id: number; enunciado: string; respuesta: string;
+  pregunta_id: number; enunciado: string;
+  /** Lo que respondió la primera vez (en las fases es lo que cuenta para el puntaje) */
+  respuesta: string;
   es_correcto: boolean; correcta: string; explicacion: string | null;
+  /** Solo fases de nodo: veces que la respondió y si la terminó acertando en la cola */
+  intentos?: number; lograda?: boolean;
+}
+
+/** Fase de un nodo con cola estilo Duolingo: la pregunta que toca y cuánto falta. */
+export interface PreguntaFase extends PreguntaPublica {
+  /** true si es una pregunta que falló antes y volvió al final de la cola */
+  reintento: boolean;
+}
+export interface ProgresoFase { total: number; respondidas: number; en_cola: number }
+export interface SesionFase {
+  sesion_id: string;
+  nodo: { id: number; titulo: string; mundo_id: number; mundo_titulo: string };
+  fase: number; repaso: boolean;
+  pregunta: PreguntaFase | null;
+  progreso: ProgresoFase;
+}
+/** Respuesta a una pregunta de la fase: solo dice si acertó; al terminar trae el resultado completo. */
+export type RespuestaFase = Partial<ResultadoEvaluacion> & {
+  es_correcto: boolean;
+  vuelve_al_final: boolean;
+  no_lograda: boolean;
+  progreso: ProgresoFase;
+  terminada: boolean;
+  siguiente: PreguntaFase | null;
 }
 
 export interface ResultadoEvaluacion {
@@ -142,11 +169,13 @@ export class NivelacionService {
   modoDev() { return this.get<{ desbloquear: boolean }>('/dev'); }
   cambiarModoDev(desbloquear: boolean) { return this.send<{ desbloquear: boolean }>('PUT', '/dev', { desbloquear }); }
 
+  /** Entrega (o retoma) la pasada por la fase del nodo y la pregunta que toca. */
   preguntasFase(nodoId: number) {
-    return this.get<{ nodo: { id: number; titulo: string; mundo_id: number; mundo_titulo: string }; fase: number; repaso: boolean; preguntas: PreguntaPublica[] }>(`/nodos/${nodoId}/fase`);
+    return this.get<SesionFase>(`/nodos/${nodoId}/fase`);
   }
-  responderFase(nodoId: number, respuestas: { pregunta_id: number; respuesta: string }[]) {
-    return this.send<ResultadoEvaluacion>('POST', `/nodos/${nodoId}/fase`, { respuestas });
+  /** Responde la pregunta actual de la fase (de a una). */
+  responderFase(nodoId: number, sesionId: string, preguntaId: number, respuesta: string) {
+    return this.send<RespuestaFase>('POST', `/nodos/${nodoId}/fase/respuesta`, { sesion_id: sesionId, pregunta_id: preguntaId, respuesta });
   }
 
   preguntasTest(mundoId: number) {

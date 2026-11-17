@@ -138,7 +138,7 @@ def analizar_estudiante(uid: str) -> dict | None:
 
     intentos = fetch_all(
         """SELECT i.contexto, i.origen, i.dificultad, i.enunciado, i.respuesta, i.correcta, i.es_correcto,
-                  n.titulo AS nodo, m.titulo AS mundo
+                  COALESCE(i.n_intento, 1) AS n_intento, n.titulo AS nodo, m.titulo AS mundo
              FROM niv_progreso.intento i
              LEFT JOIN niv_banco.nodo n ON n.id = i.nodo_id
              LEFT JOIN niv_banco.mundo m ON m.id = i.mundo_id
@@ -150,10 +150,14 @@ def analizar_estudiante(uid: str) -> dict | None:
     if not intentos:
         return None
 
-    aciertos = sum(1 for i in intentos if i["es_correcto"])
-    pct = round(100 * aciertos / len(intentos))
+    # El % de acierto se calcula con la primera respuesta a cada pregunta: en las fases de nodo una
+    # pregunta fallada vuelve al final de la cola (reintentos), y esos reintentos no deben inflarlo.
+    primeros = [i for i in intentos if i["n_intento"] == 1] or intentos
+    aciertos = sum(1 for i in primeros if i["es_correcto"])
+    pct = round(100 * aciertos / len(primeros))
     intentos_txt = "\n".join(
-        f"- [{i['mundo'] or '?'} / {i['nodo'] or 'test del mundo'} | {i['dificultad']} | {i['contexto']}] "
+        f"- [{i['mundo'] or '?'} / {i['nodo'] or 'test del mundo'} | {i['dificultad']} | {i['contexto']}"
+        + (f" | reintento {i['n_intento']}" if i["n_intento"] > 1 else "") + "] "
         f"{i['enunciado']} → respondió {i['respuesta']!r}, correcta {i['correcta']!r}: "
         f"{'ACIERTO' if i['es_correcto'] else 'ERROR'}"
         for i in intentos

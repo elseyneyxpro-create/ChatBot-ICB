@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { NivelacionService } from './nivelacion.service';
-import { ModoDevDto, RespuestasDto } from './nivelacion.dto';
+import { ModoDevDto, RespuestaFaseDto, RespuestasDto } from './nivelacion.dto';
 import { DevGuard, SoloAlumnosGuard } from './roles.guard';
 
 const usuario = (req: any) => ({ uid: req.user.sub as string, email: req.user.email as string });
@@ -26,15 +26,20 @@ export class NivelacionController {
     return this.niv.mundo(usuario(req), id);
   }
 
+  /**
+   * Fase de un nodo, con cola estilo Duolingo: entrega (o retoma) la pasada en curso y la pregunta
+   * que toca responder. Las preguntas se responden de a una (POST .../fase/respuesta).
+   */
   @Get('nodos/:id/fase')
   preguntasFase(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
     return this.niv.preguntasFase(usuario(req), id);
   }
 
-  @Post('nodos/:id/fase')
+  /** Responde la pregunta actual: solo dice si es correcta. Si no, la pregunta vuelve al final de la cola. */
+  @Post('nodos/:id/fase/respuesta')
   @HttpCode(200)
-  responderFase(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() dto: RespuestasDto) {
-    return this.niv.responderFase(usuario(req), id, dto.respuestas);
+  responderFase(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() dto: RespuestaFaseDto) {
+    return this.niv.responderFase(usuario(req), id, dto);
   }
 
   @Get('mundos/:id/test')

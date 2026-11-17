@@ -30,6 +30,8 @@ export class MongoService implements OnModuleInit, OnModuleDestroy {
       ['nivel_usuario', { tema: 1 }],
       // Preguntas generadas en modo Entrenar: se borran solas a las 2 horas si nadie las responde
       ['niv_generadas', { created_at: 1 }, { expireAfterSeconds: 7200 }],
+      // Pasadas por la fase de un nodo (cola de preguntas): se retoma la última sin terminar
+      ['niv_fase_sesion', { uid: 1, nodo_id: 1, updated_at: -1 }],
     ];
     // Un índice que falle no debe impedir que el backend arranque
     for (const [col, keys, opts] of indices) {

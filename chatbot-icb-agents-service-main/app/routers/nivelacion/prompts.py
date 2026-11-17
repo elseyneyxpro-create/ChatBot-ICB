@@ -59,7 +59,10 @@ Responde SOLO con JSON, en español, dirigido al estudiante (tuteo) y breve:
 
 ANALISTA_HUMAN = """Nivel actual: {nivel}
 Total de intentos considerados: {n}
-Porcentaje de acierto: {pct}%
+Porcentaje de acierto (primera respuesta a cada pregunta): {pct}%
+(En las fases de nodo una pregunta fallada vuelve al final para reintentarla; las marcadas "reintento"
+son esos segundos o terceros intentos: muestran perseverancia, pero fallar varias veces la misma
+pregunta indica una dificultad clara en ese tema.)
 
 Intentos (del más reciente al más antiguo):
 {intentos}"""

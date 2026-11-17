@@ -70,3 +70,22 @@
   div { display: flex; flex-direction: column; gap: 2px; }
   span { color: var(--text-secondary); font-size: 0.9rem; }
 }
+
+// ── Fase con cola (estilo Duolingo) ──
+.barra-fase {
+  height: 8px; border-radius: 4px; background: var(--bg-soft); overflow: hidden; margin-top: -8px;
+  div { height: 100%; background: var(--accent-gradient); border-radius: 4px; transition: width 0.3s ease; }
+}
+.aviso-reintento {
+  display: flex; align-items: center; gap: 6px; margin: 0; font-size: 0.9rem; color: var(--warning, var(--accent-secondary));
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+.feedback {
+  display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 12px; border: 1px solid;
+  animation: niv-aparecer 0.25s ease both;
+  div { display: flex; flex-direction: column; gap: 2px; }
+  span { font-size: 0.92rem; color: var(--text-secondary); }
+  &.bien { border-color: var(--success); background: var(--success-soft); mat-icon, strong { color: var(--success); } }
+  &.mal { border-color: var(--error); background: var(--error-soft); mat-icon, strong { color: var(--error); } }
+}
+.detalle .item-intentos { font-size: 0.85rem; }

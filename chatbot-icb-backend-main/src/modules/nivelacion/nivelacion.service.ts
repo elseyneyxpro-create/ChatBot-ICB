@@ -1,5 +1,5 @@
 import {
-  BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException,
+  BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException,
 } from '@nestjs/common';
 import { PostgresService } from '../../database/postgres.service';
 import { MongoService } from '../../database/mongo.service';
@@ -12,6 +12,8 @@ import { NIVELES, Nivel } from './nivelacion.dto';
 export const REGLAS = {
   FASES_POR_NODO: 4,
   PREGUNTAS_POR_FASE: 4,
+  /** Fases de nodo (cola estilo Duolingo): veces que una pregunta fallada vuelve al final de la cola. */
+  REINTENTOS_POR_PREGUNTA: 2,
   PREGUNTAS_POR_TEST: 10,
   PUNTAJE_APROBAR: 70,
   XP_FASE: 10,
@@ -36,6 +38,51 @@ const shuffle = <T>(a: T[]): T[] => {
 };
 /** Lo que ve el alumno: sin respuesta correcta ni explicación. */
 const publica = (p: PreguntaBanco) => ({ id: p.id, enunciado: p.enunciado, alternativas: p.alternativas });
+
+/** Una pregunta dentro de la pasada por la fase de un nodo. */
+interface PreguntaEnFase {
+  id: number;
+  /** Orden en que se muestran las alternativas (se baraja cada vez que vuelve a la cola) */
+  alternativas: string[];
+  intentos: number;
+  /** null mientras no se responde por primera vez. Es lo que cuenta para el puntaje. */
+  primer_correcto: boolean | null;
+  respuesta_inicial: string | null;
+  /** Intento de la primera respuesta (para la retroalimentación y para abrir el tutor) */
+  intento_id: string | null;
+  estado: 'pendiente' | 'lograda' | 'no_lograda';
+}
+
+/** Pasada por la fase de un nodo (Mongo, niv_fase_sesion). Se retoma si el alumno sale a la mitad. */
+interface SesionFase {
+  _id: string;
+  uid: string;
+  nodo_id: number;
+  mundo_id: number;
+  repaso: boolean;
+  fase: number;
+  preguntas: PreguntaEnFase[];
+  /** Ids en el orden en que faltan por responder; la primera es la actual */
+  cola: number[];
+  terminada: boolean;
+  resultado?: Record<string, unknown>;
+  /** Evita registrar dos veces la misma respuesta (doble clic, dos pestañas) */
+  version: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/** Una pasada sin terminar se retoma si se usó hace menos de esto. */
+const RETOMAR_FASE_MS = 24 * 3600 * 1000;
+
+/** Baraja las alternativas procurando que no queden en el mismo orden que antes. */
+const rebarajar = (a: string[]): string[] => {
+  for (let k = 0; k < 5; k++) {
+    const r = shuffle(a);
+    if (r.some((x, i) => x !== a[i])) return r;
+  }
+  return a;
+};
 
 @Injectable()
 export class NivelacionService {
@@ -242,36 +289,150 @@ export class NivelacionService {
     return { resultados, puntaje: Math.round((correctas / resultados.length) * 100) };
   }
 
-  // ── Fases de nodo ────────────────────────────────────────────────────────
+  // ── Fases de nodo (cola estilo Duolingo) ────────────────────────────────
+  //
+  // El alumno responde de a una y solo sabe si acertó o no (la correcta nunca llega al navegador).
+  // Si falla, la pregunta vuelve al FINAL de la cola con las alternativas en otro orden, hasta
+  // REINTENTOS_POR_PREGUNTA veces; si la falla otra vez queda "no lograda". El puntaje (y por lo tanto
+  // aprobar la fase) se calcula SOLO con el primer intento de cada pregunta: los reintentos son práctica.
 
-  async preguntasFase(u: Usuario, nodoId: number) {
-    const nivel = await this.nivelRequerido(u);
-    const nodo = await this.nodoInfo(u, nodoId, ['actual', 'completado']);
-    const pool = await this.poolNodo(nodo.mundo_id, nodoId, nivel);
-    if (!pool.length) throw new NotFoundException('Todavía no hay preguntas cargadas para este nodo y nivel.');
+  private get fases() { return this.mongo.col<SesionFase>('niv_fase_sesion'); }
+
+  private async preguntasPorId(ids: number[]): Promise<Map<number, PreguntaBanco>> {
+    const filas = await this.pg.query<PreguntaBanco>(
+      `SELECT id, mundo_id, nodo_id, dificultad, enunciado, alternativas, correcta, explicacion
+         FROM niv_banco.pregunta WHERE id = ANY($1::int[])`,
+      [ids],
+    );
+    return new Map(filas.map((p) => [p.id, p]));
+  }
+
+  /** Lo que ve el alumno de la pasada: la pregunta actual y cuánto le falta. */
+  private async vistaFase(s: SesionFase, nodo: { id: number; titulo: string; mundo_id: number; mundo_titulo: string }) {
+    const actualId = s.cola[0];
+    const ps = s.preguntas.find((p) => p.id === actualId);
+    const banco = actualId ? (await this.preguntasPorId([actualId])).get(actualId) : undefined;
     return {
+      sesion_id: s._id,
       nodo: { id: nodo.id, titulo: nodo.titulo, mundo_id: nodo.mundo_id, mundo_titulo: nodo.mundo_titulo },
-      fase: Math.min(nodo.fases + 1, REGLAS.FASES_POR_NODO),
-      repaso: nodo.estado === 'completado',
-      preguntas: pool.slice(0, REGLAS.PREGUNTAS_POR_FASE).map(publica),
+      fase: s.fase,
+      repaso: s.repaso,
+      pregunta: ps && banco
+        ? { id: ps.id, enunciado: banco.enunciado, alternativas: ps.alternativas, reintento: ps.intentos > 0 }
+        : null,
+      progreso: this.progresoFase(s),
     };
   }
 
-  async responderFase(u: Usuario, nodoId: number, respuestas: { pregunta_id: number; respuesta: string }[]) {
-    const nodo = await this.nodoInfo(u, nodoId, ['actual', 'completado']);
-    // Se valida con el nivel en que se ENTREGARON las preguntas, no con el nivel actual: el analista
-    // corre en segundo plano después de cada fase y puede cambiar el nivel mientras el alumno responde.
-    const todas = await this.poolNodo(nodo.mundo_id, nodoId, null);
-    const primera = todas.find((p) => p.id === respuestas[0]?.pregunta_id);
-    if (!primera) throw new BadRequestException(`Pregunta ${respuestas[0]?.pregunta_id} no válida para esta evaluación.`);
-    // Todas las respuestas deben ser de ese mismo nivel (corregir() rechaza las que no estén en el pool)
-    const pool = todas.filter((p) => p.dificultad === primera.dificultad);
-    const esperadas = Math.min(REGLAS.PREGUNTAS_POR_FASE, pool.length);
-    if (respuestas.length !== esperadas) throw new BadRequestException(`Se esperaban ${esperadas} respuestas.`);
+  private progresoFase(s: SesionFase) {
+    return {
+      total: s.preguntas.length,
+      respondidas: s.preguntas.filter((p) => p.estado !== 'pendiente').length,
+      en_cola: s.cola.length,
+    };
+  }
 
-    const { resultados, puntaje } = await this.corregir(u, 'fase', pool, respuestas, nodo.mundo_id, nodoId);
-    const aprobado = puntaje >= REGLAS.PUNTAJE_APROBAR;
+  async preguntasFase(u: Usuario, nodoId: number) {
+    const nodo = await this.nodoInfo(u, nodoId, ['actual', 'completado']);
     const repaso = nodo.estado === 'completado';
+
+    // ¿Hay una pasada sin terminar? Se retoma donde quedó (si sus preguntas siguen en el banco).
+    const previa = await this.fases.find({
+      uid: u.uid, nodo_id: nodoId, terminada: false, updated_at: { $gt: new Date(Date.now() - RETOMAR_FASE_MS) },
+    }).sort({ updated_at: -1 }).limit(1).next() as SesionFase | null;
+    if (previa && previa.repaso === repaso) {
+      const vigentes = await this.preguntasPorId(previa.preguntas.map((p) => p.id));
+      if (previa.preguntas.every((p) => vigentes.has(p.id))) return this.vistaFase(previa, nodo);
+    }
+
+    const nivel = await this.nivelRequerido(u);
+    const pool = await this.poolNodo(nodo.mundo_id, nodoId, nivel);
+    if (!pool.length) throw new NotFoundException('Todavía no hay preguntas cargadas para este nodo y nivel.');
+    const elegidas = pool.slice(0, REGLAS.PREGUNTAS_POR_FASE);
+
+    // Limpieza de pasadas viejas de este alumno (abandonadas hace más de una semana)
+    await this.fases.deleteMany({ uid: u.uid, updated_at: { $lt: new Date(Date.now() - 7 * 24 * 3600 * 1000) } });
+    const s: SesionFase = {
+      _id: this.mongo.newId(), uid: u.uid, nodo_id: nodoId, mundo_id: nodo.mundo_id, repaso,
+      fase: Math.min(nodo.fases + 1, REGLAS.FASES_POR_NODO),
+      preguntas: elegidas.map((p) => ({
+        id: p.id, alternativas: [...p.alternativas], intentos: 0, primer_correcto: null,
+        respuesta_inicial: null, intento_id: null, estado: 'pendiente' as const,
+      })),
+      cola: elegidas.map((p) => p.id),
+      terminada: false, version: 0, created_at: new Date(), updated_at: new Date(),
+    };
+    await this.fases.insertOne(s);
+    return this.vistaFase(s, nodo);
+  }
+
+  async responderFase(u: Usuario, nodoId: number, dto: { sesion_id: string; pregunta_id: number; respuesta: string }) {
+    const nodo = await this.nodoInfo(u, nodoId, ['actual', 'completado']);
+    const s = await this.fases.findOne({ _id: dto.sesion_id, uid: u.uid, nodo_id: nodoId }) as SesionFase | null;
+    if (!s) throw new NotFoundException('Esta fase ya no está disponible. Vuelve a empezarla desde el mapa.');
+    if (s.terminada) return { ...s.resultado, terminada: true };
+    if (s.cola[0] !== dto.pregunta_id) {
+      throw new ConflictException('Esa pregunta ya fue respondida. Recarga la fase para seguir.');
+    }
+    const ps = s.preguntas.find((p) => p.id === dto.pregunta_id)!;
+    const banco = (await this.preguntasPorId([ps.id])).get(ps.id);
+    if (!banco) throw new NotFoundException('Esta pregunta ya no está en el banco. Vuelve a empezar la fase.');
+    if (!ps.alternativas.includes(dto.respuesta)) throw new BadRequestException('Alternativa no válida.');
+
+    const es_correcto = dto.respuesta === banco.correcta;
+    ps.intentos += 1;
+    const n_intento = ps.intentos;
+    if (n_intento === 1) { ps.primer_correcto = es_correcto; ps.respuesta_inicial = dto.respuesta; }
+    s.cola.shift();
+    if (es_correcto) ps.estado = 'lograda';
+    else if (n_intento <= REGLAS.REINTENTOS_POR_PREGUNTA) { ps.alternativas = rebarajar(ps.alternativas); s.cola.push(ps.id); }
+    else ps.estado = 'no_lograda';
+    s.terminada = s.cola.length === 0;
+
+    // Primero se "reserva" la respuesta (version) para que un doble clic no la registre dos veces
+    const r = await this.fases.updateOne(
+      { _id: s._id, version: s.version },
+      { $set: { preguntas: s.preguntas, cola: s.cola, terminada: s.terminada, updated_at: new Date() }, $inc: { version: 1 } },
+    );
+    if (!r.matchedCount) throw new ConflictException('Esa pregunta ya fue respondida. Recarga la fase para seguir.');
+    s.version += 1;
+
+    const fila = await this.pg.queryOne<{ id: string }>(
+      `INSERT INTO niv_progreso.intento
+         (uid, origen, contexto, pregunta_id, mundo_id, nodo_id, dificultad, enunciado, alternativas,
+          respuesta, correcta, es_correcto, n_intento, sesion_id)
+       VALUES ($1, 'banco', 'fase', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING id`,
+      [u.uid, banco.id, nodo.mundo_id, nodoId, banco.dificultad, banco.enunciado, JSON.stringify(banco.alternativas),
+       dto.respuesta, banco.correcta, es_correcto, n_intento, s._id],
+    );
+    if (n_intento === 1 && fila) {
+      ps.intento_id = String(fila.id);
+      // (sin tocar version: la respuesta ya quedó reservada arriba)
+      await this.fases.updateOne({ _id: s._id }, { $set: { preguntas: s.preguntas } });
+    }
+
+    const base = {
+      es_correcto,
+      // La pregunta vuelve al final de la cola (solo si falló y le quedan reintentos)
+      vuelve_al_final: !es_correcto && ps.estado === 'pendiente',
+      no_lograda: ps.estado === 'no_lograda',
+      progreso: this.progresoFase(s),
+    };
+    if (!s.terminada) return { ...base, terminada: false, siguiente: (await this.vistaFase(s, nodo)).pregunta };
+
+    const resultado = await this.cerrarFase(u, s, nodo);
+    await this.fases.updateOne({ _id: s._id }, { $set: { resultado } });
+    return { ...base, ...resultado, terminada: true, siguiente: null };
+  }
+
+  /** Puntaje con el primer intento, avance del nodo, XP y el detalle para la pantalla de resultado. */
+  private async cerrarFase(u: Usuario, s: SesionFase, nodo: { fases: number; estado: string }) {
+    const banco = await this.preguntasPorId(s.preguntas.map((p) => p.id));
+    const correctas = s.preguntas.filter((p) => p.primer_correcto).length;
+    const puntaje = Math.round((correctas / s.preguntas.length) * 100);
+    const aprobado = puntaje >= REGLAS.PUNTAJE_APROBAR;
+    const repaso = s.repaso;
     let fases = nodo.fases;
     let xp = 0;
     if (aprobado && !repaso) {
@@ -280,11 +441,27 @@ export class NivelacionService {
       await this.pg.query(
         `INSERT INTO niv_progreso.progreso_nodo (uid, nodo_id, fases) VALUES ($1, $2, $3)
          ON CONFLICT (uid, nodo_id) DO UPDATE SET fases = GREATEST(niv_progreso.progreso_nodo.fases, EXCLUDED.fases), updated_at = now()`,
-        [u.uid, nodoId, fases],
+        [u.uid, s.nodo_id, fases],
       );
       await this.sumarXp(u.uid, xp);
     }
     this.pedirAnalisis(u.uid);
+    const resultados = s.preguntas.map((p) => {
+      const b = banco.get(p.id);
+      return {
+        intento_id: p.intento_id ?? '',
+        pregunta_id: p.id,
+        enunciado: b?.enunciado ?? '',
+        // Lo que respondió la primera vez (es lo que cuenta para el puntaje)
+        respuesta: p.respuesta_inicial ?? '',
+        es_correcto: p.primer_correcto === true,
+        intentos: p.intentos,
+        lograda: p.estado === 'lograda',
+        // Al final sí se muestran: para terminar ya tuvo que acertarla (o agotó los reintentos)
+        correcta: b?.correcta ?? '',
+        explicacion: b?.explicacion ?? null,
+      };
+    });
     return { puntaje, aprobado, repaso, fases, nodo_completado: fases >= REGLAS.FASES_POR_NODO, xp_ganado: xp, resultados };
   }
 

@@ -3,12 +3,16 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { KatexRenderPipe } from '../../shared/katex-render.pipe';
-import { NivelacionService, PreguntaPublica, ResultadoEvaluacion, ResultadoPregunta, Retroalimentacion, latexSuelto } from './nivelacion.service';
+import { NivelacionService, PreguntaPublica, ProgresoFase, RespuestaFase, ResultadoEvaluacion, ResultadoPregunta, Retroalimentacion, latexSuelto } from './nivelacion.service';
 import { AuthService } from '../../core/auth.service';
 
 /**
- * Cuestionario de una fase de nodo (QuestionCard) o del test del mundo (TestCard),
- * con la pantalla de "IA evaluando" y el resultado. La corrección la hace el backend.
+ * Cuestionario de una fase de nodo (QuestionCard) o del test del mundo (TestCard), y el resultado.
+ * La corrección la hace siempre el backend.
+ *
+ * - Fase de nodo: cola estilo Duolingo. Se responde de a una y solo se dice si es correcta o no
+ *   (nunca cuál era la correcta). Si falla, la pregunta vuelve al final para intentarla de nuevo.
+ * - Test del mundo: se responde completo y se corrige al final, como una prueba.
  */
 @Component({
   selector: 'app-niv-evaluacion',
@@ -25,20 +29,51 @@ import { AuthService } from '../../core/auth.service';
          [class.borde-test]="modo === 'test'" [attr.data-q]="actual()">
       <div class="top">
         <span class="etiqueta">{{ titulo() }}</span>
-        <span class="chip">{{ actual() + 1 }} / {{ preguntas().length }}</span>
+        <span class="chip" *ngIf="modo === 'test'">{{ actual() + 1 }} / {{ preguntas().length }}</span>
+        <span class="chip" *ngIf="modo === 'fase' && progreso() as pr">{{ pr.respondidas }} de {{ pr.total }} listas</span>
       </div>
+      <div class="barra-fase" *ngIf="modo === 'fase' && progreso() as pr" aria-hidden="true">
+        <div [style.width.%]="pr.total ? pr.respondidas / pr.total * 100 : 0"></div>
+      </div>
+      <p class="aviso-reintento" *ngIf="modo === 'fase' && faseActual()?.reintento && !feedback()">
+        <mat-icon>replay</mat-icon> Esta pregunta te costó antes. Inténtala de nuevo.
+      </p>
       <h2 [innerHTML]="q.enunciado | katexRender"></h2>
       <div class="opciones">
         <button *ngFor="let op of q.alternativas; let i = index" class="opcion" [class.sel]="seleccion() === op"
+                [class.ok]="feedback()?.es_correcto && seleccion() === op"
+                [class.bad]="feedback() && !feedback()!.es_correcto && seleccion() === op"
+                [disabled]="!!feedback() || enviando()"
                 [attr.aria-pressed]="seleccion() === op"
                 (click)="seleccion.set(op)">
           <span class="letra">{{ letra(i) }}</span><span [innerHTML]="latex(op) | katexRender"></span>
         </button>
       </div>
-      <button class="btn-primary" [class.danger]="modo === 'test'" [disabled]="!seleccion()" (click)="siguiente()">
-        {{ actual() === preguntas().length - 1 ? 'Enviar respuestas' : 'Siguiente pregunta' }}
-      </button>
-      <button class="btn-link" (click)="volverMapa()">Salir</button>
+
+      <!-- Fase: aviso de correcta / incorrecta (sin decir cuál era la correcta) -->
+      <div class="feedback" *ngIf="feedback() as f" role="status" [class.bien]="f.es_correcto" [class.mal]="!f.es_correcto">
+        <mat-icon>{{ f.es_correcto ? 'check_circle' : 'cancel' }}</mat-icon>
+        <div>
+          <strong>{{ f.es_correcto ? '¡Correcta!' : 'Incorrecta' }}</strong>
+          <span *ngIf="f.vuelve_al_final">Esta pregunta volverá al final para que la intentes otra vez.</span>
+          <span *ngIf="f.no_lograda">Ya no quedan intentos para esta pregunta. Al terminar verás la explicación.</span>
+        </div>
+      </div>
+
+      <ng-container *ngIf="modo === 'fase'; else botonTest">
+        <button class="btn-primary" *ngIf="!feedback()" [disabled]="!seleccion() || enviando()" (click)="comprobar()">
+          {{ enviando() ? 'Comprobando…' : 'Comprobar' }}
+        </button>
+        <button class="btn-primary" *ngIf="feedback()" (click)="continuarFase()">
+          {{ feedback()!.terminada ? 'Ver resultado' : 'Continuar' }}
+        </button>
+      </ng-container>
+      <ng-template #botonTest>
+        <button class="btn-primary danger" [disabled]="!seleccion()" (click)="siguiente()">
+          {{ actual() === preguntas().length - 1 ? 'Enviar respuestas' : 'Siguiente pregunta' }}
+        </button>
+      </ng-template>
+      <button class="btn-link" (click)="volverMapa()">{{ modo === 'fase' ? 'Salir (tu avance queda guardado)' : 'Salir' }}</button>
     </div>
 
     <!-- IA evaluando -->
@@ -102,6 +137,9 @@ import { AuthService } from '../../core/auth.service';
             Respondiste <strong [innerHTML]="latex(it.respuesta) | katexRender"></strong> ·
             correcta <strong class="ok-txt" [innerHTML]="latex(it.correcta) | katexRender"></strong>
           </div>
+          <div class="item-intentos muted" *ngIf="modo === 'fase' && !it.es_correcto && it.intentos">
+            {{ it.lograda ? 'La lograste en el intento ' + it.intentos + '.' : 'No la lograste en ' + it.intentos + ' intentos.' }}
+          </div>
           <div class="item-exp" *ngIf="comentario(it) as c" [innerHTML]="c | katexRender"></div>
           <button class="btn-mini" *ngIf="!it.es_correcto" (click)="abrirTutor([it.intento_id])">
             <mat-icon>school</mat-icon> Revisar esta con el tutor
@@ -133,7 +171,14 @@ export class NivEvaluacionComponent implements OnInit {
   retro = signal<Retroalimentacion | null>(null);
   cargandoRetro = signal(false);
 
-  pregunta = computed(() => this.preguntas()[this.actual()] ?? null);
+  // Fase de nodo (cola): la pasada en curso, la pregunta que toca y el aviso tras comprobar
+  private sesionId: string | null = null;
+  faseActual = signal<(PreguntaPublica & { reintento: boolean }) | null>(null);
+  progreso = signal<ProgresoFase | null>(null);
+  feedback = signal<RespuestaFase | null>(null);
+  enviando = signal(false);
+
+  pregunta = computed(() => this.modo === 'fase' ? this.faseActual() : this.preguntas()[this.actual()] ?? null);
   /** Intentos que respondió mal (para abrir el tutor sobre ellos) */
   errores = computed(() => (this.resultado()?.resultados ?? []).filter(r => !r.es_correcto).map(r => r.intento_id).filter(Boolean));
   itemsOrdenados = computed(() => {
@@ -154,7 +199,7 @@ export class NivEvaluacionComponent implements OnInit {
 
   private async cargar() {
     this.error.set(null); this.resultado.set(null); this.actual.set(0); this.respuestas = []; this.seleccion.set(null);
-    this.retro.set(null);
+    this.retro.set(null); this.feedback.set(null); this.faseActual.set(null); this.progreso.set(null);
     try {
       if (this.modo === 'test') {
         const r = await this.niv.preguntasTest(this.id);
@@ -163,11 +208,45 @@ export class NivEvaluacionComponent implements OnInit {
       } else {
         const r = await this.niv.preguntasFase(this.id);
         this.info.set({ nombre: r.nodo.titulo, mundoId: r.nodo.mundo_id, fase: r.fase, repaso: r.repaso });
-        this.preguntas.set(r.preguntas);
+        this.sesionId = r.sesion_id;
+        this.faseActual.set(r.pregunta);
+        this.progreso.set(r.progreso);
       }
     } catch (e) {
       this.error.set(NivelacionService.mensajeError(e, 'No se pudieron cargar las preguntas.'));
     }
+  }
+
+  /** Fase: envía la respuesta de la pregunta actual y muestra si es correcta. */
+  async comprobar() {
+    const q = this.faseActual();
+    const op = this.seleccion();
+    if (!q || !op || !this.sesionId || this.enviando()) return;
+    this.enviando.set(true);
+    try {
+      const r = await this.niv.responderFase(this.id, this.sesionId, q.id, op);
+      this.feedback.set(r);
+      this.progreso.set(r.progreso);
+    } catch (e) {
+      // Otra pestaña ya la respondió: se recarga la pasada donde va
+      if ((e as { status?: number })?.status === 409) { await this.cargar(); return; }
+      this.error.set(NivelacionService.mensajeError(e, 'No se pudo enviar tu respuesta.'));
+    } finally {
+      this.enviando.set(false);
+    }
+  }
+
+  /** Fase: pasa a la siguiente pregunta de la cola o, si terminó, al resultado. */
+  continuarFase() {
+    const f = this.feedback();
+    if (!f) return;
+    this.feedback.set(null);
+    this.seleccion.set(null);
+    if (!f.terminada) { this.faseActual.set(f.siguiente); return; }
+    const res = f as unknown as ResultadoEvaluacion;
+    this.resultado.set(res);
+    this.cargarRetro(res);
+    this.niv.cargarEstado().catch(() => {}); // refresca XP del header
   }
 
   async siguiente() {
@@ -182,9 +261,7 @@ export class NivEvaluacionComponent implements OnInit {
     this.evaluando.set(true);
     const minimo = new Promise(r => setTimeout(r, 1200)); // deja ver la animación
     try {
-      const res = this.modo === 'test'
-        ? await this.niv.responderTest(this.id, this.respuestas)
-        : await this.niv.responderFase(this.id, this.respuestas);
+      const res = await this.niv.responderTest(this.id, this.respuestas);
       await minimo;
       this.resultado.set(res);
       this.cargarRetro(res);
@@ -197,9 +274,12 @@ export class NivEvaluacionComponent implements OnInit {
     }
   }
 
-  /** Retroalimentación de la IA por pregunta; si falla, quedan las explicaciones del banco. */
+  /**
+   * Retroalimentación de la IA solo de las preguntas que costaron (las acertadas a la primera no la
+   * necesitan y así se ahorra costo). Si falla, quedan las explicaciones del banco.
+   */
   private async cargarRetro(r: ResultadoEvaluacion) {
-    const ids = r.resultados.map(x => x.intento_id).filter(Boolean);
+    const ids = r.resultados.filter(x => !x.es_correcto).map(x => x.intento_id).filter(Boolean);
     if (!ids.length) return;
     this.cargandoRetro.set(true);
     try {
