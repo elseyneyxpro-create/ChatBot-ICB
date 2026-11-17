@@ -24,23 +24,27 @@ interface EjercicioSesion {
   vencido?: boolean;
 }
 
+type Ayuda = 'no_entiendo' | 'pista';
+const TEXTO_AYUDA: Record<Ayuda, string> = { no_entiendo: 'No entiendo', pista: 'Dame una pista' };
+
 interface MensajeSesion {
   id: string;
   rol: Rol;
   texto: string;
   at: Date;
   ejercicio_id?: string;
-  /** Mensaje del alumno que es un ejercicio suyo */
-  propio?: boolean;
+  /** Tutor: alternativas para responder su pregunta y cuál esperaba (esta nunca va al navegador) */
+  opciones?: string[];
+  esperada?: number | null;
+  /** Alumno: tocó un botón de ayuda, o eligió una alternativa (y si era la esperada) */
+  ayuda?: Ayuda;
+  eleccion_esperada?: boolean | null;
 }
 
-/** Ejercicio que trajo el alumno + su resolución privada (el alumno nunca la ve). */
-interface EjercicioPropio {
-  id: string;
-  enunciado: string;
-  resolucion: Record<string, unknown> | null;
-  at: Date;
-}
+/** Turno del tutor que devuelve el agente. */
+interface TurnoTutor { texto: string; opciones: string[]; esperada: number | null }
+/** Lo que hizo el alumno, para el agente (no escribe: elige una alternativa o toca un botón). */
+interface AccionAlumno { texto: string; ayuda?: Ayuda; eleccion_esperada?: boolean | null; evento?: boolean }
 
 interface Sesion {
   _id: string;
@@ -51,7 +55,6 @@ interface Sesion {
   intento_ids: string[];
   mensajes: MensajeSesion[];
   ejercicios: EjercicioSesion[];
-  propios?: EjercicioPropio[];
   created_at: Date;
   updated_at: Date;
 }
@@ -191,19 +194,25 @@ export class TutorService {
       errores_recientes: errores,
       revisar,
       ejercicio: ej ?? null,
-      // El último ejercicio que trajo el alumno, con la resolución que solo ve el tutor
-      propio: s.propios?.length ? { enunciado: s.propios.at(-1)!.enunciado, resolucion: s.propios.at(-1)!.resolucion } : null,
     };
   }
 
   // ── Llamada al agente ─────────────────────────────────────────────────────
 
-  private async pedirAlTutor(u: Usuario, s: Sesion, mensaje: string | null, propio = false): Promise<string | null> {
+  /** Siguiente turno del tutor (mensaje + alternativas). accion = null → abre la conversación. */
+  private async pedirAlTutor(u: Usuario, s: Sesion, accion: AccionAlumno | null): Promise<TurnoTutor | null> {
     try {
       // El agente usa solo los últimos 16; no tiene sentido mandar toda la conversación
-      const historial = s.mensajes.slice(-16).map((m) => ({ rol: m.rol, texto: m.texto, propio: !!m.propio }));
-      const res = await this.ai.post('/niv/tutor', { contexto: await this.contexto(u, s), historial, mensaje, propio });
-      if (res?.ok && typeof res.respuesta === 'string' && res.respuesta.trim()) return res.respuesta.trim();
+      const historial = s.mensajes.slice(-16).map((m) => ({
+        rol: m.rol, texto: m.texto, opciones: m.opciones ?? [], esperada: m.esperada ?? null,
+        ayuda: m.ayuda ?? null, eleccion_esperada: m.eleccion_esperada ?? null,
+      }));
+      const res = await this.ai.post('/niv/tutor', { contexto: await this.contexto(u, s), historial, mensaje: accion });
+      if (res?.ok && typeof res.respuesta === 'string' && res.respuesta.trim()) {
+        const opciones = Array.isArray(res.opciones) ? res.opciones.map(String).filter(Boolean).slice(0, 4) : [];
+        const esperada = Number.isInteger(res.esperada) && res.esperada >= 0 && res.esperada < opciones.length ? res.esperada : null;
+        return { texto: res.respuesta.trim(), opciones, esperada };
+      }
       this.logger.warn(`Tutor sin respuesta: ${res?.error ?? 'vacía'}`);
     } catch (e: any) {
       this.logger.warn(`Tutor falló: ${e?.message ?? e}`);
@@ -211,11 +220,23 @@ export class TutorService {
     return null;
   }
 
-  private msg(rol: Rol, texto: string, ejercicio_id?: string, propio = false): MensajeSesion {
-    return {
-      id: this.mongo.newId(), rol, texto, at: new Date(),
-      ...(ejercicio_id ? { ejercicio_id } : {}), ...(propio ? { propio: true } : {}),
-    };
+  private msg(rol: Rol, texto: string, extra: Partial<MensajeSesion> = {}): MensajeSesion {
+    return { id: this.mongo.newId(), rol, texto, at: new Date(), ...extra };
+  }
+
+  private msgTutor(t: TurnoTutor, extra: Partial<MensajeSesion> = {}): MensajeSesion {
+    return this.msg('tutor', t.texto, { ...(t.opciones.length ? { opciones: t.opciones, esperada: t.esperada } : {}), ...extra });
+  }
+
+  /** Último mensaje visible (sin eventos internos). */
+  private ultimoVisible(s: Sesion): MensajeSesion | undefined {
+    return [...s.mensajes].reverse().find((m) => m.rol !== 'evento');
+  }
+
+  /** Alternativas que el alumno puede elegir ahora: las del último mensaje, si es del tutor. */
+  private opcionesPendientes(s: Sesion): MensajeSesion | null {
+    const m = this.ultimoVisible(s);
+    return m && m.rol === 'tutor' && m.opciones?.length ? m : null;
   }
 
   private async guardar(s: Sesion, nuevos: MensajeSesion[], cambios: Partial<Sesion> = {}) {
@@ -268,8 +289,12 @@ export class TutorService {
 
   private vistaMensajes(s: Sesion, msgs: MensajeSesion[]) {
     const ej = new Map(s.ejercicios.map((e) => [e.id, e]));
+    const pendiente = this.opcionesPendientes(s);
     return msgs.filter((m) => m.rol !== 'evento').map((m) => ({
-      id: m.id, rol: m.rol, texto: m.texto, at: m.at, propio: !!m.propio,
+      id: m.id, rol: m.rol, texto: m.texto, at: m.at,
+      // Solo el último mensaje del tutor trae alternativas para elegir (nunca cuál esperaba)
+      opciones: pendiente && m.id === pendiente.id ? pendiente.opciones : [],
+      ayuda: m.ayuda ?? null,
       ejercicio: m.ejercicio_id && ej.get(m.ejercicio_id) ? this.vistaEjercicio(ej.get(m.ejercicio_id)!) : null,
     }));
   }
@@ -329,9 +354,9 @@ export class TutorService {
     await this.sesiones.insertOne(s);
     const saludo = await this.pedirAlTutor(u, s, null);
     await this.contarUso(u.uid);
-    await this.guardar(s, [this.msg('tutor', saludo ?? (ids.length
-      ? '¡Hola! Revisemos juntos lo que te costó. Elige una pregunta y cuéntame cómo la pensaste.'
-      : '¡Hola! ¿Qué te gustaría practicar de este nodo? Si quieres, te propongo un ejercicio para empezar.'))]);
+    await this.guardar(s, [saludo ? this.msgTutor(saludo) : this.msg('tutor', ids.length
+      ? '¡Hola! Revisemos juntos lo que te costó. Si no sabes por dónde partir, toca «Dame una pista».'
+      : '¡Hola! Revisemos este nodo. Si no sabes por dónde partir, toca «Dame una pista».')]);
     return this.vista(u, s);
   }
 
@@ -339,43 +364,39 @@ export class TutorService {
     return this.vista(u, await this.sesion(u, id));
   }
 
-  async mensaje(u: Usuario, id: string, texto: string, propio = false) {
+  /**
+   * El alumno responde al tutor: elige una de las alternativas del último mensaje del tutor (opcion)
+   * o toca un botón de ayuda («No entiendo» / «Dame una pista»). No hay texto libre.
+   */
+  async responder(u: Usuario, id: string, dto: { opcion?: number; ayuda?: Ayuda }) {
     const s = await this.sesion(u, id);
     await this.verificarLimite(u.uid);
-    const limpio = texto.trim();
-    let nuevoPropio: EjercicioPropio | null = null;
-    if (propio) {
-      // El tutor lo resuelve primero en privado para guiar sin equivocarse (el alumno no ve la resolución)
-      nuevoPropio = { id: this.mongo.newId(), enunciado: limpio, resolucion: await this.resolver(s, limpio), at: new Date() };
-      s.propios = [...(s.propios ?? []), nuevoPropio];
+    let alumno: MensajeSesion;
+    let accion: AccionAlumno;
+    if (dto.ayuda) {
+      alumno = this.msg('alumno', TEXTO_AYUDA[dto.ayuda], { ayuda: dto.ayuda });
+      accion = { texto: TEXTO_AYUDA[dto.ayuda], ayuda: dto.ayuda };
+    } else {
+      const pendiente = this.opcionesPendientes(s);
+      if (!pendiente || dto.opcion === undefined || !pendiente.opciones![dto.opcion]) {
+        throw new BadRequestException('Esa alternativa ya no está disponible.');
+      }
+      const texto = pendiente.opciones![dto.opcion];
+      const eleccion_esperada = pendiente.esperada == null ? null : dto.opcion === pendiente.esperada;
+      alumno = this.msg('alumno', texto, { eleccion_esperada });
+      accion = { texto, eleccion_esperada };
     }
-    const respuesta = await this.pedirAlTutor(u, s, limpio, propio);
-    if (!respuesta) {
+    const turno = await this.pedirAlTutor(u, s, accion);
+    if (!turno) {
       throw new HttpException(
         { code: 'TUTOR_NO_DISPONIBLE', message: 'El tutor no pudo responder ahora. Intenta de nuevo en un momento.' },
         HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
     await this.contarUso(u.uid);
-    const nuevos = [this.msg('alumno', limpio, undefined, propio), this.msg('tutor', respuesta)];
-    await this.guardar(s, nuevos, nuevoPropio ? { propios: s.propios } : {});
+    const nuevos = [alumno, this.msgTutor(turno)];
+    await this.guardar(s, nuevos);
     return { mensajes: this.vistaMensajes(s, nuevos), restantes_hoy: Math.max(this.limiteDiario - (await this.usados(u.uid)), 0) };
-  }
-
-  /** Resolución privada del ejercicio que trae el alumno. Si falla, el tutor guía igual (sin resolución). */
-  private async resolver(s: Sesion, enunciado: string): Promise<Record<string, unknown> | null> {
-    try {
-      const [nodo, mundo] = await Promise.all([
-        s.nodo_id ? this.pg.queryOne<{ titulo: string }>('SELECT titulo FROM niv_banco.nodo WHERE id = $1', [s.nodo_id]) : Promise.resolve(null),
-        this.pg.queryOne<{ titulo: string }>('SELECT titulo FROM niv_banco.mundo WHERE id = $1', [s.mundo_id]),
-      ]);
-      const res = await this.ai.post('/niv/resolver', { enunciado, contexto: { mundo: mundo?.titulo ?? null, nodo: nodo?.titulo ?? null } });
-      if (res?.ok && res.resolucion) return res.resolucion;
-      this.logger.warn(`Resolver sin resultado: ${res?.error ?? 'vacío'}`);
-    } catch (e: any) {
-      this.logger.warn(`Resolver falló: ${e?.message ?? e}`);
-    }
-    return null;
   }
 
   /** El tutor propone un ejercicio del nodo (generado por IA, no entra al banco). */
@@ -392,8 +413,8 @@ export class TutorService {
     const ej: EjercicioSesion = { id: g.id, enunciado: g.enunciado, alternativas: g.alternativas };
     s.ejercicios.push(ej);
     const nuevo = this.msg('tutor',
-      'Te propongo este ejercicio. Intenta resolverlo y elige una alternativa; si te trabas, cuéntame cómo lo estás pensando.',
-      ej.id);
+      'Te propongo este ejercicio. Intenta resolverlo y elige una alternativa; si te trabas, toca «Dame una pista».',
+      { ejercicio_id: ej.id });
     await this.guardar(s, [nuevo], { ejercicios: s.ejercicios });
     return { mensajes: this.vistaMensajes(s, [nuevo]) };
   }
@@ -421,17 +442,18 @@ export class TutorService {
     const evento = this.msg('evento', r.es_correcto
       ? `El estudiante respondió «${respuesta}» al ejercicio y es CORRECTA. Confírmalo y pídele que justifique o propón una extensión.`
       : `El estudiante respondió «${respuesta}» al ejercicio y es INCORRECTA. No reveles la correcta: guíalo con una pregunta para que encuentre su error.`,
-      ej.id);
+      { ejercicio_id: ej.id });
     await this.guardar(s, [evento], { ejercicios: s.ejercicios });
 
-    let texto: string | null = null;
+    let turno: TurnoTutor | null = null;
     if ((await this.usados(u.uid)) < this.limiteDiario) {
-      texto = await this.pedirAlTutor(u, { ...s, mensajes: s.mensajes.slice(0, -1) }, `(Aviso de la plataforma) ${evento.texto}`);
-      if (texto) await this.contarUso(u.uid);
+      turno = await this.pedirAlTutor(u, { ...s, mensajes: s.mensajes.slice(0, -1) },
+        { texto: `(Aviso de la plataforma) ${evento.texto}`, evento: true });
+      if (turno) await this.contarUso(u.uid);
     }
-    const tutor = this.msg('tutor', texto ?? (r.es_correcto
-      ? '¡Correcto! ¿Me cuentas por qué elegiste esa alternativa?'
-      : 'No es la correcta, pero vamos bien. ¿Qué paso hiciste primero? Revisemos juntos.'));
+    const tutor = turno ? this.msgTutor(turno) : this.msg('tutor', r.es_correcto
+      ? '¡Correcto! Si quieres, pide otro ejercicio.'
+      : 'No es la correcta, pero vamos bien. Toca «Dame una pista» y lo revisamos juntos.');
     await this.guardar(s, [tutor]);
     return {
       es_correcto: r.es_correcto, xp_ganado: r.xp_ganado,
@@ -454,7 +476,7 @@ export class TutorService {
     if (ej.respuesta === undefined) throw new BadRequestException('Intenta responderlo primero; la solución se muestra después.');
     if (!ej.revelado) {
       ej.revelado = true;
-      await this.guardar(s, [this.msg('evento', 'Se le mostró la solución del ejercicio al estudiante.', ej.id)], { ejercicios: s.ejercicios });
+      await this.guardar(s, [this.msg('evento', 'Se le mostró la solución del ejercicio al estudiante.', { ejercicio_id: ej.id })], { ejercicios: s.ejercicios });
     }
     return { ejercicio: this.vistaEjercicio(ej) };
   }

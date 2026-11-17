@@ -53,25 +53,39 @@ async def analizar(payload: AnalizarIn, background_tasks: BackgroundTasks):
 
 class Mensaje(BaseModel):
     rol: str          # alumno | tutor | evento
-    texto: str
-    propio: bool = False   # el alumno trajo este ejercicio
+    texto: str = ""
+    # Mensajes del tutor: alternativas que dio y cuál esperaba (el alumno no la ve)
+    opciones: list[str] = Field(default_factory=list)
+    esperada: int | None = None
+    # Mensajes del alumno: botón de ayuda ("no_entiendo" | "pista") o si eligió la alternativa esperada
+    ayuda: str | None = None
+    eleccion_esperada: bool | None = None
+
+
+class AccionAlumno(BaseModel):
+    """Lo que hizo el alumno en este turno (no escribe: elige una alternativa o toca un botón)."""
+    texto: str = ""
+    ayuda: str | None = None
+    eleccion_esperada: bool | None = None
+    evento: bool = False   # aviso de la plataforma (p. ej. respondió el ejercicio del tutor)
 
 
 class TutorIn(BaseModel):
     contexto: dict = Field(default_factory=dict)
     historial: list[Mensaje] = Field(default_factory=list)
-    mensaje: str | None = None
-    propio: bool = False   # el mensaje es un ejercicio que trae el alumno
+    mensaje: AccionAlumno | None = None
 
 
 @router.post("/tutor")
 async def tutor(payload: TutorIn):
+    """Siguiente turno del tutor socrático: {mensaje, opciones, esperada}."""
     try:
-        texto = await asyncio.to_thread(
-            service.tutor_responder, payload.contexto, [m.model_dump() for m in payload.historial], payload.mensaje,
-            payload.propio,
+        turno = await asyncio.to_thread(
+            service.tutor_responder, payload.contexto, [m.model_dump() for m in payload.historial],
+            payload.mensaje.model_dump() if payload.mensaje else None,
         )
-        return JSONResponse({"ok": True, "respuesta": texto})
+        return JSONResponse({"ok": True, "respuesta": turno["mensaje"], "opciones": turno["opciones"],
+                             "esperada": turno["esperada"]})
     except Exception as e:
         logger.exception("tutor falló")
         return JSONResponse({"ok": False, "error": str(e)})

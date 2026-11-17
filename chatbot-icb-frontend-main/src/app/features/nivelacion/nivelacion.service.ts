@@ -111,11 +111,15 @@ export interface EjercicioTutor {
   correcta: string | null; explicacion: string | null;
 }
 
+export type AyudaTutor = 'no_entiendo' | 'pista';
+
 export interface MensajeTutor {
   id: string; rol: 'alumno' | 'tutor'; texto: string; at: string;
   ejercicio: EjercicioTutor | null;
-  /** Mensaje del alumno que es un ejercicio suyo ("Traigo mi ejercicio") */
-  propio?: boolean;
+  /** Solo en el último mensaje del tutor: alternativas para responderle (el alumno no escribe) */
+  opciones?: string[];
+  /** Mensaje del alumno que fue un botón de ayuda */
+  ayuda?: AyudaTutor | null;
 }
 
 export interface SesionTutor {
@@ -193,8 +197,9 @@ export class NivelacionService {
   abrirTutor(opts: { nodo_id?: number; mundo_id?: number; intento_ids?: string[]; nueva?: boolean }) {
     return this.send<SesionTutor>('POST', '/tutor/sesiones', opts);
   }
-  enviarAlTutor(sesionId: string, texto: string, propio = false) {
-    return this.send<{ mensajes: MensajeTutor[]; restantes_hoy: number }>('POST', `/tutor/sesiones/${sesionId}/mensajes`, { texto, propio });
+  /** Responde al tutor eligiendo una alternativa (posición) o con un botón de ayuda. */
+  responderAlTutor(sesionId: string, r: { opcion: number } | { ayuda: AyudaTutor }) {
+    return this.send<{ mensajes: MensajeTutor[]; restantes_hoy: number }>('POST', `/tutor/sesiones/${sesionId}/mensajes`, r);
   }
   pedirEjercicio(sesionId: string) {
     return this.send<{ mensajes: MensajeTutor[] }>('POST', `/tutor/sesiones/${sesionId}/ejercicio`);

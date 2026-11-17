@@ -1,4 +1,4 @@
-import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 
 /** Abrir el tutor de un nodo, o revisar preguntas de una fase/test ya terminada (intento_ids). */
 export class CrearSesionDto {
@@ -18,13 +18,16 @@ export class CrearSesionDto {
   nueva?: boolean;
 }
 
+/**
+ * Respuesta del alumno al tutor. No hay texto libre: elige una de las alternativas del último mensaje
+ * del tutor (opcion = posición, desde 0) o toca un botón de ayuda.
+ */
 export class MensajeTutorDto {
-  @IsString() @MinLength(1) @MaxLength(3000)
-  texto!: string;
+  @IsOptional() @IsInt() @Min(0) @Max(3)
+  opcion?: number;
 
-  /** true = el texto es un ejercicio que trae el alumno (el tutor lo resuelve en privado y lo guía). */
-  @IsOptional() @IsBoolean()
-  propio?: boolean;
+  @IsOptional() @IsIn(['no_entiendo', 'pista'])
+  ayuda?: 'no_entiendo' | 'pista';
 }
 
 export class RetroalimentacionDto {

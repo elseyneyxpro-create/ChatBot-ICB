@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RespuestaEntrenarDto } from './nivelacion.dto';
 import { CrearSesionDto, MensajeTutorDto, RetroalimentacionDto } from './tutor.dto';
@@ -38,7 +38,8 @@ export class TutorController {
   @Post('tutor/sesiones/:id/mensajes')
   @HttpCode(200)
   mensaje(@Req() req: any, @Param('id') id: string, @Body() dto: MensajeTutorDto) {
-    return this.tutor.mensaje(usuario(req), id, dto.texto, dto.propio === true);
+    if (dto.opcion === undefined && !dto.ayuda) throw new BadRequestException('Elige una alternativa o pide ayuda.');
+    return this.tutor.responder(usuario(req), id, dto);
   }
 
   @Post('tutor/sesiones/:id/ejercicio')

@@ -17,7 +17,7 @@ from app.core.config import settings
 from app.core.postgres import execute, fetch_all
 from app.routers.nivelacion.prompts import (
     ANALISTA_HUMAN, ANALISTA_SYSTEM, GENERADOR_HUMAN, GENERADOR_SYSTEM,
-    RESOLVER_SYSTEM, RETRO_HUMAN, RETRO_SYSTEM, TUTOR_INICIO, TUTOR_PROPIO, TUTOR_SYSTEM, VERIFICADOR_SYSTEM,
+    RESOLVER_SYSTEM, RETRO_HUMAN, RETRO_SYSTEM, TUTOR_INICIO, TUTOR_SYSTEM, VERIFICADOR_SYSTEM,
 )
 
 logger = logging.getLogger("icb.niv")
@@ -292,29 +292,87 @@ def resolver_ejercicio(enunciado: str, contexto: dict) -> dict:
     }
 
 
-def tutor_responder(contexto: dict, historial: list[dict], mensaje: str | None, propio: bool = False) -> str:
-    """Siguiente mensaje del tutor. Sin mensaje = la plataforma abre la conversación.
-    propio = el mensaje es un ejercicio que trae el estudiante."""
+AYUDAS = {"no_entiendo": "No entiendo", "pista": "Dame una pista"}
+
+
+def _tutor_ai_txt(m: dict) -> str:
+    """Mensaje anterior del tutor tal como lo produjo (JSON), para que mantenga el formato y recuerde
+    qué alternativa esperaba."""
+    return json.dumps({"mensaje": str(m.get("texto") or ""), "opciones": m.get("opciones") or [],
+                       "esperada": m.get("esperada")}, ensure_ascii=False)
+
+
+def _tutor_alumno_txt(m: dict) -> str:
+    """Lo que hizo el alumno: eligió una alternativa o tocó un botón de ayuda."""
+    if m.get("ayuda") in AYUDAS:
+        return f"(El estudiante tocó el botón «{AYUDAS[m['ayuda']]}»)"
+    txt = f"(El estudiante eligió la alternativa) {m.get('texto') or ''}"
+    if m.get("eleccion_esperada") is True:
+        txt += "\n(Aviso de la plataforma: es la alternativa que esperabas.)"
+    elif m.get("eleccion_esperada") is False:
+        txt += "\n(Aviso de la plataforma: NO es la alternativa que esperabas.)"
+    return txt
+
+
+def _validar_turno(r: dict, sin_opciones: bool) -> dict:
+    mensaje = str(r.get("mensaje") or "").strip()
+    if not mensaje:
+        raise ValueError("el tutor no devolvió mensaje")
+    opciones: list[str] = []
+    for o in r.get("opciones") or []:
+        t = latex_suelto(str(o).strip())
+        if t and len(t) <= 300 and t not in opciones:
+            opciones.append(t)
+    opciones = opciones[:4]
+    esperada = r.get("esperada")
+    esperada = esperada if isinstance(esperada, int) and 0 <= esperada < len(opciones) else None
+    if sin_opciones:
+        return {"mensaje": mensaje, "opciones": [], "esperada": None}
+    if len(opciones) < 2:
+        raise ValueError("el tutor no devolvió alternativas suficientes")
+    # Se barajan para que la esperada no quede siempre en el mismo lugar
+    orden = list(range(len(opciones)))
+    random.shuffle(orden)
+    return {
+        "mensaje": mensaje,
+        "opciones": [opciones[i] for i in orden],
+        "esperada": orden.index(esperada) if esperada is not None else None,
+    }
+
+
+def tutor_responder(contexto: dict, historial: list[dict], mensaje: dict | None) -> dict:
+    """Siguiente turno del tutor: {mensaje, opciones, esperada}. El estudiante solo responde eligiendo una
+    alternativa o con los botones «No entiendo» / «Dame una pista».
+    mensaje = lo que hizo el alumno ({texto, ayuda, eleccion_esperada}); None = la plataforma abre la conversación."""
     msgs = [SystemMessage(content=TUTOR_SYSTEM.format(contexto=contexto_txt(contexto)))]
     for m in historial[-MAX_HISTORIAL_TUTOR:]:
-        texto = str(m.get("texto") or "")
         if m.get("rol") == "tutor":
-            msgs.append(AIMessage(content=texto))
+            msgs.append(AIMessage(content=_tutor_ai_txt(m)))
         elif m.get("rol") == "evento":
-            msgs.append(HumanMessage(content=f"(Aviso de la plataforma, no lo escribió el estudiante) {texto}"))
-        elif m.get("propio"):
-            msgs.append(HumanMessage(content=f"(Ejercicio que trajo el estudiante)\n{texto}"))
+            msgs.append(HumanMessage(content=f"(Aviso de la plataforma, no lo escribió el estudiante) {m.get('texto') or ''}"))
         else:
-            msgs.append(HumanMessage(content=texto))
+            msgs.append(HumanMessage(content=_tutor_alumno_txt(m)))
     if not mensaje:
         msgs.append(HumanMessage(content=TUTOR_INICIO))
-    elif propio:
-        msgs.append(HumanMessage(content=TUTOR_PROPIO.format(texto=mensaje)))
+    elif mensaje.get("evento"):
+        msgs.append(HumanMessage(content=str(mensaje.get("texto") or "")))
     else:
-        msgs.append(HumanMessage(content=mensaje))
-    respuesta = str(_llm_texto(TEMPERATURA_TUTOR).invoke(msgs).content).strip()
-    logger.info(f"[NIV] tutor nodo='{contexto.get('nodo')}' ({len(historial)} msgs previos)")
-    return respuesta
+        msgs.append(HumanMessage(content=_tutor_alumno_txt(mensaje)))
+
+    ej = contexto.get("ejercicio") or {}
+    sin_opciones = bool(ej) and ej.get("respuesta") is None
+    llm = _llm(TEMPERATURA_TUTOR)
+    ultimo_error: Exception | None = None
+    for _ in range(2):  # un reintento si el JSON viene mal o sin alternativas
+        try:
+            turno = _validar_turno(json.loads(llm.invoke(msgs).content), sin_opciones)
+            logger.info(f"[NIV] tutor nodo='{contexto.get('nodo')}' ({len(historial)} msgs previos, "
+                        f"{len(turno['opciones'])} alternativas)")
+            return turno
+        except Exception as e:  # noqa: BLE001
+            ultimo_error = e
+            logger.warning(f"[NIV] turno del tutor inválido: {e}")
+    raise ultimo_error or ValueError("el tutor no respondió")
 
 
 # ── Retroalimentación de fase / test ───────────────────────────────────────

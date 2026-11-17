@@ -1,12 +1,10 @@
 import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { KatexRenderPipe } from '../../shared/katex-render.pipe';
-import { EjercicioTutor, MensajeTutor, NivelacionService, SesionTutor, latexSuelto } from './nivelacion.service';
+import { AyudaTutor, EjercicioTutor, MensajeTutor, NivelacionService, SesionTutor, latexSuelto } from './nivelacion.service';
 
-interface Sugerencia { texto: string; accion?: 'ejercicio' | 'prellenar' | 'propio'; icono?: string }
 
 /**
  * "Aprende con el tutor": conversación socrática sobre un nodo (o sobre las preguntas que el alumno
@@ -16,7 +14,7 @@ interface Sugerencia { texto: string; accion?: 'ejercicio' | 'prellenar' | 'prop
 @Component({
   selector: 'app-niv-tutor',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, KatexRenderPipe],
+  imports: [CommonModule, MatIconModule, KatexRenderPipe],
   styleUrls: ['./niv-tutor.component.scss'],
   template: `
   <div class="page tutor-page">
@@ -48,8 +46,7 @@ interface Sugerencia { texto: string; accion?: 'ejercicio' | 'prellenar' | 'prop
           <div class="msg" [class.alumno]="m.rol === 'alumno'" [class.tutor]="m.rol === 'tutor'">
             <div class="m-avatar" *ngIf="m.rol === 'tutor'"><mat-icon>school</mat-icon></div>
             <div class="m-cuerpo">
-              <span class="etiqueta-propio" *ngIf="m.propio"><mat-icon>assignment</mat-icon> Tu ejercicio</span>
-              <div class="burbuja" [class.propio]="m.propio"
+              <div class="burbuja" [class.ayuda]="!!m.ayuda"
                    [innerHTML]="(m.rol === 'alumno' ? latex(m.texto) : m.texto) | katexRender"></div>
 
               <!-- Ejercicio propuesto por el tutor -->
@@ -92,29 +89,23 @@ interface Sugerencia { texto: string; accion?: 'ejercicio' | 'prellenar' | 'prop
         </div>
       </div>
 
+      <!-- El alumno no escribe: responde con las alternativas del tutor o con los botones de ayuda -->
       <div class="t-input" *ngIf="sesion()">
-        <div class="sugerencias">
-          <button *ngFor="let s of sugerencias()" type="button" class="chip-sug" [disabled]="ocupado() || sinCupo()" (click)="usarSugerencia(s)">
-            <mat-icon *ngIf="s.icono">{{ s.icono }}</mat-icon>{{ s.texto }}
+        <div class="t-opciones" *ngIf="opcionesActuales() as ops" role="group" aria-label="Alternativas para responder al tutor">
+          <button *ngFor="let op of ops; let i = index" type="button" class="opcion"
+                  [disabled]="ocupado() || sinCupo()" (click)="elegirOpcion(i, op)">
+            <span class="letra">{{ letra(i) }}</span><span [innerHTML]="latex(op) | katexRender"></span>
           </button>
         </div>
-        <!-- "Traigo mi ejercicio": el tutor lo resuelve en privado y guía con preguntas -->
-        <div class="modo-propio" *ngIf="modoPropio()">
-          <mat-icon>assignment</mat-icon>
-          <span><strong>Tu ejercicio.</strong> Pégalo o escríbelo; las fórmulas van entre $…$.<span class="largo"> El tutor no te dará el resultado: te ayudará a llegar.</span></span>
-          <button type="button" class="cerrar" (click)="modoPropio.set(false)" title="Cancelar" aria-label="Cancelar mi ejercicio"><mat-icon>close</mat-icon></button>
-        </div>
-        <div class="vista-previa" *ngIf="tieneFormula(borrador)">
-          <span class="muted">Vista previa</span>
-          <div [innerHTML]="latex(borrador) | katexRender"></div>
-        </div>
-        <div class="caja" [class.deshabilitada]="sinCupo()" [class.propio]="modoPropio()">
-          <textarea #campo rows="1" [(ngModel)]="borrador" [disabled]="sinCupo()" name="mensaje-tutor" autocomplete="off"
-                    [attr.aria-label]="modoPropio() ? 'Tu ejercicio' : 'Mensaje para el tutor'"
-                    [placeholder]="modoPropio() ? 'Ej.: Resuelve $\\\\frac{x+1}{2} = 3$' : 'Escribe tu duda o tu desarrollo… (usa $x^2$ para fórmulas)'"
-                    (keydown.enter)="enter($event)" (input)="ajustar()"></textarea>
-          <button class="enviar" [disabled]="!borrador.trim() || ocupado() || sinCupo()" (click)="enviar()" title="Enviar" aria-label="Enviar mensaje">
-            <mat-icon>send</mat-icon>
+        <div class="sugerencias">
+          <button type="button" class="chip-sug" [disabled]="ocupado() || sinCupo()" (click)="pedirAyuda('no_entiendo')">
+            <mat-icon>help_outline</mat-icon>No entiendo
+          </button>
+          <button type="button" class="chip-sug" [disabled]="ocupado() || sinCupo()" (click)="pedirAyuda('pista')">
+            <mat-icon>lightbulb</mat-icon>Dame una pista
+          </button>
+          <button type="button" class="chip-sug" *ngIf="sesion()?.nodo && !pendiente()" [disabled]="ocupado() || sinCupo()" (click)="pedirEjercicio()">
+            <mat-icon>auto_awesome</mat-icon>Dame un ejercicio
           </button>
         </div>
         <div class="t-pie muted" aria-live="polite">
@@ -132,7 +123,6 @@ export class NivTutorComponent implements OnInit {
   private router = inject(Router);
 
   @ViewChild('chat') private chatRef?: ElementRef<HTMLDivElement>;
-  @ViewChild('campo') private campoRef?: ElementRef<HTMLTextAreaElement>;
 
   sesion = signal<SesionTutor | null>(null);
   mensajes = signal<MensajeTutor[]>([]);
@@ -142,9 +132,6 @@ export class NivTutorComponent implements OnInit {
   enviando = signal(false);
   restantes = signal(0);
   eleccion = signal<Record<string, string>>({});
-  /** El próximo mensaje es un ejercicio del alumno */
-  modoPropio = signal(false);
-  borrador = '';
 
   ocupado = computed(() => this.pensando() || this.enviando());
   sinCupo = computed(() => this.restantes() <= 0);
@@ -154,21 +141,14 @@ export class NivTutorComponent implements OnInit {
     return s.nodo ? s.nodo.titulo : `Test: ${s.mundo?.titulo ?? ''}`;
   });
   pendiente = computed(() => this.mensajes().some(m => m.ejercicio && m.ejercicio.respuesta === null && !m.ejercicio.vencido));
-  sugerencias = computed<Sugerencia[]>(() => {
-    const s = this.sesion();
-    if (!s) return [];
-    const base: Sugerencia[] = s.revisando
-      ? [{ texto: '¿Por qué está mal mi respuesta?' }, { texto: 'Dame una pista' }, { texto: 'No entiendo el concepto' }]
-      : [{ texto: 'No entiendo el concepto' }, { texto: 'Dame una pista' }, { texto: 'Revisa mi desarrollo', accion: 'prellenar' }];
-    if (!this.modoPropio()) base.unshift({ texto: 'Traigo mi ejercicio', accion: 'propio', icono: 'assignment' });
-    if (s.nodo && !this.pendiente()) base.unshift({ texto: 'Dame un ejercicio', accion: 'ejercicio', icono: 'auto_awesome' });
-    return base;
+  /** Alternativas del último mensaje del tutor (si el último mensaje es suyo y trae alternativas) */
+  opcionesActuales = computed(() => {
+    const ultimo = this.mensajes().at(-1);
+    return ultimo?.rol === 'tutor' && ultimo.opciones?.length ? ultimo.opciones : null;
   });
 
   letra = (i: number) => String.fromCharCode(65 + i);
   latex = latexSuelto;
-  /** Muestra la vista previa solo si el borrador trae algo de LaTeX */
-  tieneFormula = (t: string) => /\$|\\[A-Za-z]/.test(t);
   porId = (_: number, m: MensajeTutor) => m.id;
 
   async ngOnInit() {
@@ -204,58 +184,31 @@ export class NivTutorComponent implements OnInit {
     await this.abrir({ nodo_id: s.nodo.id, nueva: true });
   }
 
-  enter(ev: Event) {
-    const k = ev as KeyboardEvent;
-    if (k.shiftKey) return;
-    k.preventDefault();
-    this.enviar();
+  elegirOpcion(i: number, texto: string) {
+    this.enviarAccion({ opcion: i }, texto);
   }
 
-  ajustar() {
-    const t = this.campoRef?.nativeElement;
-    if (!t) return;
-    t.style.height = 'auto';
-    t.style.height = Math.min(t.scrollHeight, 160) + 'px';
+  pedirAyuda(ayuda: AyudaTutor) {
+    this.enviarAccion({ ayuda }, ayuda === 'pista' ? 'Dame una pista' : 'No entiendo', ayuda);
   }
 
-  usarSugerencia(s: Sugerencia) {
-    if (s.accion === 'ejercicio') { this.pedirEjercicio(); return; }
-    if (s.accion === 'propio') {
-      this.modoPropio.set(true);
-      setTimeout(() => this.campoRef?.nativeElement.focus());
-      return;
-    }
-    if (s.accion === 'prellenar') {
-      this.borrador = 'Así lo resolví: ';
-      setTimeout(() => { this.campoRef?.nativeElement.focus(); this.ajustar(); });
-      return;
-    }
-    this.borrador = s.texto;
-    this.enviar();
-  }
-
-  async enviar() {
+  /** Muestra altiro lo que eligió el alumno y espera la respuesta del tutor; si falla, se quita. */
+  private async enviarAccion(r: { opcion: number } | { ayuda: AyudaTutor }, texto: string, ayuda: AyudaTutor | null = null) {
     const s = this.sesion();
-    const texto = this.borrador.trim();
-    if (!s || !texto || this.ocupado()) return;
-    const propio = this.modoPropio();
-    this.borrador = '';
-    this.modoPropio.set(false);
-    setTimeout(() => this.ajustar());
-    // Se muestra altiro el mensaje del alumno; si falla, se quita
-    const temporal: MensajeTutor = { id: 'tmp', rol: 'alumno', texto, at: new Date().toISOString(), ejercicio: null, propio };
-    this.mensajes.update(ms => [...ms, temporal]);
+    if (!s || this.ocupado()) return;
+    const previos = this.mensajes();
+    const temporal: MensajeTutor = { id: 'tmp', rol: 'alumno', texto, at: new Date().toISOString(), ejercicio: null, ayuda };
+    // Las alternativas ya elegidas dejan de mostrarse
+    this.mensajes.set([...previos.map(m => m.opciones?.length ? { ...m, opciones: [] } : m), temporal]);
     this.pensando.set(true);
     this.bajar();
     try {
-      const r = await this.niv.enviarAlTutor(s.id, texto, propio);
-      this.mensajes.update(ms => [...ms.filter(m => m !== temporal), ...r.mensajes]);
-      this.restantes.set(r.restantes_hoy);
+      const res = await this.niv.responderAlTutor(s.id, r);
+      this.mensajes.update(ms => [...ms.filter(m => m !== temporal), ...res.mensajes]);
+      this.restantes.set(res.restantes_hoy);
       this.aviso.set(null);
     } catch (e) {
-      this.mensajes.update(ms => ms.filter(m => m !== temporal));
-      this.borrador = texto;
-      this.modoPropio.set(propio);
+      this.mensajes.set(previos);
       this.mostrarError(e);
     } finally {
       this.pensando.set(false);
