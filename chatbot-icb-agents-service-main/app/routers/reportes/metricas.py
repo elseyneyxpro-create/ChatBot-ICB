@@ -59,7 +59,7 @@ def generar(carreras: list[str] | None = None) -> dict:
     analisis = {r["uid"]: r for r in datos.ultimo_analisis(uids)}
 
     # Para las estadísticas por nodo
-    nodo_agg = {n["id"]: {"intentaron": 0, "completaron": 0, "atascados": 0, "intentos": 0, "correctas": 0,
+    nodo_agg = {n["id"]: {"intentaron": 0, "completaron": 0, "atascados": 0, "intentos": 0, "correctas": 0, "errores": 0,
                           "intentos_hasta_completar": []} for n in nodos}
 
     alumnos = []
@@ -104,6 +104,7 @@ def generar(carreras: list[str] | None = None) -> dict:
             a["intentaron"] += 1
             a["intentos"] += r["intentos"]
             a["correctas"] += r["correctas"]
+            a["errores"] += r.get("errores", 0)
             if r["fases"] >= datos.FASES_POR_NODO:
                 a["completaron"] += 1
                 a["intentos_hasta_completar"].append(r["intentos"])
@@ -156,6 +157,9 @@ def generar(carreras: list[str] | None = None) -> dict:
             "nodo_actual": nodo_actual,
             "respuestas": f["intentos"],
             "correctas": f["correctas"],
+            # Errores totales (incluye los reintentos de la cola de las fases)
+            "errores": f["errores"],
+            "reintentos": f["reintentos"],
             "acierto": acierto,
             "acierto_fases": pct(f["correctas_fase"], f["intentos_fase"]),
             "acierto_tests": pct(f["correctas_test"], f["intentos_test"]),
@@ -191,6 +195,7 @@ def generar(carreras: list[str] | None = None) -> dict:
             "alumnos_intentaron": a["intentaron"], "alumnos_completaron": a["completaron"],
             "alumnos_atascados": a["atascados"],
             "respuestas": a["intentos"], "correctas": a["correctas"], "acierto": pct(a["correctas"], a["intentos"]),
+            "errores": a["errores"],
             "respuestas_para_completar": round(sum(hasta) / len(hasta), 1) if hasta else None,
         })
 
@@ -224,6 +229,7 @@ def generar(carreras: list[str] | None = None) -> dict:
             "id": p["id"], "enunciado": p["enunciado"], "correcta": p["correcta"], "dificultad": p["dificultad"],
             "mundo": p["mundo"] or "General", "nodo": p["nodo"] or "General", "uso": p["contextos"],
             "respuestas": p["respuestas"], "acierto": pct(p["correctas"], p["respuestas"]),
+            "errores": p["errores"], "alumnos_repiten": p["alumnos_repiten"],
             "error_comun": p["error_comun"], "veces_error_comun": p["veces_error_comun"],
         })
     preguntas.sort(key=lambda p: (p["acierto"], -p["respuestas"]))
@@ -286,4 +292,7 @@ def detalle(uid: str) -> dict:
         r["created_at"] = _iso(_local(r["created_at"]))
     for a in d["analisis"]:
         a["created_at"] = _iso(_local(a["created_at"]))
+    for p in d["preguntas_dificiles"]:
+        p["ultima_vez"] = _iso(_local(p["ultima_vez"]))
+        p.pop("clave", None)
     return d

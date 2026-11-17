@@ -93,11 +93,16 @@ def alumnos(carreras: list[str] | None) -> list[dict]:
             FROM niv_progreso.intento i WHERE i.uid IN (SELECT uid FROM uids)
         ),
         stats AS (
+          -- Respuestas y acierto: solo la PRIMERA respuesta a cada pregunta (n_intento = 1). En las
+          -- fases de nodo una pregunta fallada vuelve al final de la cola; esos reintentos se cuentan
+          -- aparte (reintentos) y entran en los errores, pero no inflan ni bajan el porcentaje de acierto.
           SELECT i.uid,
-                 count(*)::int                                                        AS intentos,
-                 count(*) FILTER (WHERE i.es_correcto)::int                           AS correctas,
-                 count(*) FILTER (WHERE i.contexto = 'fase')::int                     AS intentos_fase,
-                 count(*) FILTER (WHERE i.contexto = 'fase' AND i.es_correcto)::int   AS correctas_fase,
+                 count(*) FILTER (WHERE coalesce(i.n_intento, 1) = 1)::int                    AS intentos,
+                 count(*) FILTER (WHERE coalesce(i.n_intento, 1) = 1 AND i.es_correcto)::int  AS correctas,
+                 count(*) FILTER (WHERE NOT i.es_correcto)::int                               AS errores,
+                 count(*) FILTER (WHERE coalesce(i.n_intento, 1) > 1)::int                    AS reintentos,
+                 count(*) FILTER (WHERE i.contexto = 'fase' AND coalesce(i.n_intento, 1) = 1)::int AS intentos_fase,
+                 count(*) FILTER (WHERE i.contexto = 'fase' AND coalesce(i.n_intento, 1) = 1 AND i.es_correcto)::int AS correctas_fase,
                  count(*) FILTER (WHERE i.contexto = 'test')::int                     AS intentos_test,
                  count(*) FILTER (WHERE i.contexto = 'test' AND i.es_correcto)::int   AS correctas_test,
                  count(*) FILTER (WHERE i.contexto = 'entrenar')::int                 AS intentos_entrenar,
@@ -124,6 +129,7 @@ def alumnos(carreras: list[str] | None) -> list[dict]:
         SELECT a.correo, a.nombre_completo AS nombre, a.carrera, a.nivel_inicial, a.chatbot_habilitado,
                e.uid, e.nivel AS nivel_actual, coalesce(e.xp, 0) AS xp, e.created_at AS primer_ingreso,
                coalesce(s.intentos, 0) AS intentos, coalesce(s.correctas, 0) AS correctas,
+               coalesce(s.errores, 0) AS errores, coalesce(s.reintentos, 0) AS reintentos,
                coalesce(s.intentos_fase, 0) AS intentos_fase, coalesce(s.correctas_fase, 0) AS correctas_fase,
                coalesce(s.intentos_test, 0) AS intentos_test, coalesce(s.correctas_test, 0) AS correctas_test,
                coalesce(s.intentos_entrenar, 0) AS intentos_entrenar,
@@ -151,14 +157,18 @@ def progreso_nodos(uids: list[str]) -> list[dict]:
     return fetch_all(
         """
         WITH resp AS (
-          SELECT uid, nodo_id, count(*)::int AS intentos, count(*) FILTER (WHERE es_correcto)::int AS correctas
+          -- intentos/correctas = primera respuesta a cada pregunta; errores = todos (incluye reintentos)
+          SELECT uid, nodo_id,
+                 count(*) FILTER (WHERE coalesce(n_intento, 1) = 1)::int AS intentos,
+                 count(*) FILTER (WHERE coalesce(n_intento, 1) = 1 AND es_correcto)::int AS correctas,
+                 count(*) FILTER (WHERE NOT es_correcto)::int AS errores
             FROM niv_progreso.intento
            WHERE contexto = 'fase' AND nodo_id IS NOT NULL AND uid = ANY(%(uids)s)
            GROUP BY uid, nodo_id
         )
         SELECT coalesce(pn.uid, r.uid) AS uid, coalesce(pn.nodo_id, r.nodo_id) AS nodo_id,
                coalesce(pn.fases, 0) AS fases, coalesce(r.intentos, 0) AS intentos,
-               coalesce(r.correctas, 0) AS correctas, pn.updated_at
+               coalesce(r.correctas, 0) AS correctas, coalesce(r.errores, 0) AS errores, pn.updated_at
           FROM (SELECT * FROM niv_progreso.progreso_nodo WHERE uid = ANY(%(uids)s)) pn
           FULL JOIN resp r ON r.uid = pn.uid AND r.nodo_id = pn.nodo_id
         """,
@@ -199,20 +209,32 @@ def ultimo_analisis(uids: list[str]) -> list[dict]:
 
 
 def preguntas_banco(uids: list[str]) -> list[dict]:
-    """Preguntas del banco que respondieron estos alumnos, con su % de acierto y el error más común."""
+    """Preguntas del banco que respondieron estos alumnos: % de acierto (primera respuesta), errores
+    totales (con reintentos), cuántos alumnos la fallaron 2 veces o más y el error más común."""
     if not uids:
         return []
     return fetch_all(
         """
         WITH r AS (
-          SELECT i.pregunta_id, i.respuesta, i.es_correcto, i.contexto, i.nodo_id, i.mundo_id
+          SELECT i.pregunta_id, i.uid, i.respuesta, i.es_correcto, i.contexto, i.nodo_id, i.mundo_id,
+                 coalesce(i.n_intento, 1) AS n_intento
             FROM niv_progreso.intento i
            WHERE i.origen = 'banco' AND i.pregunta_id IS NOT NULL AND i.uid = ANY(%(uids)s)
         ),
         agg AS (
-          SELECT pregunta_id, count(*)::int AS respuestas, count(*) FILTER (WHERE es_correcto)::int AS correctas,
+          SELECT pregunta_id,
+                 count(*) FILTER (WHERE n_intento = 1)::int AS respuestas,
+                 count(*) FILTER (WHERE n_intento = 1 AND es_correcto)::int AS correctas,
+                 count(*) FILTER (WHERE NOT es_correcto)::int AS errores,
                  string_agg(DISTINCT contexto, ', ') AS contextos
             FROM r GROUP BY pregunta_id
+        ),
+        repiten AS (
+          -- Alumnos que la fallaron 2 veces o más (en la cola de una fase o en fases distintas)
+          SELECT pregunta_id, count(*)::int AS alumnos_repiten
+            FROM (SELECT pregunta_id, uid FROM r WHERE NOT es_correcto
+                   GROUP BY pregunta_id, uid HAVING count(*) >= 2) x
+           GROUP BY pregunta_id
         ),
         errores AS (
           SELECT DISTINCT ON (pregunta_id) pregunta_id, respuesta AS error_comun, count(*)::int AS veces_error_comun
@@ -222,12 +244,14 @@ def preguntas_banco(uids: list[str]) -> list[dict]:
         )
         SELECT p.id, p.enunciado, p.correcta, p.dificultad, p.tipo,
                m.titulo AS mundo, n.titulo AS nodo,
-               a.respuestas, a.correctas, a.contextos, e.error_comun, coalesce(e.veces_error_comun, 0) AS veces_error_comun
+               a.respuestas, a.correctas, a.errores, coalesce(rp.alumnos_repiten, 0) AS alumnos_repiten,
+               a.contextos, e.error_comun, coalesce(e.veces_error_comun, 0) AS veces_error_comun
           FROM agg a
           JOIN niv_banco.pregunta p ON p.id = a.pregunta_id
           LEFT JOIN niv_banco.mundo m ON m.id = p.mundo_id
           LEFT JOIN niv_banco.nodo  n ON n.id = p.nodo_id
           LEFT JOIN errores e ON e.pregunta_id = a.pregunta_id
+          LEFT JOIN repiten rp ON rp.pregunta_id = a.pregunta_id
         """,
         {"uids": uids},
     )
@@ -237,7 +261,7 @@ def detalle_alumno(uid: str) -> dict:
     """Todo lo de un alumno para la ficha del panel."""
     ultimos = fetch_all(
         """SELECT i.created_at, i.contexto, i.origen, i.dificultad, i.enunciado, i.respuesta, i.correcta,
-                  i.es_correcto, m.titulo AS mundo, n.titulo AS nodo
+                  i.es_correcto, coalesce(i.n_intento, 1) AS n_intento, m.titulo AS mundo, n.titulo AS nodo
              FROM niv_progreso.intento i
              LEFT JOIN niv_banco.mundo m ON m.id = i.mundo_id
              LEFT JOIN niv_banco.nodo  n ON n.id = i.nodo_id
@@ -249,7 +273,26 @@ def detalle_alumno(uid: str) -> dict:
              FROM niv_progreso.analisis WHERE uid = %(uid)s ORDER BY created_at DESC LIMIT 5""",
         {"uid": uid},
     )
-    return {"ultimas_respuestas": ultimos, "analisis": analisis}
+    # Preguntas donde más se equivoca: errores por pregunta (contando los reintentos de la cola)
+    dificiles = fetch_all(
+        """SELECT coalesce(i.pregunta_id::text, i.enunciado) AS clave,
+                  max(i.enunciado) AS enunciado, max(i.correcta) AS correcta, max(i.contexto) AS contexto,
+                  max(m.titulo) AS mundo, max(n.titulo) AS nodo,
+                  count(*) FILTER (WHERE NOT i.es_correcto)::int AS errores,
+                  count(*)::int AS respuestas,
+                  bool_or(i.es_correcto) AS la_logro,
+                  max(i.created_at) AS ultima_vez
+             FROM niv_progreso.intento i
+             LEFT JOIN niv_banco.mundo m ON m.id = i.mundo_id
+             LEFT JOIN niv_banco.nodo  n ON n.id = i.nodo_id
+            WHERE i.uid = %(uid)s AND i.origen = 'banco'
+            GROUP BY 1
+           HAVING count(*) FILTER (WHERE NOT i.es_correcto) > 0
+            ORDER BY errores DESC, ultima_vez DESC
+            LIMIT 15""",
+        {"uid": uid},
+    )
+    return {"ultimas_respuestas": ultimos, "analisis": analisis, "preguntas_dificiles": dificiles}
 
 
 def correo_de_uid(uid: str) -> str | None:

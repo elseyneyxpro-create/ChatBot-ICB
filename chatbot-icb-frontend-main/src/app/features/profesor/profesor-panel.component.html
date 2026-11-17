@@ -255,14 +255,17 @@
       <section class="panel" *ngIf="tab() === 'preguntas'">
         <p class="muted intro">
           Preguntas del banco ordenadas de menor a mayor acierto (con {{ r.reglas.min_respuestas_pregunta }} respuestas o más).
-          El <b>error más común</b> ayuda a detectar enunciados confusos o errores de concepto repetidos.
+          El acierto cuenta solo la primera respuesta; los <b>errores</b> incluyen los reintentos (en las fases, una pregunta
+          fallada vuelve al final para intentarla otra vez). El <b>error más común</b> ayuda a detectar enunciados confusos
+          o errores de concepto repetidos.
         </p>
         <div class="tabla-wrap">
           <table class="tabla">
             <thead>
               <tr>
                 <th>Pregunta</th><th>Correcta</th><th>Error más común</th>
-                <th class="num">Respuestas</th><th class="num">Acierto</th><th>Dónde</th>
+                <th class="num">Respuestas</th><th class="num">Acierto</th>
+                <th class="num">Errores</th><th class="num" title="Alumnos que la fallaron 2 veces o más">Fallaron 2+</th><th>Dónde</th>
               </tr>
             </thead>
             <tbody>
@@ -278,9 +281,11 @@
                 </td>
                 <td class="num">{{ p.respuestas }}</td>
                 <td class="num"><span class="pct" [attr.data-nivel]="nivelAcierto(p.acierto)">{{ pct(p.acierto) }}</span></td>
+                <td class="num">{{ p.errores ?? '—' }}</td>
+                <td class="num">{{ p.alumnos_repiten ?? '—' }}<div class="sub" *ngIf="p.alumnos_repiten">alumnos</div></td>
                 <td><div>{{ p.mundo }}</div><div class="sub">{{ p.nodo }} · {{ p.uso }}</div></td>
               </tr>
-              <tr *ngIf="!r.preguntas.length"><td colspan="6" class="vacio">Todavía no hay suficientes respuestas.</td></tr>
+              <tr *ngIf="!r.preguntas.length"><td colspan="8" class="vacio">Todavía no hay suficientes respuestas.</td></tr>
             </tbody>
           </table>
         </div>
@@ -338,6 +343,7 @@
         <div><strong>{{ a.progreso | number:'1.0-0' }} %</strong><span>avance</span></div>
         <div><strong class="pct" [attr.data-nivel]="nivelAcierto(a.acierto)">{{ pct(a.acierto) }}</strong><span>acierto</span></div>
         <div><strong>{{ a.respuestas }}</strong><span>respuestas</span></div>
+        <div *ngIf="a.errores !== undefined"><strong>{{ a.errores }}</strong><span>errores</span></div>
         <div><strong>{{ horas(a.minutos) }}</strong><span>tiempo aprox.</span></div>
       </div>
 
@@ -378,6 +384,20 @@
         <p class="recomendacion" *ngIf="an.recomendacion"><mat-icon>lightbulb</mat-icon>{{ an.recomendacion }}</p>
       </ng-container>
 
+      <ng-container *ngIf="detalle()?.preguntas_dificiles?.length">
+        <h3><mat-icon>report</mat-icon> Preguntas donde más se equivoca</h3>
+        <div class="dificil-item" *ngFor="let x of detalle()!.preguntas_dificiles">
+          <span class="veces" [attr.aria-label]="x.errores + ' errores'">{{ x.errores }}×</span>
+          <div>
+            <div class="enun">{{ x.enunciado }}</div>
+            <div class="sub">
+              {{ contexto(x.contexto) }} · {{ x.nodo || x.mundo || 'General' }} ·
+              {{ x.la_logro ? 'después la acertó' : 'todavía no la acierta' }} · {{ x.ultima_vez | date:'dd/MM HH:mm' }}
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
       <h3>Últimas respuestas</h3>
       <p class="muted" *ngIf="!a.uid">Este alumno todavía no entra a la nivelación.</p>
       <p class="muted" *ngIf="cargandoDetalle()" role="status">Cargando…</p>
@@ -389,7 +409,8 @@
           <div>
             <div class="enun">{{ x.enunciado }}</div>
             <div class="sub">
-              {{ contexto(x.contexto) }} · {{ x.nodo || x.mundo || 'General' }} · {{ x.created_at | date:'dd/MM HH:mm' }}
+              {{ contexto(x.contexto) }}<ng-container *ngIf="(x.n_intento ?? 1) > 1"> (reintento {{ x.n_intento }})</ng-container>
+              · {{ x.nodo || x.mundo || 'General' }} · {{ x.created_at | date:'dd/MM HH:mm' }}
               <ng-container *ngIf="!x.es_correcto && x.respuesta"> · respondió «{{ x.respuesta }}», correcta «{{ x.correcta }}»</ng-container>
             </div>
           </div>

@@ -24,7 +24,10 @@ export interface AlumnoReporte {
   mundos_completados: number; total_mundos: number;
   mundo_actual: string | null;
   nodo_actual: string | null;
+  /** Respuestas y acierto: solo la primera respuesta a cada pregunta */
   respuestas: number; correctas: number;
+  /** Errores totales, contando los reintentos de la cola de las fases */
+  errores?: number; reintentos?: number;
   acierto: number | null;
   acierto_fases: number | null; acierto_tests: number | null; acierto_entrenar: number | null;
   respuestas_entrenar: number;
@@ -68,10 +71,13 @@ export interface ReporteNivelacion {
     nodo_id: number; mundo_id: number; mundo: string; orden: number; nodo: string;
     alumnos_intentaron: number; alumnos_completaron: number; alumnos_atascados: number;
     respuestas: number; acierto: number | null; respuestas_para_completar: number | null;
+    errores?: number;
   }[];
   preguntas: {
     id: number; enunciado: string; correcta: string; dificultad: string; mundo: string; nodo: string;
     uso: string; respuestas: number; acierto: number; error_comun: string | null; veces_error_comun: number;
+    /** Errores con reintentos y alumnos que la fallaron 2 veces o más */
+    errores?: number; alumnos_repiten?: number;
   }[];
   alumnos: AlumnoReporte[];
 }
@@ -80,7 +86,12 @@ export interface DetalleAlumno {
   ultimas_respuestas: {
     created_at: string; contexto: 'fase' | 'test' | 'entrenar'; origen: string; dificultad: string | null;
     enunciado: string; respuesta: string | null; correcta: string | null; es_correcto: boolean;
-    mundo: string | null; nodo: string | null;
+    mundo: string | null; nodo: string | null; n_intento?: number;
+  }[];
+  /** Preguntas donde más se equivoca el alumno (errores contando reintentos) */
+  preguntas_dificiles?: {
+    enunciado: string; correcta: string | null; contexto: string; mundo: string | null; nodo: string | null;
+    errores: number; respuestas: number; la_logro: boolean; ultima_vez: string;
   }[];
   analisis: {
     nivel_sugerido: string | null; fortalezas: string[]; debilidades: string[];

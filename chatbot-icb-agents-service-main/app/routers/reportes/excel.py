@@ -170,27 +170,28 @@ def generar_excel(r: dict) -> bytes:
 
     # ── 2. Alumnos ───────────────────────────────────────────────────────────
     ws = wb.create_sheet("Alumnos")
-    _titulo(ws, "AVANCE POR ALUMNO", 23, sub=sub)
+    _titulo(ws, "AVANCE POR ALUMNO", 24, sub=sub)
     _encabezado(ws, [
         "N°", "Nombre", "Correo", "Carrera", "Estado", "Nivel inicial", "Nivel actual", "Avance",
         "Nodos completados", "Mundos completados", "Mundo actual", "Nodo actual",
-        "Respuestas", "% Acierto", "% Acierto fases", "% Acierto tests", "% Acierto ejercicios del tutor",
+        "Respuestas", "Errores (con reintentos)", "% Acierto", "% Acierto fases", "% Acierto tests",
+        "% Acierto ejercicios del tutor",
         "Días con actividad", "Tiempo aprox.*", "Última actividad", "Días sin actividad",
         "Chatbot habilitado", "Alertas",
-    ], [5, 30, 30, 32, 14, 14, 14, 10, 12, 12, 26, 28, 12, 11, 11, 11, 11, 11, 12, 18, 11, 11, 60])
+    ], [5, 30, 30, 32, 14, 14, 14, 10, 12, 12, 26, 28, 12, 12, 11, 11, 11, 11, 11, 12, 18, 11, 11, 60])
     for i, a in enumerate(r["alumnos"], 1):
         _fila(ws, [
             i, a["nombre"], a["correo"], a["carrera"], a["estado"], a["nivel_inicial"], a["nivel_actual"] or "",
             a["progreso"], f"{a['nodos_completados']}/{a['total_nodos']}", f"{a['mundos_completados']}/{a['total_mundos']}",
             a["mundo_actual"] or "", a["nodo_actual"] or "",
-            a["respuestas"], _num(a["acierto"]), _num(a["acierto_fases"]), _num(a["acierto_tests"]),
+            a["respuestas"], a.get("errores", 0), _num(a["acierto"]), _num(a["acierto_fases"]), _num(a["acierto_tests"]),
             _num(a["acierto_entrenar"]), a["dias_activos"], round(a["minutos"] / 60, 1),
             _fecha(a["ultima_actividad"]), _num(a["dias_sin_actividad"]),
             "Sí" if a["chatbot_habilitado"] else "No", a["alertas"],
-        ], formatos={7: FMT_PCT, 13: FMT_PCT, 14: FMT_PCT, 15: FMT_PCT, 16: FMT_PCT, 18: FMT_HRS},
-            colores={13: _color_acierto(a["acierto"]), 22: ROJO_CLARO if a["alertas"] else None})
+        ], formatos={7: FMT_PCT, 14: FMT_PCT, 15: FMT_PCT, 16: FMT_PCT, 17: FMT_PCT, 19: FMT_HRS},
+            colores={14: _color_acierto(a["acierto"]), 23: ROJO_CLARO if a["alertas"] else None})
     ws.freeze_panes = "C4"
-    ws.auto_filter.ref = f"A3:{get_column_letter(23)}{ws.max_row}"
+    ws.auto_filter.ref = f"A3:{get_column_letter(24)}{ws.max_row}"
     nota = ws.cell(row=ws.max_row + 2, column=2,
                    value="(*) Suma de los tiempos entre respuestas seguidas, con un tope de 5 minutos entre una y otra. Es una aproximación.")
     nota.font = Font(italic=True, color="888888", size=9)
@@ -243,13 +244,15 @@ def generar_excel(r: dict) -> bytes:
 
     # ── 5. Preguntas ─────────────────────────────────────────────────────────
     ws = wb.create_sheet("Preguntas")
-    _titulo(ws, "PREGUNTAS DEL BANCO (de menor a mayor acierto)", 10, MORADO, sub=sub)
+    _titulo(ws, "PREGUNTAS DEL BANCO (de menor a mayor acierto)", 12, MORADO, sub=sub)
     _encabezado(ws, ["ID", "Enunciado", "Respuesta correcta", "Error más común", "Veces", "Respuestas",
-                     "% Acierto", "Dificultad", "Mundo · Nodo", "Usada en"],
-                [6, 60, 18, 18, 8, 11, 10, 13, 34, 14], MORADO)
+                     "% Acierto", "Errores (con reintentos)", "Alumnos que la fallaron 2+ veces",
+                     "Dificultad", "Mundo · Nodo", "Usada en"],
+                [6, 60, 18, 18, 8, 11, 10, 12, 14, 13, 34, 14], MORADO)
     for p in r["preguntas"]:
         _fila(ws, [p["id"], p["enunciado"], p["correcta"], p["error_comun"] or "", p["veces_error_comun"],
-                   p["respuestas"], p["acierto"], p["dificultad"], f"{p['mundo']} · {p['nodo']}", p["uso"]],
+                   p["respuestas"], p["acierto"], p.get("errores", 0), p.get("alumnos_repiten", 0),
+                   p["dificultad"], f"{p['mundo']} · {p['nodo']}", p["uso"]],
               formatos={6: FMT_PCT}, colores={6: _color_acierto(p["acierto"])})
     if not r["preguntas"]:
         ws.append([f"Todavía no hay preguntas con {r['reglas']['min_respuestas_pregunta']} respuestas o más."])
@@ -297,8 +300,12 @@ def generar_excel(r: dict) -> bytes:
                    "Completada: aprobó el test de todos los mundos (se le habilita el chatbot)."),
         ("Avance", "Porcentaje de nodos completados y tests aprobados, sobre el total de nodos más mundos."),
         ("Nodo completado", f"El alumno aprobó las {reg['fases_por_nodo']} fases del nodo."),
-        ("% Acierto", "Respuestas correctas sobre el total. Incluye fases, tests y los ejercicios del tutor "
-                      "(preguntas generadas por IA). En preguntas de 4 alternativas, al azar se acierta cerca de 25 %."),
+        ("% Acierto", "Respuestas correctas sobre el total, contando solo la PRIMERA respuesta a cada pregunta. "
+                      "Incluye fases, tests y los ejercicios del tutor (preguntas generadas por IA). "
+                      "En preguntas de 4 alternativas, al azar se acierta cerca de 25 %."),
+        ("Errores (con reintentos)", "Todas las respuestas incorrectas. En las fases de los nodos, una pregunta "
+                                     "fallada vuelve al final de la fase para reintentarla (hasta 2 veces más); "
+                                     "esos errores también se cuentan aquí."),
         ("Mundo / nodo actual", "Donde está trabajando el alumno: el primer nodo del mundo que aún no completa, "
                                 "o el test del mundo si ya completó todos sus nodos."),
         ("Tiempo aprox.", "Suma de los tiempos entre respuestas seguidas, con un tope de 5 minutos entre una y otra."),
@@ -312,6 +319,7 @@ def generar_excel(r: dict) -> bytes:
         ("Bajar de nivel", "El agente analista sugiere un nivel menor que el actual."),
         ("", ""),
         ("Preguntas", f"Solo se listan preguntas del banco con {reg['min_respuestas_pregunta']} respuestas o más. "
+                      "«Alumnos que la fallaron 2+ veces» cuenta a quienes se equivocaron en ella dos veces o más. "
                       "«Error más común» es la alternativa incorrecta que más eligieron: sirve para detectar "
                       "enunciados confusos o errores de concepto frecuentes."),
     ]
