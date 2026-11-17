@@ -59,10 +59,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/nivelacion/niv-evaluacion.component').then(m => m.NivEvaluacionComponent) },
       { path: 'nodo/:id/fase', data: { modo: 'fase' },
         loadComponent: () => import('./features/nivelacion/niv-evaluacion.component').then(m => m.NivEvaluacionComponent) },
-      // "Aprende con el tutor" (reemplaza al antiguo modo Entrenar con IA). Nunca dentro de una fase o test.
+      // "Aprende con el tutor": solo sobre preguntas respondidas mal, nunca dentro de una fase o test.
       { path: 'tutor',
         loadComponent: () => import('./features/nivelacion/niv-tutor.component').then(m => m.NivTutorComponent) },
-      { path: 'nodo/:id/entrenar', redirectTo: ({ params }) => `/nivelacion/tutor?nodo=${params['id']}` },
+      // El tutor ya no se abre libre desde un nodo (solo desde preguntas respondidas mal)
+      { path: 'nodo/:id/entrenar', redirectTo: '/nivelacion' },
     ]
   },
   {

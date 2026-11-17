@@ -108,7 +108,6 @@ import { AuthService } from '../../core/auth.service';
             <button [class]="r.chatbot_desbloqueado ? 'btn-secondary' : 'btn-primary'" (click)="continuar(r)">
               <mat-icon>arrow_forward</mat-icon>{{ textoContinuar(r) }}
             </button>
-            <button class="btn-link" *ngIf="modo === 'fase'" (click)="abrirTutor([])"><mat-icon>school</mat-icon> Practicar más con el tutor</button>
           </ng-template>
         </div>
       </div>
@@ -298,8 +297,9 @@ export class NivEvaluacionComponent implements OnInit {
     return (this.resultado()?.resultados.indexOf(it) ?? 0) + 1;
   }
 
-  /** Tutor fuera de la evaluación: revisando las preguntas indicadas, o práctica libre del nodo. */
+  /** Tutor fuera de la evaluación, siempre sobre preguntas que respondió mal (no hay práctica libre). */
   abrirTutor(intentos: string[]) {
+    if (!intentos.length) return;
     const i = this.info();
     const queryParams: Record<string, string> = this.modo === 'fase'
       ? { nodo: String(this.id) }

@@ -1,6 +1,6 @@
-import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 
-/** Abrir el tutor de un nodo, o revisar preguntas de una fase/test ya terminada (intento_ids). */
+/** Abrir el tutor sobre preguntas respondidas mal en una fase/test ya terminada (intento_ids, obligatorio). */
 export class CrearSesionDto {
   @IsOptional() @IsInt()
   nodo_id?: number;
@@ -12,10 +12,6 @@ export class CrearSesionDto {
   @IsOptional() @IsArray() @ArrayMaxSize(20)
   @Matches(/^\d{1,18}$/, { each: true })
   intento_ids?: string[];
-
-  /** true = empezar una conversación nueva aunque exista una reciente del mismo nodo. */
-  @IsOptional() @IsBoolean()
-  nueva?: boolean;
 }
 
 /**

@@ -53,6 +53,8 @@ interface Sesion {
   mundo_id: number;
   modo: 'nodo' | 'revision';
   intento_ids: string[];
+  /** Ids de los intentos ordenados: identifica la conversación sobre esas preguntas (para retomarla) */
+  clave?: string;
   mensajes: MensajeSesion[];
   ejercicios: EjercicioSesion[];
   created_at: Date;
@@ -73,8 +75,8 @@ interface IntentoRevision {
   mundo_id: number | null;
 }
 
-/** Una conversación del mismo nodo se retoma si se usó hace menos de esto. */
-const RETOMAR_MS = 24 * 3600 * 1000;
+/** La conversación sobre las mismas preguntas se retoma (no se crea otra) si se usó hace menos de esto. */
+const RETOMAR_MS = 7 * 24 * 3600 * 1000;
 const ERRORES_RECIENTES = 5;
 
 /**
@@ -84,12 +86,16 @@ const ERRORES_RECIENTES = 5;
  *   aquí no cuenta para el nivel/ELO, igual que el antiguo modo Entrenar.
  * - El tutor conoce el mundo, el nodo, la guía del cuaderno, el nivel del alumno, sus errores
  *   recientes y, si viene desde el resultado de una fase, las preguntas que respondió mal.
+ * - Solo se abre sobre preguntas que el alumno respondió mal, y el alumno NO escribe: responde
+ *   eligiendo una de las alternativas que propone el tutor o con «No entiendo» / «Dame una pista».
+ * - Es costoso: límite diario (TUTOR_LIMITE_DIARIO, 30) y tope por conversación (TUTOR_TOPE_CONVERSACION, 12).
  * - Conversaciones en Mongo (niv_tutor); uso diario en niv_tutor_uso.
  */
 @Injectable()
 export class TutorService {
   private readonly logger = new Logger(TutorService.name);
   private readonly limiteDiario: number;
+  private readonly topeConversacion: number;
 
   constructor(
     private readonly pg: PostgresService,
@@ -98,7 +104,9 @@ export class TutorService {
     private readonly niv: NivelacionService,
     cfg: ConfigService,
   ) {
-    this.limiteDiario = Number(cfg.get('TUTOR_LIMITE_DIARIO') ?? 80);
+    // El tutor es costoso: se limita por día y por conversación (variables opcionales en el .env)
+    this.limiteDiario = Number(cfg.get('TUTOR_LIMITE_DIARIO') ?? 30);
+    this.topeConversacion = Number(cfg.get('TUTOR_TOPE_CONVERSACION') ?? 12);
   }
 
   private get sesiones() { return this.mongo.col<Sesion>('niv_tutor'); }
@@ -121,6 +129,21 @@ export class TutorService {
     if ((await this.usados(uid)) >= this.limiteDiario) {
       throw new HttpException(
         { code: 'TUTOR_LIMITE', message: 'Llegaste al límite de mensajes con el tutor por hoy. Vuelve mañana.' },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  /** Respuestas del alumno en la conversación (alternativas, botones de ayuda y ejercicios pedidos). */
+  private turnos(s: Sesion) {
+    return s.mensajes.filter((m) => m.rol === 'alumno').length + s.ejercicios.length;
+  }
+
+  private verificarTope(s: Sesion) {
+    if (this.turnos(s) >= this.topeConversacion) {
+      throw new HttpException(
+        { code: 'TUTOR_TOPE_CONVERSACION',
+          message: 'Esta conversación llegó a su máximo. Vuelve a intentar la fase; si otra pregunta te cuesta, puedes revisarla con el tutor.' },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -312,14 +335,24 @@ export class TutorService {
       revisando: s.intento_ids.length,
       mensajes: this.vistaMensajes(s, s.mensajes),
       restantes_hoy: Math.max(this.limiteDiario - usados, 0),
+      restantes_conversacion: Math.max(this.topeConversacion - this.turnos(s), 0),
     };
   }
 
   // ── Casos de uso ──────────────────────────────────────────────────────────
 
+  /**
+   * Abre el tutor sobre preguntas que el alumno respondió MAL en una fase o un test (no hay práctica
+   * libre: el tutor es costoso y se reserva para lo que más le cuesta). Si ya hay una conversación
+   * sobre esas mismas preguntas, se retoma (así el tope por conversación no se reinicia).
+   */
   async crear(u: Usuario, dto: CrearSesionDto) {
     const ids = [...new Set(dto.intento_ids ?? [])];
+    if (!ids.length) throw new BadRequestException('El tutor se abre desde una pregunta que respondiste mal.');
     const revisar = await this.intentosDelAlumno(u.uid, ids);
+    if (!revisar.some((r) => !r.es_correcto)) {
+      throw new BadRequestException('El tutor se abre desde una pregunta que respondiste mal.');
+    }
 
     // Nodo y mundo: los da el cliente o salen de las respuestas a revisar
     let nodoId = dto.nodo_id ?? revisar.find((r) => r.nodo_id)?.nodo_id ?? null;
@@ -338,17 +371,14 @@ export class TutorService {
       throw new BadRequestException('Las respuestas a revisar deben ser del mismo nodo o test.');
     }
 
-    // Retomar la conversación reciente del mismo nodo (si no viene a revisar algo puntual)
-    if (!ids.length && !dto.nueva && nodoId) {
-      const previa = await this.sesiones.find({ uid: u.uid, nodo_id: nodoId, modo: 'nodo' })
-        .sort({ updated_at: -1 }).limit(1).next();
-      if (previa && Date.now() - new Date(previa.updated_at).getTime() < RETOMAR_MS) return this.vista(u, previa as Sesion);
-    }
+    const clave = [...ids].sort().join(',');
+    const previa = await this.sesiones.find({ uid: u.uid, clave }).sort({ updated_at: -1 }).limit(1).next();
+    if (previa && Date.now() - new Date(previa.updated_at).getTime() < RETOMAR_MS) return this.vista(u, previa as Sesion);
 
     await this.verificarLimite(u.uid);
     const s: Sesion = {
       _id: this.mongo.newId(), uid: u.uid, nodo_id: nodoId, mundo_id: mundoId!,
-      modo: ids.length ? 'revision' : 'nodo', intento_ids: ids,
+      modo: 'revision', intento_ids: ids, clave,
       mensajes: [], ejercicios: [], created_at: new Date(), updated_at: new Date(),
     };
     await this.sesiones.insertOne(s);
@@ -370,6 +400,7 @@ export class TutorService {
    */
   async responder(u: Usuario, id: string, dto: { opcion?: number; ayuda?: Ayuda }) {
     const s = await this.sesion(u, id);
+    this.verificarTope(s);
     await this.verificarLimite(u.uid);
     let alumno: MensajeSesion;
     let accion: AccionAlumno;
@@ -396,7 +427,11 @@ export class TutorService {
     await this.contarUso(u.uid);
     const nuevos = [alumno, this.msgTutor(turno)];
     await this.guardar(s, nuevos);
-    return { mensajes: this.vistaMensajes(s, nuevos), restantes_hoy: Math.max(this.limiteDiario - (await this.usados(u.uid)), 0) };
+    return {
+      mensajes: this.vistaMensajes(s, nuevos),
+      restantes_hoy: Math.max(this.limiteDiario - (await this.usados(u.uid)), 0),
+      restantes_conversacion: Math.max(this.topeConversacion - this.turnos(s), 0),
+    };
   }
 
   /** El tutor propone un ejercicio del nodo (generado por IA, no entra al banco). */
@@ -407,6 +442,7 @@ export class TutorService {
     if (s.ejercicios.some((e) => this.pendiente(e))) {
       throw new BadRequestException('Primero responde el ejercicio que tienes pendiente.');
     }
+    this.verificarTope(s);
     await this.verificarLimite(u.uid);
     const g = await this.niv.generarPregunta(u, s.nodo_id);
     await this.contarUso(u.uid);
@@ -416,7 +452,7 @@ export class TutorService {
       'Te propongo este ejercicio. Intenta resolverlo y elige una alternativa; si te trabas, toca «Dame una pista».',
       { ejercicio_id: ej.id });
     await this.guardar(s, [nuevo], { ejercicios: s.ejercicios });
-    return { mensajes: this.vistaMensajes(s, [nuevo]) };
+    return { mensajes: this.vistaMensajes(s, [nuevo]), restantes_conversacion: Math.max(this.topeConversacion - this.turnos(s), 0) };
   }
 
   async responderEjercicio(u: Usuario, id: string, ejId: string, respuesta: string) {

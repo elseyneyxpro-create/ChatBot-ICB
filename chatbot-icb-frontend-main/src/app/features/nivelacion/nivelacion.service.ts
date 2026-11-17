@@ -130,6 +130,8 @@ export interface SesionTutor {
   revisando: number;
   mensajes: MensajeTutor[];
   restantes_hoy: number;
+  /** Respuestas que le quedan en esta conversación (el tutor tiene un tope por conversación) */
+  restantes_conversacion: number;
 }
 
 /**
@@ -194,15 +196,15 @@ export class NivelacionService {
     return this.send<Retroalimentacion>('POST', '/retroalimentacion', { intento_ids: intentoIds });
   }
 
-  abrirTutor(opts: { nodo_id?: number; mundo_id?: number; intento_ids?: string[]; nueva?: boolean }) {
+  abrirTutor(opts: { nodo_id?: number; mundo_id?: number; intento_ids: string[] }) {
     return this.send<SesionTutor>('POST', '/tutor/sesiones', opts);
   }
   /** Responde al tutor eligiendo una alternativa (posición) o con un botón de ayuda. */
   responderAlTutor(sesionId: string, r: { opcion: number } | { ayuda: AyudaTutor }) {
-    return this.send<{ mensajes: MensajeTutor[]; restantes_hoy: number }>('POST', `/tutor/sesiones/${sesionId}/mensajes`, r);
+    return this.send<{ mensajes: MensajeTutor[]; restantes_hoy: number; restantes_conversacion: number }>('POST', `/tutor/sesiones/${sesionId}/mensajes`, r);
   }
   pedirEjercicio(sesionId: string) {
-    return this.send<{ mensajes: MensajeTutor[] }>('POST', `/tutor/sesiones/${sesionId}/ejercicio`);
+    return this.send<{ mensajes: MensajeTutor[]; restantes_conversacion: number }>('POST', `/tutor/sesiones/${sesionId}/ejercicio`);
   }
   responderEjercicio(sesionId: string, ejId: string, respuesta: string) {
     return this.send<{ es_correcto: boolean; xp_ganado: number; ejercicio: EjercicioTutor; mensajes: MensajeTutor[] }>(

@@ -7,9 +7,10 @@ import { AyudaTutor, EjercicioTutor, MensajeTutor, NivelacionService, SesionTuto
 
 
 /**
- * "Aprende con el tutor": conversación socrática sobre un nodo (o sobre las preguntas que el alumno
- * respondió mal en una fase/test). Nunca se abre durante una evaluación.
- * Query params: nodo, mundo (revisión de un test) e intentos (ids separados por coma).
+ * "Aprende con el tutor": conversación socrática sobre las preguntas que el alumno respondió mal en
+ * una fase o un test. Nunca se abre durante una evaluación ni como práctica libre.
+ * El alumno no escribe: responde con las alternativas del tutor o con «No entiendo» / «Dame una pista».
+ * Query params: intentos (ids separados por coma, obligatorio), nodo o mundo (revisión de un test).
  */
 @Component({
   selector: 'app-niv-tutor',
@@ -26,12 +27,9 @@ import { AyudaTutor, EjercicioTutor, MensajeTutor, NivelacionService, SesionTuto
           <span class="t-kicker">Aprende con el tutor</span>
           <h1>{{ titulo() }}</h1>
           <small class="muted" *ngIf="sesion() as s">
-            {{ s.mundo?.titulo }} · {{ s.revisando ? 'Revisando ' + s.revisando + (s.revisando === 1 ? ' pregunta' : ' preguntas') : 'Práctica libre' }}
+            {{ s.mundo?.titulo }} · Revisando {{ s.revisando }} {{ s.revisando === 1 ? 'pregunta' : 'preguntas' }}
           </small>
         </div>
-        <button class="btn-secondary icono" *ngIf="sesion()?.nodo" (click)="nueva()" [disabled]="ocupado()" title="Nueva conversación" aria-label="Nueva conversación">
-          <mat-icon>add_comment</mat-icon>
-        </button>
       </header>
 
       <div class="t-chat glass-panel" #chat role="log" aria-label="Conversación con el tutor">
@@ -110,7 +108,7 @@ import { AyudaTutor, EjercicioTutor, MensajeTutor, NivelacionService, SesionTuto
         </div>
         <div class="t-pie muted" aria-live="polite">
           <span *ngIf="aviso() as a" class="aviso">{{ a }}</span>
-          <span *ngIf="!aviso()"><span class="largo">El tutor no te da la respuesta: te ayuda a encontrarla. </span>Te quedan {{ restantes() }} mensajes hoy.</span>
+          <span *ngIf="!aviso()"><span class="largo">El tutor no te da la respuesta: te ayuda a encontrarla. </span>Te quedan {{ restantesConv() }} respuestas en esta conversación ({{ restantes() }} hoy).</span>
         </div>
       </div>
     </div>
@@ -131,10 +129,11 @@ export class NivTutorComponent implements OnInit {
   pensando = signal(false);
   enviando = signal(false);
   restantes = signal(0);
+  restantesConv = signal(0);
   eleccion = signal<Record<string, string>>({});
 
   ocupado = computed(() => this.pensando() || this.enviando());
-  sinCupo = computed(() => this.restantes() <= 0);
+  sinCupo = computed(() => this.restantes() <= 0 || this.restantesConv() <= 0);
   titulo = computed(() => {
     const s = this.sesion();
     if (!s) return '…';
@@ -156,10 +155,14 @@ export class NivTutorComponent implements OnInit {
     const nodo = Number(q.get('nodo')) || undefined;
     const mundo = Number(q.get('mundo')) || undefined;
     const intentos = (q.get('intentos') ?? '').split(',').filter(x => /^\d+$/.test(x));
-    await this.abrir({ nodo_id: nodo, mundo_id: nodo ? undefined : mundo, intento_ids: intentos.length ? intentos : undefined });
+    if (!intentos.length) {
+      this.error.set('El tutor se abre desde una pregunta que respondiste mal, en el resultado de una fase o un test.');
+      return;
+    }
+    await this.abrir({ nodo_id: nodo, mundo_id: nodo ? undefined : mundo, intento_ids: intentos });
   }
 
-  private async abrir(opts: { nodo_id?: number; mundo_id?: number; intento_ids?: string[]; nueva?: boolean }) {
+  private async abrir(opts: { nodo_id?: number; mundo_id?: number; intento_ids: string[] }) {
     this.error.set(null);
     this.pensando.set(true);
     try {
@@ -167,21 +170,13 @@ export class NivTutorComponent implements OnInit {
       this.sesion.set(s);
       this.mensajes.set(s.mensajes);
       this.restantes.set(s.restantes_hoy);
+      this.restantesConv.set(s.restantes_conversacion ?? 0);
       this.bajar();
     } catch (e) {
       this.error.set(NivelacionService.mensajeError(e, 'No se pudo abrir el tutor.'));
     } finally {
       this.pensando.set(false);
     }
-  }
-
-  async nueva() {
-    const s = this.sesion();
-    if (!s?.nodo) return;
-    this.mensajes.set([]);
-    this.sesion.set(null);
-    this.router.navigate([], { queryParams: { nodo: s.nodo.id }, replaceUrl: true });
-    await this.abrir({ nodo_id: s.nodo.id, nueva: true });
   }
 
   elegirOpcion(i: number, texto: string) {
@@ -206,6 +201,7 @@ export class NivTutorComponent implements OnInit {
       const res = await this.niv.responderAlTutor(s.id, r);
       this.mensajes.update(ms => [...ms.filter(m => m !== temporal), ...res.mensajes]);
       this.restantes.set(res.restantes_hoy);
+      this.restantesConv.set(res.restantes_conversacion);
       this.aviso.set(null);
     } catch (e) {
       this.mensajes.set(previos);
@@ -225,6 +221,7 @@ export class NivTutorComponent implements OnInit {
       const r = await this.niv.pedirEjercicio(s.id);
       this.mensajes.update(ms => [...ms, ...r.mensajes]);
       this.restantes.update(n => Math.max(n - 1, 0));
+      this.restantesConv.set(r.restantes_conversacion);
     } catch (e) {
       this.mostrarError(e);
     } finally {
@@ -280,7 +277,10 @@ export class NivTutorComponent implements OnInit {
   }
 
   private mostrarError(e: any) {
-    if (e?.status === 429) this.restantes.set(0);
+    if (e?.status === 429) {
+      if (e?.error?.code === 'TUTOR_TOPE_CONVERSACION') this.restantesConv.set(0);
+      else this.restantes.set(0);
+    }
     this.aviso.set(NivelacionService.mensajeError(e, 'El tutor no pudo responder. Intenta de nuevo.'));
   }
 
