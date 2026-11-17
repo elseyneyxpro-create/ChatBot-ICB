@@ -241,8 +241,7 @@ docker compose -f docker-compose.dev.yml exec postgres psql -U icb_user -d icb_c
    (de la maqueta, sin `nodo_id`), así que **todas las fases muestran las mismas 4 preguntas**. Los tests
    tienen 9 de muestra por mundo (3 por nivel). Los profesores tienen que cargar las suyas por nodo y
    nivel. Apenas haya preguntas con `nodo_id`, `poolNodo` les da prioridad sola.
-2. **Sistema ELO (lo implementa otro compañero).** Va a cambiar cómo se eligen las preguntas y cuántas
-   fases hay (diseño en las guías ELO: 3 fases por nodo, fases mixtas 2 banco + 2 IA, test 7 + 7).
+2. **Sistema ELO.** Va a cambiar cómo se eligen las preguntas y cuántas fases hay (diseño en las guías ELO: 3 fases por nodo, fases mixtas 2 banco + 2 IA, test 7 + 7).
    Dónde enchufarlo:
    - **Elegir preguntas**: `poolNodo` / `preguntasFase` (fases) y `poolTest` (tests).
    - **Calcular el resultado y avanzar**: `cerrarFase` y `responderTest`.
@@ -251,8 +250,8 @@ docker compose -f docker-compose.dev.yml exec postgres psql -U icb_user -d icb_c
    - El tutor ya lee la columna `estudiante.elo` si existe (función `perfil` en `tutor.service.ts`), sin
      cambiar código.
    - Tutor y retroalimentación están en archivos aparte y solo dependen de `intento_id`.
-3. **Probar el tutor con OpenAI real.** Todo se probó con una IA simulada. Hay que revisar que las
-   alternativas tengan sentido y que cierre en el momento justo; si no, se ajusta `TUTOR_SYSTEM`.
+3. **Afinar el tutor si hace falta.** Si con nuevas preguntas las alternativas no calzan o el tutor no cierra
+   en el momento justo, se ajusta `TUTOR_SYSTEM` en `agents/.../nivelacion/prompts.py`.
 4. **Figuras en las preguntas.** Hoy son solo texto y LaTeX; Geometría necesita imágenes (falta una
    columna y su visualización).
 5. **Producción.** Los servicios en la VM están en pausa esperando el dominio y el certificado de TI. Al
