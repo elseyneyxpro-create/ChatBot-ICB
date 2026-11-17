@@ -323,6 +323,8 @@ docker compose exec -T postgres pg_dump -U icb_user icb_chatbot > respaldo_$(dat
 
 ## 🎮 Módulo de Nivelación
 
+> 📘 **Guía completa para el equipo** (qué hace cada archivo, cómo correrlo y cómo seguir): [`docs/NIVELACION.md`](docs/NIVELACION.md)
+
 ```mermaid
 flowchart LR
     W1[🔢 Números, potencias y raíces] --> W2[🔣 Álgebra] --> W3[⚖️ Lineal y cuadrática] --> W4[📈 Geometría analítica] --> W5[📐 Geometría elemental] --> FIN([🏆 Chatbot habilitado])
